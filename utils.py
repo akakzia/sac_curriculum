@@ -197,9 +197,6 @@ def generate_goals(nb_objects=3, sym=1, asym=1):
     #                  (1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0), (1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
     #                  ]}
     return buckets
-    # (1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0), (1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0),
-    # (1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0), (1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0),
-    # (1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0), (1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
     # size = sym * nb_objects * (nb_objects - 1) // 2 + asym * nb_objects * (nb_objects - 1)
     # all_configurations = itertools.product([0., 1.], repeat=size)
     # """if asym < 1:
@@ -285,14 +282,13 @@ def init_storage(args):
     if not os.path.exists(args.save_dir):
         os.mkdir(args.save_dir)
     # path to save the model
+    logdir = os.path.join(args.save_dir, args.env_name + '_' + args.folder_prefix)
     if args.curriculum_learning:
         logdir = os.path.join(args.save_dir, '{}_curriculum_{}'.format(datetime.now(), args.architecture))
         if args.deepsets_attention:
             logdir += '_attention'
         if args.double_critic_attention:
             logdir += '_double'
-    else:
-        logdir = os.path.join(args.save_dir, '{}_no_curriculum_{}'.format(datetime.now(), args.architecture))
     # path to save evaluations
     model_path = os.path.join(logdir, 'models')
     bucket_path = os.path.join(logdir, 'buckets')
