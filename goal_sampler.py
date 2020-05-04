@@ -144,8 +144,6 @@ class GoalSampler:
                     for ag in e['ag']:
                         # check if ag is a new goal
                         if str(ag) not in self.discovered_goals_str:
-                            if str(ag) not in self.valid_goals_str:
-                                stop = 1
                             # it is, update info
                             self.discovered_goals.append(ag.copy())
                             self.discovered_goals_str.append(str(ag))
@@ -164,9 +162,9 @@ class GoalSampler:
                 # update list of successes and failures
                 for e in all_episode_list:
                     if e['self_eval']:
-                        oracle_id_init = self.g_str_to_oracle_id[str(e['ag'][0])]
-                        oracle_id = self.g_str_to_oracle_id[str(e['g'][0])]
-                        if str(e['g'][0]) == str(e['ag'][-1]):
+                        oracle_id_init = self.g_str_to_oracle_id[str(e['ag_binary'][0])]
+                        oracle_id = self.g_str_to_oracle_id[str(e['g_binary'])]
+                        if str(e['g_binary']) == str(e['ag_binary'][-1]):
                             success = 1
                         else:
                             success = 0
@@ -181,7 +179,7 @@ class GoalSampler:
         for e in episodes:
             # last_ag = e['ag'][-1]
             # oracle_id = self.g_str_to_oracle_id[str(last_ag)]
-            g = e['g'][-1]
+            g = e['g_binary']
             oracle_id = self.g_str_to_oracle_id[str(g)]
             e['last_ag_oracle_id'] = oracle_id
 
