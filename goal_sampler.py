@@ -168,9 +168,9 @@ class GoalSampler:
                 # update list of successes and failures
                 for e in all_episode_list:
                     if e['self_eval']:
-                        oracle_id_init = self.g_str_to_oracle_id[str(e['ag'][0])]
-                        oracle_id = self.g_str_to_oracle_id[str(e['g'][0])]
-                        if str(e['g'][0]) == str(e['ag'][-1]):
+                        oracle_id_init = self.g_str_to_oracle_id[str(e['ag_binary'][0])]
+                        oracle_id = self.g_str_to_oracle_id[str(e['g_binary'])]
+                        if str(e['g_binary']) == str(e['ag_binary'][-1]):
                             success = 1
                         else:
                             success = 0
@@ -183,12 +183,9 @@ class GoalSampler:
 
         self.sync()
         for e in episodes:
-            last_ag = e['ag'][-1]
+            last_ag = e['ag_binary'][-1]
             oracle_id = self.g_str_to_oracle_id[str(last_ag)]
             e['last_ag_oracle_id'] = oracle_id
-            # g = e['g'][0]
-            # oracle_id = self.g_str_to_oracle_id[str(g)]
-            # e['g_oracle_id'] = oracle_id
 
         return episodes
 
@@ -202,7 +199,7 @@ class GoalSampler:
         # Dispatch the discovered goals (or pairs) in the buckets chronologically
         j = 0
         portion_length = len(discovered) // self.num_buckets
-        k = len(discovered) % self.num_buckets
+        k = len(discovered) %  self.num_buckets
         for i in range(self.num_buckets):
             if k > 0:
                 l = portion_length + 1
@@ -261,6 +258,7 @@ class GoalSampler:
         self.discovered_goals = MPI.COMM_WORLD.bcast(self.discovered_goals, root=0)
         self.discovered_goals_str = MPI.COMM_WORLD.bcast(self.discovered_goals_str, root=0)
         self.discovered_goals_oracle_id = MPI.COMM_WORLD.bcast(self.discovered_goals_oracle_id, root=0)
+        self.buckets = MPI.COMM_WORLD.bcast(self.buckets, root=0)
         # logger.info('R{}af, p{}'.format(self.rank, self.p))
         # logger.info('R{}af, b{}, {}, {}, {}'.format(self.rank, self.buckets[0], self.buckets[1], self.buckets[2], self.buckets[3]))
         # logger.info('R{}af, dg{}'.format(self.rank, self.discovered_goals_str))
