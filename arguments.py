@@ -12,7 +12,7 @@ Here are the param for the training
 def get_args():
     parser = argparse.ArgumentParser()
     # the environment setting
-    parser.add_argument('--env-name', type=str, default='FetchManipulate3Objects-v0', help='the environment name')
+    parser.add_argument('--env-name', type=str, default='FetchManipulate3ObjectsContinuous-v0', help='the environment name')
     parser.add_argument('--agent', type=str, default='SAC', help='the agent name')
     parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
@@ -21,13 +21,12 @@ def get_args():
     parser.add_argument('--automatic-buckets', type=bool, default=False, help='automatically generate buckets during training')
     parser.add_argument('--use-pairs', type=bool, default=False, help='use pairs of goals for buckets')
     parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
-    parser.add_argument('--n-exploration-episodes', type=int, default=0, help='episodes to fill buffer')
 
     parser.add_argument('--evaluations', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
     parser.add_argument('--save-freq', type=int, default=10, help='the interval that save the trajectory')
 
     parser.add_argument('--seed', type=int, default=np.random.randint(1e6), help='random seed')
-    parser.add_argument('--num-workers', type=int, default=1, help='the number of cpus to collect samples')
+    parser.add_argument('--num-workers', type=int, default=MPI.COMM_WORLD.Get_size(), help='the number of cpus to collect samples')
     parser.add_argument('--replay-strategy', type=str, default='future', help='the HER strategy')
     parser.add_argument('--clip-return', type=float, default=50, help='if clip the returns')
     parser.add_argument('--save-dir', type=str, default='ignoramus/', help='the path to save the models')
