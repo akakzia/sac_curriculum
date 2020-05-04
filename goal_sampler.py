@@ -183,9 +183,9 @@ class GoalSampler:
                 # update list of successes and failures
                 for e in all_episode_list:
                     if e['self_eval']:
-                        oracle_id_init = self.g_str_to_oracle_id[str(e['ag'][0])]
-                        oracle_id = self.g_str_to_oracle_id[str(e['g'][0])]
-                        if str(e['g'][0]) == str(e['ag'][-1]):
+                        oracle_id_init = self.g_str_to_oracle_id[str(e['ag_binary'][0])]
+                        oracle_id = self.g_str_to_oracle_id[str(e['g_binary'])]
+                        if str(e['g_binary']) == str(e['ag_binary'][-1]):
                             success = 1
                         else:
                             success = 0
@@ -198,7 +198,7 @@ class GoalSampler:
 
         self.sync()
         for e in episodes:
-            last_ag = e['ag'][-1]
+            last_ag = e['ag_binary'][-1]
             oracle_id = self.g_str_to_oracle_id[str(last_ag)]
             e['last_ag_oracle_id'] = oracle_id
             # g = e['g'][0]
