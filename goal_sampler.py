@@ -134,6 +134,7 @@ class GoalSampler:
 
         if self.rank == 0:
             all_episode_list = []
+            ag_ids = []
             for eps in all_episodes:
                 all_episode_list += eps
             # logger.info('Len eps' + str(len(all_episode_list)))
@@ -141,6 +142,7 @@ class GoalSampler:
             # label each episode with the oracle id of the last ag (to know where to store it in buffers)
             if not self.curriculum_learning or self.automatic_buckets:
                 for e in all_episode_list:
+                    ag_ids.append(self.g_str_to_oracle_id[str(e['ag'][-1])])
                     # if we're looking for pairs
                     id_ag_0 = self.g_str_to_oracle_id[str(e['ag'][0])]
 
@@ -161,8 +163,8 @@ class GoalSampler:
                             self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag])
 
                 # update buckets
-                if self.automatic_buckets:
-                    self.update_buckets()
+                if self.automatic_buckets and t % 1000 == 0:
+                    self.update_buckets(ag_ids)
 
             if self.curriculum_learning:
                 # update list of successes and failures
@@ -192,25 +194,45 @@ class GoalSampler:
 
         return episodes
 
-    def update_buckets(self):
+    def update_buckets(self, ag_ids):
 
         if self.use_pairs:
             discovered = np.array(self.discovered_pairs_oracle_ids).copy()
         else:
             discovered = np.array(self.discovered_goals_oracle_id).copy()
 
+        discovered = np.delete(discovered, np.where(discovered == 0))
+        distribution = np.array([1 / len(ag_ids) for _ in range(len(discovered))])
+        for i, disc_goal_id in enumerate(discovered):
+            count = np.argwhere(ag_ids == disc_goal_id).flatten().shape[0]
+            distribution[i] = count * distribution[i]
         # Dispatch the discovered goals (or pairs) in the buckets chronologically
-        j = 0
-        portion_length = len(discovered) // self.num_buckets
-        k = len(discovered) %  self.num_buckets
+        idxs = np.flip(np.argsort(distribution))
+        discovered = discovered[idxs]
         for i in range(self.num_buckets):
-            if k > 0:
-                l = portion_length + 1
-                k -= 1
+            self.buckets[i] = discovered
+        i = 0
+        self.buckets[i] = [0, discovered[0]]
+        for x in discovered[1:]:
+            if abs(x - self.buckets[i][-1]) / x <= 1:
+                self.buckets[i].append(x)
+            elif i < 4:
+                i += 1
+                self.buckets[i] = [x]
             else:
-                l = portion_length
-            self.buckets[i] = discovered[j:j + l].tolist()
-            j += l
+                self.buckets[i - 1].append(x)
+
+        # j = 0
+        # portion_length = len(discovered) // self.num_buckets
+        # k = len(discovered) %  self.num_buckets
+        # for i in range(self.num_buckets):
+        #     if k > 0:
+        #         l = portion_length + 1
+        #         k -= 1
+        #     else:
+        #         l = portion_length
+        #     self.buckets[i] = discovered[j:j + l].tolist()
+        #     j += l
 
     def update_LP(self):
 
