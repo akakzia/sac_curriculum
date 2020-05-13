@@ -150,6 +150,7 @@ class GoalSampler:
                             if str(ag) not in self.valid_goals_str:
                                 stop = 1
                             # it is, update info
+                        else:
                             self.discovered_goals.append(ag.copy())
                             self.discovered_goals_str.append(str(ag))
                             self.discovered_goals_oracle_id.append(self.g_str_to_oracle_id[str(ag)])
@@ -201,7 +202,7 @@ class GoalSampler:
         # Dispatch the discovered goals (or pairs) in the buckets chronologically
         j = 0
         portion_length = len(discovered) // self.num_buckets
-        k = len(discovered) %  self.num_buckets
+        k = len(discovered) % self.num_buckets
         for i in range(self.num_buckets):
             if k > 0:
                 l = portion_length + 1
@@ -240,8 +241,8 @@ class GoalSampler:
             if self.LP.sum() == 0:
                 self.p = np.ones([self.num_buckets]) / self.num_buckets
             else:
-                # self.p = self.LP / self.LP.sum()
-                self.p = self.epsilon * (1 - self.C) / (1 - self.C).sum() + (1 - self.epsilon) * self.LP / self.LP.sum()
+                self.p = self.LP / self.LP.sum()
+                # self.p = self.epsilon * (1 - self.C) / (1 - self.C).sum() + (1 - self.epsilon) * self.LP / self.LP.sum()
 
             if self.p.sum() > 1:
                 self.p[np.argmax(self.p)] -= self.p.sum() - 1
@@ -267,12 +268,12 @@ class GoalSampler:
     def build_batch(self, batch_size):
         # only consider buckets filled with discovered goals
         LP = self.LP
-        C = self.C
+        # C = self.C
         if LP.sum() == 0:
             p = np.ones([self.num_buckets]) / self.num_buckets
         else:
-            # p = self.epsilon * np.ones([self.num_buckets]) / self.num_buckets + (1 - self.epsilon) * LP / LP.sum()
-            p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
+            p = self.epsilon * np.ones([self.num_buckets]) / self.num_buckets + (1 - self.epsilon) * LP / LP.sum()
+            # p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
         if p.sum() > 1:
             p[np.argmax(self.p)] -= p.sum() - 1
         elif p.sum() < 1:

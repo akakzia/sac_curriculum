@@ -84,7 +84,7 @@ def launch(args):
             # Add condition on number of discovered goals to make sure no stacks are discovered at early stage
             # 12 is chosen heuristically, being greater than 8 (to allow discovering close configs first, and
             # some random above configs
-            if len(goal_sampler.discovered_goals) < 12:
+            if len(goal_sampler.discovered_goals) < 20:
                 biased_init = False
             else:
                 biased_init = args.biased_init
@@ -125,7 +125,7 @@ def launch(args):
         if goal_sampler.curriculum_learning:
             goal_sampler.update_LP()
         time_dict['lp_update'] += time.time() - t_i
-        time_dict['epoch'] += time.time() -t_init
+        time_dict['epoch'] += time.time() - t_init
         time_dict['total'] = time.time() - t_total_init
 
         if args.evaluations:
