@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 import torch
 
 class ConfigLanguageDataset(Dataset):
-    def __init__(self, configs, sentences, string_to_1hot, shuffle=True):
+    def __init__(self, configs, sentences, continuous,  string_to_1hot, binary=True, shuffle=True):
 
         assert configs.shape[0] == len(sentences)
 
@@ -17,10 +17,19 @@ class ConfigLanguageDataset(Dataset):
 
         self.sentences = np.array(one_hots)[inds].astype(np.float32)
         self.configs = configs[inds].astype(np.float32)
+        if continuous is not None:
+            self.binary = False
+            self.continuous = continuous[inds].astype(np.float32)
+        else:
+            self.binary = True
 
 
     def __getitem__(self, index):
-        return self.configs[index][0], self.sentences[index], self.configs[index][1]
+        if self.binary:
+            return self.configs[index][0], self.sentences[index], self.configs[index][1]
+        else:
+            return self.configs[index][0], self.sentences[index], self.configs[index][1], self.continuous[index][0], self.continuous[index][1]
+
 
     def __len__(self):
         return self.configs.shape[0]
