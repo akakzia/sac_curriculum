@@ -144,22 +144,36 @@ class GoalSampler:
                     # if we're looking for pairs
                     id_ag_0 = self.g_str_to_oracle_id[str(e['ag'][0])]
 
-                    for ag in e['ag']:
-                        # check if ag is a new goal
-                        if str(ag) not in self.discovered_goals_str:
-                            if str(ag) not in self.valid_goals_str:
-                                stop = 1
-                            # it is, update info
-                            else:
-                                self.discovered_goals.append(ag.copy())
-                                self.discovered_goals_str.append(str(ag))
-                                self.discovered_goals_oracle_id.append(self.g_str_to_oracle_id[str(ag)])
+                    id_ag_end = self.g_str_to_oracle_id[str(e['ag'][-1])]
 
-                        # update discovered pairs
-                        if self.use_pairs:
-                            id_ag = self.g_str_to_oracle_id[str(ag)]
-                            if id_ag_0 != id_ag and [id_ag_0, id_ag] not in self.discovered_pairs_oracle_ids:
-                                self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag])
+                    if str(e['ag'][-1]) not in self.discovered_goals_str:
+                        if str(e['ag'][-1]) not in self.valid_goals_str:
+                            stop = 1
+                        else:
+                            self.discovered_goals.append(e['ag'][-1].copy())
+                            self.discovered_goals_str.append(str(e['ag'][-1]))
+                            self.discovered_goals_oracle_id.append(id_ag_end)
+
+                    if self.use_pairs:
+                        if id_ag_0 != id_ag_end and [id_ag_0, id_ag_end] not in self.discovered_pairs_oracle_ids:
+                            self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag_end])
+
+                    # for ag in e['ag']:
+                    #     # check if ag is a new goal
+                    #     if str(ag) not in self.discovered_goals_str:
+                    #         if str(ag) not in self.valid_goals_str:
+                    #             stop = 1
+                    #         # it is, update info
+                    #         else:
+                    #             self.discovered_goals.append(ag.copy())
+                    #             self.discovered_goals_str.append(str(ag))
+                    #             self.discovered_goals_oracle_id.append(self.g_str_to_oracle_id[str(ag)])
+                    #
+                    #     # update discovered pairs
+                    #     if self.use_pairs:
+                    #         id_ag = self.g_str_to_oracle_id[str(ag)]
+                    #         if id_ag_0 != id_ag and [id_ag_0, id_ag] not in self.discovered_pairs_oracle_ids:
+                    #             self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag])
 
                 # update buckets
                 if self.automatic_buckets:
