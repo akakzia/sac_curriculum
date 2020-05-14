@@ -394,16 +394,45 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
         # If evaluation mode, generate blocks on the table with no stacks
         if not biased_init:
-            for i, obj_name in enumerate(self.object_names):
-                object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
-                assert object_qpos.shape == (7,)
-                object_qpos[2] = 0.425
-                object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
-                                                                                     self.obj_range,
-                                                                                     size=2)
-                object_qpos[:2] = object_xpos
+            obj_placed = 0
+            positions = []
+            over = False
+            while not over:
+                over = True
+                counter = 0
+                while obj_placed < len(self.object_names):
+                    counter += 1
+                    object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[obj_placed]))
+                    assert object_qpos.shape == (7,)
+                    object_qpos[2] = 0.425
+                    object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
+                                                                                         self.obj_range,
+                                                                                         size=2)
+                    object_qpos[:2] = object_xpos
 
-                self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+                    to_place = True
+                    for p in positions:
+                        if np.linalg.norm(object_xpos - p) < 0.05:
+                            to_place = False
+                            break
+                    if to_place:
+                        self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[obj_placed]), object_qpos)
+                        positions.append(object_xpos.copy())
+                        obj_placed += 1
+                    if counter > 100:
+                        # safety net to be sure we find positions
+                        over = False
+                        break
+            # for i, obj_name in enumerate(self.object_names):
+            #     object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+            #     assert object_qpos.shape == (7,)
+            #     object_qpos[2] = 0.425
+            #     object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
+            #                                                                          self.obj_range,
+            #                                                                          size=2)
+            #     object_qpos[:2] = object_xpos
+            #
+            #     self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
 
             self.sim.forward()
             obs = self._get_obs()
