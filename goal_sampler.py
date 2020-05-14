@@ -156,9 +156,10 @@ class GoalSampler:
                                 self.discovered_goals_oracle_id.append(self.g_str_to_oracle_id[str(ag)])
 
                         # update discovered pairs
-                        id_ag = self.g_str_to_oracle_id[str(ag)]
-                        if id_ag_0 != id_ag and [id_ag_0, id_ag] not in self.discovered_pairs_oracle_ids:
-                            self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag])
+                        if self.use_pairs:
+                            id_ag = self.g_str_to_oracle_id[str(ag)]
+                            if id_ag_0 != id_ag and [id_ag_0, id_ag] not in self.discovered_pairs_oracle_ids:
+                                self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag])
 
                 # update buckets
                 if self.automatic_buckets:
