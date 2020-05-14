@@ -450,48 +450,79 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
             if actual_stacks.shape[0] > 0:
                 # There is at least one stack
                 if actual_stacks.shape[0] == 1.:
-                    # There exactly one stack
-                    stack = actual_stacks[0]
-                    z_stack = [0.475, 0.425]
-                    offset_on_table = np.random.choice([-1, 1], size=2) * self.np_random.uniform(0.07, self.obj_range, size=2)
-                    for i in stack:
-                        object_xpos = self.initial_gripper_xpos[:2] + offset_on_table
-                        blocks_set[i] = True
-                        positions[i] = np.array([object_xpos[0], object_xpos[1],  z_stack[np.where(stack == i)[0][0]]])
+                    over = False
+                    counter_over = 0
+                    while not over:
+                        counter_over += 1
+                        positions = [None for _ in range(self.num_blocks)]
+                        over = True
+                        # There exactly one stack
+                        stack = actual_stacks[0]
+                        z_stack = [0.475, 0.425]
+                        offset_on_table = np.random.choice([-1, 1], size=2) * self.np_random.uniform(0.07, self.obj_range, size=2)
+                        for i in stack:
+                            object_xpos = self.initial_gripper_xpos[:2] + offset_on_table
+                            blocks_set[i] = True
+                            positions[i] = np.array([object_xpos[0], object_xpos[1],  z_stack[np.where(stack == i)[0][0]]])
 
-                    # Getting remaining blocks which were not placed
-                    remain_block = [i for i, x in enumerate(blocks_set) if not x]
-                    if len(remain_block) > 0:
-                        if sum(binary_goal[:3]) == 1:
-                            remain_block = remain_block[0]
-                            stacked_block_id = actual_stacks[0][0]
-                            base_block_id = actual_stacks[0][1]
-                            # Added center to make sure the block stays on the table
-                            ok = False
-                            counter = 0
-                            while not ok:
-                                counter += 1
-                                position = self.initial_gripper_xpos.copy()
-                                position[:2] += np.random.uniform(-self.obj_range, self.obj_range, 2)
-                                position[2] = 0.425
-                                cond1 =  np.linalg.norm(position - positions[base_block_id]) > self.predicate_threshold
-                                cond3 = position[0] < self.min_max_x[1] and position[0] > self.min_max_x[0]
-                                cond4 = position[1] < self.min_max_y[1] and position[1] > self.min_max_y[0]
-                                if cond1 and cond3 and cond4:
-                                    ok = True
-                                if counter > 100:
-                                    valid_config = False
-                                    break
-                            positions[remain_block] = position.copy()
-                        elif sum(binary_goal[:3]) == 2:
-                            # remaining block is close to base but not close to stacked
-                            remain_block = remain_block[0]
-                            stacked_block_id = actual_stacks[0][0]
-                            base_block_id = actual_stacks[0][1]
-                            close_p = [set(cp) for cp in actual_close_pairs]
-                            if set([stacked_block_id, remain_block]) in close_p and set([base_block_id, remain_block]) not in close_p:
-                                invalid_config = True
+                        # Getting remaining blocks which were not placed
+                        remain_block = [i for i, x in enumerate(blocks_set) if not x]
+                        if len(remain_block) > 0:
+                            if sum(binary_goal[:3]) == 1:
+                                remain_block = remain_block[0]
+                                stacked_block_id = actual_stacks[0][0]
+                                base_block_id = actual_stacks[0][1]
+                                # Added center to make sure the block stays on the table
+                                ok = False
+                                counter = 0
+                                while not ok:
+                                    counter += 1
+                                    position = self.initial_gripper_xpos.copy()
+                                    position[:2] += np.random.uniform(-self.obj_range, self.obj_range, 2)
+                                    position[2] = 0.425
+                                    cond1 =  np.linalg.norm(position - positions[base_block_id]) > self.predicate_threshold
+                                    cond3 = position[0] < self.min_max_x[1] and position[0] > self.min_max_x[0]
+                                    cond4 = position[1] < self.min_max_y[1] and position[1] > self.min_max_y[0]
+                                    if cond1 and cond3 and cond4:
+                                        ok = True
+                                    if counter > 100:
+                                        over = False
+                                        break
+                                positions[remain_block] = position.copy()
+                            elif sum(binary_goal[:3]) == 2:
+                                # remaining block is close to base but not close to stacked
+                                remain_block = remain_block[0]
+                                stacked_block_id = actual_stacks[0][0]
+                                base_block_id = actual_stacks[0][1]
+                                close_p = [set(cp) for cp in actual_close_pairs]
+                                if set([stacked_block_id, remain_block]) in close_p and set([base_block_id, remain_block]) not in close_p:
+                                    invalid_config = True
+                                else:
+                                    ok = False
+                                    counter = 0
+                                    while not ok:
+                                        counter += 1
+                                        position = positions[base_block_id].copy()
+                                        position[:2] += np.random.uniform(-self.predicate_threshold, self.predicate_threshold, 2)
+                                        position[2] = 0.425
+                                        cond1 = np.linalg.norm(position - positions[stacked_block_id]) > self.predicate_threshold
+                                        cond2 = np.linalg.norm(position - positions[base_block_id]) > np.sqrt(2) * 0.05
+                                        cond3 = position[0] < self.min_max_x[1] and position[0] > self.min_max_x[0]
+                                        cond4 = position[1] < self.min_max_y[1] and position[1] > self.min_max_y[0]
+                                        cond5 = np.linalg.norm(position - positions[base_block_id]) < self.predicate_threshold
+                                        if cond1 and cond2 and cond3 and cond4 and cond5:
+                                            ok = True
+
+                                        if counter > 100:
+                                            over = False
+                                            break
+                                    positions[remain_block] = position.copy()
                             else:
+                                # remaining block is close to both others
+                                remain_block = remain_block[0]
+                                stacked_block_id = actual_stacks[0][0]
+                                base_block_id = actual_stacks[0][1]
+                                # Added center to make sure the block stays on the table
                                 ok = False
                                 counter = 0
                                 while not ok:
@@ -499,42 +530,20 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                                     position = positions[base_block_id].copy()
                                     position[:2] += np.random.uniform(-self.predicate_threshold, self.predicate_threshold, 2)
                                     position[2] = 0.425
-                                    cond1 = np.linalg.norm(position - positions[stacked_block_id]) > self.predicate_threshold
+                                    cond1 = np.linalg.norm(position - positions[stacked_block_id]) < self.predicate_threshold
                                     cond2 = np.linalg.norm(position - positions[base_block_id]) > np.sqrt(2) * 0.05
                                     cond3 = position[0] < self.min_max_x[1] and position[0] > self.min_max_x[0]
                                     cond4 = position[1] < self.min_max_y[1] and position[1] > self.min_max_y[0]
-                                    cond5 = np.linalg.norm(position - positions[base_block_id]) < self.predicate_threshold
-                                    if cond1 and cond2 and cond3 and cond4 and cond5:
+                                    if cond1 and cond2 and cond3 and cond4:
                                         ok = True
-
                                     if counter > 100:
-                                        valid_config = False
+                                        over = False
                                         break
-                                positions[remain_block] = position.copy()
-                        else:
-                            # remaining block is close to both others
-                            remain_block = remain_block[0]
-                            stacked_block_id = actual_stacks[0][0]
-                            base_block_id = actual_stacks[0][1]
-                            # Added center to make sure the block stays on the table
-                            ok = False
-                            counter = 0
-                            while not ok:
-                                counter += 1
-                                position = positions[base_block_id].copy()
-                                position[:2] += np.random.uniform(-self.predicate_threshold, self.predicate_threshold, 2)
-                                position[2] = 0.425
-                                cond1 = np.linalg.norm(position - positions[stacked_block_id]) < self.predicate_threshold
-                                cond2 = np.linalg.norm(position - positions[base_block_id]) > np.sqrt(2) * 0.05
-                                cond3 = position[0] < self.min_max_x[1] and position[0] > self.min_max_x[0]
-                                cond4 = position[1] < self.min_max_y[1] and position[1] > self.min_max_y[0]
-                                if cond1 and cond2 and cond3 and cond4:
-                                    ok = True
-                                if counter > 100:
-                                    valid_config = False
-                                    break
 
-                            positions[remain_block] = position.copy()
+                                positions[remain_block] = position.copy()
+                        if counter_over > 100:
+                            valid_config = False
+                            break
                 elif actual_stacks.shape[0] > 1.:
                     # There are two stacks
                     if actual_stacks[0][0] == actual_stacks[1][0]:
@@ -573,29 +582,11 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
             else:
                 if sum(binary_goal[:3]) == 0:
                     # all far
-                    positions = []
-                    for _ in range(3):
-                        ok = False
-                        counter = 0
-                        while not ok:
-                            counter += 1
-                            pos = self.initial_gripper_xpos.copy()
-                            pos[2] = 0.425
-                            pos[:2] += self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
-                            ok = True
-                            for p in positions:
-                                if np.linalg.norm(p - pos) < self.predicate_threshold:
-                                    ok = False
-                                    break
-                            if counter > 100:
-                                valid_config = False
-                                break
-                        positions.append(pos)
-                else:
-                    possible_pairs = np.array([[0, 1], [0, 2], [1, 2]])
-                    actual_close_pairs = possible_pairs[np.where(np.array(binary_goal[:3]) == 1.)]
-                    if len(actual_close_pairs) == 3:
-                        # all close
+                    over = False
+                    counter_over = 0
+                    while not over:
+                        counter_over += 1
+                        over = True
                         positions = []
                         for _ in range(3):
                             ok = False
@@ -607,82 +598,132 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                                 pos[:2] += self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
                                 ok = True
                                 for p in positions:
-                                    if np.linalg.norm(p - pos) < np.sqrt(2) * 0.05 or np.linalg.norm(p - pos) > self.predicate_threshold:
+                                    if np.linalg.norm(p - pos) < self.predicate_threshold:
                                         ok = False
                                         break
                                 if counter > 100:
-                                    valid_config = False
+                                    over = False
                                     break
                             positions.append(pos)
+                        if counter_over > 100:
+                            valid_config = False
+                            break
+                else:
+                    possible_pairs = np.array([[0, 1], [0, 2], [1, 2]])
+                    actual_close_pairs = possible_pairs[np.where(np.array(binary_goal[:3]) == 1.)]
+                    if len(actual_close_pairs) == 3:
+                        # all close
+                        over = False
+                        counter_over = 0
+                        while not over:
+                            counter_over += 1
+                            over = True
+                            positions = []
+                            for _ in range(3):
+                                ok = False
+                                counter = 0
+                                while not ok:
+                                    counter += 1
+                                    pos = self.initial_gripper_xpos.copy()
+                                    pos[2] = 0.425
+                                    pos[:2] += self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
+                                    ok = True
+                                    for p in positions:
+                                        if np.linalg.norm(p - pos) < np.sqrt(2) * 0.05 or np.linalg.norm(p - pos) > self.predicate_threshold:
+                                            ok = False
+                                            break
+                                    if counter > 100:
+                                        over = False
+                                        break
+                                positions.append(pos)
+                            if counter_over > 100:
+                                valid_config = False
+                                break
                     elif len(actual_close_pairs) == 2:
-                        pivot = list(set(actual_close_pairs[0]) & set(actual_close_pairs[1]))[0]
-                        indexes = [i for i in itertools.chain(actual_close_pairs[0], actual_close_pairs[1]) if i != pivot]
-                        indexes = [pivot] + indexes
-                        positions = []
-                        pivot = list(set(actual_close_pairs[0]) & set(actual_close_pairs[1]))[0]
-                        pos = self.initial_gripper_xpos.copy()
-                        pos[2] = 0.425
-                        pos[:2] += self.np_random.uniform(-self.obj_range/2, self.obj_range/2, size=2)
-                        positions.append(pos)
-                        for _ in range(2):
-                            ok = False
-                            counter = 0
-                            while not ok:
-                                counter += 1
-                                pos = self.initial_gripper_xpos.copy()
-                                pos[2] = 0.425
-                                pos[:2] += self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
-                                ok = False
-                                if len(positions) == 1:
-                                    if np.linalg.norm(pos - positions[0]) > np.sqrt(2) * 0.05 and np.linalg.norm(pos - positions[0]) < self.predicate_threshold:
-                                        ok = True
-                                if len(positions) == 2:
-                                    cond1 = np.linalg.norm(pos - positions[0]) > np.sqrt(2) * 0.05 and np.linalg.norm(pos - positions[0]) < self.predicate_threshold
-                                    cond2 =  np.linalg.norm(pos - positions[1]) > self.predicate_threshold
-                                    if cond1 and cond2:
-                                        ok = True
-                                if counter > 100:
-                                    valid_config = False
-                                    break
+                        over = False
+                        counter_over = 0
+                        while not over:
+                            counter_over += 1
+                            over = True
+                            pivot = list(set(actual_close_pairs[0]) & set(actual_close_pairs[1]))[0]
+                            indexes = [i for i in itertools.chain(actual_close_pairs[0], actual_close_pairs[1]) if i != pivot]
+                            indexes = [pivot] + indexes
+                            positions = []
+                            pivot = list(set(actual_close_pairs[0]) & set(actual_close_pairs[1]))[0]
+                            pos = self.initial_gripper_xpos.copy()
+                            pos[2] = 0.425
+                            pos[:2] += self.np_random.uniform(-self.obj_range/2, self.obj_range/2, size=2)
                             positions.append(pos)
-                        new_pos = [None] * 3
-                        for i_order, i_ind in enumerate(indexes):
-                            new_pos[i_ind] = positions[i_order]
-                        positions = new_pos.copy()
+                            for _ in range(2):
+                                ok = False
+                                counter = 0
+                                while not ok:
+                                    counter += 1
+                                    pos = self.initial_gripper_xpos.copy()
+                                    pos[2] = 0.425
+                                    pos[:2] += self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
+                                    ok = False
+                                    if len(positions) == 1:
+                                        if np.linalg.norm(pos - positions[0]) > np.sqrt(2) * 0.05 and np.linalg.norm(pos - positions[0]) < self.predicate_threshold:
+                                            ok = True
+                                    if len(positions) == 2:
+                                        cond1 = np.linalg.norm(pos - positions[0]) > np.sqrt(2) * 0.05 and np.linalg.norm(pos - positions[0]) < self.predicate_threshold
+                                        cond2 =  np.linalg.norm(pos - positions[1]) > self.predicate_threshold
+                                        if cond1 and cond2:
+                                            ok = True
+                                    if counter > 100:
+                                        over = False
+                                        break
+                                positions.append(pos)
+                            new_pos = [None] * 3
+                            for i_order, i_ind in enumerate(indexes):
+                                new_pos[i_ind] = positions[i_order]
+                            positions = new_pos.copy()
+                            if counter_over > 100:
+                                valid_config = False
+                                break
                     else:
-                        positions = []
-                        pos = self.initial_gripper_xpos.copy()
-                        pos[2] = 0.425
-                        pos[:2] += self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
-                        positions.append(pos)
-                        for _ in range(2):
-                            ok = False
-                            counter = 0
-                            while not ok:
-                                counter += 1
-                                pos = self.initial_gripper_xpos.copy()
-                                pos[2] = 0.425
-                                pos[:2] += self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
-                                ok = False
-                                if len(positions) == 1:
-                                    if np.linalg.norm(pos - positions[0]) > np.sqrt(2) * 0.05 and np.linalg.norm(pos - positions[0]) < (self.predicate_threshold - 0.001):
-                                        ok = True
-                                if len(positions) == 2:
-                                    if np.linalg.norm(pos - positions[1]) > self.predicate_threshold and np.linalg.norm(pos - positions[0]) > self.predicate_threshold:
-                                        ok = True
-
-                                if counter > 100:
-                                    valid_config = False
-                                    break
+                        over = False
+                        counter_over = 1
+                        while not over:
+                            counter_over += 1
+                            over = True
+                            positions = []
+                            pos = self.initial_gripper_xpos.copy()
+                            pos[2] = 0.425
+                            pos[:2] += self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
                             positions.append(pos)
-                        new_pos = [None] * 3
-                        indexes = actual_close_pairs[0]
-                        for i_order, i_ind in enumerate(indexes):
-                            new_pos[i_ind] = positions[i_order]
-                        for i_np, newp in enumerate(new_pos):
-                            if newp is None:
-                                new_pos[i_np] = positions[-1]
-                        positions = new_pos.copy()
+                            for _ in range(2):
+                                ok = False
+                                counter = 0
+                                while not ok:
+                                    counter += 1
+                                    pos = self.initial_gripper_xpos.copy()
+                                    pos[2] = 0.425
+                                    pos[:2] += self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
+                                    ok = False
+                                    if len(positions) == 1:
+                                        if np.linalg.norm(pos - positions[0]) > np.sqrt(2) * 0.05 and np.linalg.norm(pos - positions[0]) < (self.predicate_threshold - 0.001):
+                                            ok = True
+                                    if len(positions) == 2:
+                                        if np.linalg.norm(pos - positions[1]) > self.predicate_threshold and np.linalg.norm(pos - positions[0]) > self.predicate_threshold:
+                                            ok = True
+
+                                    if counter > 100:
+                                        over = False
+                                        break
+                                positions.append(pos)
+                            new_pos = [None] * 3
+                            indexes = actual_close_pairs[0]
+                            for i_order, i_ind in enumerate(indexes):
+                                new_pos[i_ind] = positions[i_order]
+                            for i_np, newp in enumerate(new_pos):
+                                if newp is None:
+                                    new_pos[i_np] = positions[-1]
+                            positions = new_pos.copy()
+                            if counter_over > 100:
+                                valid_config = False
+                                break
 
 
         if not valid_config:
@@ -708,189 +749,252 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         return np.array(positions).flatten()
 
 
-    def reset_goal(self, goal, init=None, eval=False):
+    def reset_goal(self, goal, init=None, biased_init=False):
         if init is not None:
             return self.reset_init(init, goal)
 
         self.binary_goal = goal.copy()
         self.target_goal = self.sample_continuous_goal_from_binary_goal(goal.copy())
 
-        self.sim.forward()
-        obs = self._get_obs()
+        # If evaluation mode, generate blocks on the table with no stacks
+        if not biased_init:
+            for i, obj_name in enumerate(self.object_names):
+                object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+                assert object_qpos.shape == (7,)
+                object_qpos[2] = 0.425
+                object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
+                                                                                     self.obj_range,
+                                                                                     size=2)
+                object_qpos[:2] = object_xpos
 
-        return obs
+                self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
 
+            self.sim.forward()
+            obs = self._get_obs()
 
-    def reset_init(self, init_config, target_goal):
-        self.target_goal = target_goal
+            return obs
 
-        self.sim.set_state(self.initial_state)
-        possible_stacks = np.array([[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]])
-        actual_stacks = possible_stacks[np.where(np.array(init_config[-6:]) == 1.)]
-        blocks_set = [False for i in range(self.num_blocks)]
-        positions = [None for i in range(self.num_blocks)]
-        if actual_stacks.shape[0] > 0:
-            # There is at least one stack
-            if actual_stacks.shape[0] == 1.:
-                # There exactly one stack
-                stack = actual_stacks[0]
-                z_stack = [0.475, 0.425]
-                offset_on_table = self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
-                for i in stack:
-                    object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[i]))
-                    object_qpos[2] = z_stack[np.where(stack == i)[0][0]]
-                    object_xpos = self.initial_gripper_xpos[:2] + offset_on_table
-                    object_qpos[:2] = object_xpos
-                    blocks_set[i] = True
-                    positions[i] = object_qpos[:3]
-                    self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), object_qpos)
-            if actual_stacks.shape[0] > 1.:
-                # There are two stacks
-                if actual_stacks[0][0] == actual_stacks[1][0]:
-                    # One block above two blocks (pyramid)
-                    bot_block_1 = actual_stacks[0][1]
-                    bot_block_2 = actual_stacks[1][1]
-                    top_block = actual_stacks[0][0]
-                    pos_on_table_1 = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range,
-                                                                                            size=2)
-                    pos_on_table_2 = pos_on_table_1 + [0, 0.05]
-                    pos_on_table_3 = pos_on_table_1 + [0, 0.025]
-                    z = [0.425, 0.425, 0.475]
-                    xy = [pos_on_table_1, pos_on_table_2, pos_on_table_3]
-                    for i, block in enumerate([bot_block_1, bot_block_2, top_block]):
-                        object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[block]))
-                        object_qpos[2] = z[i]
-                        object_xpos = xy[i]
-                        object_qpos[:2] = object_xpos
-                        blocks_set[block] = True
-                        positions[i] = object_qpos[:3]
-                        self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[block]), object_qpos)
-                else:
-                    # A stack of 3 blocks
-                    if actual_stacks[0][1] == actual_stacks[1][0]:
-                        stack = [actual_stacks[0][0], actual_stacks[0][1], actual_stacks[1][1]]
-                    else:
-                        stack = [actual_stacks[1][0], actual_stacks[1][1], actual_stacks[0][1]]
-                    z_stack = [0.525, 0.475, 0.425]
-                    offset_on_table = self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
-                    for i in stack:
-                        object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[i]))
-                        object_qpos[2] = z_stack[stack.index(i)]
-                        object_xpos = self.initial_gripper_xpos[:2] + offset_on_table
-                        object_qpos[:2] = object_xpos
-                        blocks_set[i] = True
-                        positions[i] = object_qpos[:3]
-                        self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), object_qpos)
-            # Getting remaining blocks which were not placed
-            remain_block = [i for i, x in enumerate(blocks_set) if not x]
-            if len(remain_block) > 0:
-                if sum(init_config[:3]) == 1:
-                    remain_block = remain_block[0]
-                    object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[remain_block]))
-                    object_qpos[2] = 0.425
-                    # Added center to make sure the block stays on the table
-                    center = positions[np.where(blocks_set)[0][0]][:2] - self.initial_gripper_xpos[:2]
-                    object_xpos = positions[np.where(blocks_set)[0][0]][:2] + \
-                                  np.array([-np.sign(center[0]) * 0.1, -np.sign(center[1]) * 0.1])
-                    object_qpos[:2] = object_xpos
-                    blocks_set[remain_block] = True
-                    positions[remain_block] = object_qpos[:3]
-                    self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[remain_block]), object_qpos)
-                else:
-                    # The remaining block is close to the stack
-                    remain_block = remain_block[0]
-                    object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[remain_block]))
-                    object_qpos[2] = 0.425
-                    # Added center to make sure the block stays on the table
-                    center = positions[np.where(blocks_set)[0][0]][:2] - self.initial_gripper_xpos[:2]
-                    object_xpos = positions[np.where(blocks_set)[0][0]][:2] + np.array([0, -np.sign(center[1]) * 0.05])
-                    object_qpos[:2] = object_xpos
-                    blocks_set[remain_block] = True
-                    positions[remain_block] = object_qpos[:3]
-                    self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[remain_block]), object_qpos)
-
+        p_stack_two = 0.7
+        if np.random.uniform() > p_stack_two:
+            stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
+            z_stack = [0.525, 0.475, 0.425]
         else:
-            if sum(init_config[:3]) == 0:
-                # All blocks are far
-                offset = self.np_random.uniform(0.1, self.obj_range)
-                offset1 = self.np_random.uniform(0.1, self.obj_range)
-                offsets = [[offset, -offset1], [-offset, offset1], [-offset1, -offset]]
-                np.random.shuffle(offsets)
-                for i, obj_name in enumerate(self.object_names):
-                    object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
-                    assert object_qpos.shape == (7,)
-                    object_qpos[2] = 0.425
-                    object_xpos = self.initial_gripper_xpos[:2] + offsets[i]
-                    object_qpos[:2] = object_xpos
-                    blocks_set[i] = True
-                    positions[i] = object_qpos[:3]
-                    self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+            stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
+            z_stack = [0.475, 0.425]
 
-            else:
-                possible_pairs = np.array([[0, 1], [0, 2], [1, 2]])
-                actual_close_pairs = possible_pairs[np.where(np.array(init_config[:3]) == 1.)]
-                if len(actual_close_pairs) == 3:
-                    # All blocks are close to each other
-                    pos_on_table_1 = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range,
-                                                                                            size=2)
-                    pos_on_table_2 = pos_on_table_1 + [0, 0.05]
-                    pos_on_table_3 = pos_on_table_1 + [0.025, 0.05]
-                    xy = [pos_on_table_1, pos_on_table_2, pos_on_table_3]
-                    for i, obj_name in enumerate(self.object_names):
-                        object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
-                        object_qpos[2] = 0.425
-                        object_xpos = xy[i]
-                        object_qpos[:2] = object_xpos
-                        blocks_set[i] = True
-                        positions[i] = object_qpos[:3]
-                        self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
-                elif len(actual_close_pairs) == 2:
-                    pivot = list(set(actual_close_pairs[0]) & set(actual_close_pairs[1]))[0]
-                    indexes = [i for i in itertools.chain(actual_close_pairs[0], actual_close_pairs[1]) if i != pivot]
-                    indexes = [pivot] + indexes
-                    pos_on_tab_1 = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range,size=2)
-                    pos_on_tab_2 = pos_on_tab_1 + np.array([0., 0.07])
-                    pos_on_tab_3 = pos_on_tab_1 - np.array([0., 0.07])
-                    xy = [pos_on_tab_1, pos_on_tab_2, pos_on_tab_3]
-                    for i, pos in zip(indexes, xy):
-                        object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[i]))
-                        object_qpos[2] = 0.425
-                        object_xpos = pos
-                        object_qpos[:2] = object_xpos
-                        blocks_set[i] = True
-                        positions[i] = object_qpos[:3]
-                        self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), object_qpos)
+        p_coplanar = 0.7
+        idx_grasp = np.random.choice([i for i in range(self.num_blocks)])
+        if np.random.uniform() < p_coplanar:
+            for i, obj_name in enumerate(self.object_names):
+                object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+                assert object_qpos.shape == (7,)
+                object_qpos[2] = 0.425
+                object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
+                                                                                     self.obj_range,
+                                                                                     size=2)
+                object_qpos[:2] = object_xpos
+
+                self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+        else:
+            temp_rand = self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
+            for i, obj_name in enumerate(self.object_names):
+                object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+                assert object_qpos.shape == (7,)
+                if i in stack:
+                    object_qpos[2] = z_stack[stack.index(i)]
+                    object_xpos = self.initial_gripper_xpos[:2] + temp_rand
+                    object_qpos[:2] = object_xpos
+
                 else:
-                    for pair in actual_close_pairs:
-                        if not blocks_set[pair[0]]:
-                            pos_on_table_1 = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range,
-                                                                                                    size=2)
-                        else:
-                            pos_on_table_1 = positions[pair[0]][:2]
-                        pos_on_table_2 = pos_on_table_1 + np.array([0, 0.07])
-                        xy = [pos_on_table_1, pos_on_table_2]
-                        for i, pos in zip(pair, xy):
-                            object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[i]))
-                            object_qpos[2] = 0.425
-                            object_xpos = pos
-                            object_qpos[:2] = object_xpos
-                            blocks_set[i] = True
-                            positions[i] = object_qpos[:3]
-                            self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), object_qpos)
-                    if sum(blocks_set) != len(blocks_set):
-                        remain_block = np.where(np.invert(blocks_set))[0][0]
-                        object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[remain_block]))
-                        object_qpos[2] = 0.425
-                        # Added center to make sure the block stays on the table
-                        center = positions[np.where(blocks_set)[0][0]][:2] - self.initial_gripper_xpos[:2]
-                        object_xpos = positions[np.where(blocks_set)[0][0]][:2] + \
-                                      np.array([-np.sign(center[0])*0.1, -np.sign(center[1])*0.1])
-                        object_qpos[:2] = object_xpos
-                        blocks_set[remain_block] = True
-                        positions[remain_block] = object_qpos[:3]
-                        self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[remain_block]), object_qpos)
+                    object_qpos[2] = 0.425
+                    object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
+                                                                                         self.obj_range,
+                                                                                         size=2)
+                    object_qpos[:2] = object_xpos
+
+                    idx_grasp = i
+
+                self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+            if len(stack) == self.num_blocks:
+                idx_grasp = stack[0]
 
         self.sim.forward()
         obs = self._get_obs()
 
+        if np.random.uniform() < 0.3:
+            obs = self._grasp(obs, idx_grasp)
         return obs
+
+    # def reset_init(self, init_config, target_goal):
+    #     self.target_goal = target_goal
+    #
+    #     self.sim.set_state(self.initial_state)
+    #     possible_stacks = np.array([[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]])
+    #     actual_stacks = possible_stacks[np.where(np.array(init_config[-6:]) == 1.)]
+    #     blocks_set = [False for i in range(self.num_blocks)]
+    #     positions = [None for i in range(self.num_blocks)]
+    #     if actual_stacks.shape[0] > 0:
+    #         # There is at least one stack
+    #         if actual_stacks.shape[0] == 1.:
+    #             # There exactly one stack
+    #             stack = actual_stacks[0]
+    #             z_stack = [0.475, 0.425]
+    #             offset_on_table = self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
+    #             for i in stack:
+    #                 object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[i]))
+    #                 object_qpos[2] = z_stack[np.where(stack == i)[0][0]]
+    #                 object_xpos = self.initial_gripper_xpos[:2] + offset_on_table
+    #                 object_qpos[:2] = object_xpos
+    #                 blocks_set[i] = True
+    #                 positions[i] = object_qpos[:3]
+    #                 self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), object_qpos)
+    #         if actual_stacks.shape[0] > 1.:
+    #             # There are two stacks
+    #             if actual_stacks[0][0] == actual_stacks[1][0]:
+    #                 # One block above two blocks (pyramid)
+    #                 bot_block_1 = actual_stacks[0][1]
+    #                 bot_block_2 = actual_stacks[1][1]
+    #                 top_block = actual_stacks[0][0]
+    #                 pos_on_table_1 = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range,
+    #                                                                                         size=2)
+    #                 pos_on_table_2 = pos_on_table_1 + [0, 0.05]
+    #                 pos_on_table_3 = pos_on_table_1 + [0, 0.025]
+    #                 z = [0.425, 0.425, 0.475]
+    #                 xy = [pos_on_table_1, pos_on_table_2, pos_on_table_3]
+    #                 for i, block in enumerate([bot_block_1, bot_block_2, top_block]):
+    #                     object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[block]))
+    #                     object_qpos[2] = z[i]
+    #                     object_xpos = xy[i]
+    #                     object_qpos[:2] = object_xpos
+    #                     blocks_set[block] = True
+    #                     positions[i] = object_qpos[:3]
+    #                     self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[block]), object_qpos)
+    #             else:
+    #                 # A stack of 3 blocks
+    #                 if actual_stacks[0][1] == actual_stacks[1][0]:
+    #                     stack = [actual_stacks[0][0], actual_stacks[0][1], actual_stacks[1][1]]
+    #                 else:
+    #                     stack = [actual_stacks[1][0], actual_stacks[1][1], actual_stacks[0][1]]
+    #                 z_stack = [0.525, 0.475, 0.425]
+    #                 offset_on_table = self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
+    #                 for i in stack:
+    #                     object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[i]))
+    #                     object_qpos[2] = z_stack[stack.index(i)]
+    #                     object_xpos = self.initial_gripper_xpos[:2] + offset_on_table
+    #                     object_qpos[:2] = object_xpos
+    #                     blocks_set[i] = True
+    #                     positions[i] = object_qpos[:3]
+    #                     self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), object_qpos)
+    #         # Getting remaining blocks which were not placed
+    #         remain_block = [i for i, x in enumerate(blocks_set) if not x]
+    #         if len(remain_block) > 0:
+    #             if sum(init_config[:3]) == 1:
+    #                 remain_block = remain_block[0]
+    #                 object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[remain_block]))
+    #                 object_qpos[2] = 0.425
+    #                 # Added center to make sure the block stays on the table
+    #                 center = positions[np.where(blocks_set)[0][0]][:2] - self.initial_gripper_xpos[:2]
+    #                 object_xpos = positions[np.where(blocks_set)[0][0]][:2] + \
+    #                               np.array([-np.sign(center[0]) * 0.1, -np.sign(center[1]) * 0.1])
+    #                 object_qpos[:2] = object_xpos
+    #                 blocks_set[remain_block] = True
+    #                 positions[remain_block] = object_qpos[:3]
+    #                 self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[remain_block]), object_qpos)
+    #             else:
+    #                 # The remaining block is close to the stack
+    #                 remain_block = remain_block[0]
+    #                 object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[remain_block]))
+    #                 object_qpos[2] = 0.425
+    #                 # Added center to make sure the block stays on the table
+    #                 center = positions[np.where(blocks_set)[0][0]][:2] - self.initial_gripper_xpos[:2]
+    #                 object_xpos = positions[np.where(blocks_set)[0][0]][:2] + np.array([0, -np.sign(center[1]) * 0.05])
+    #                 object_qpos[:2] = object_xpos
+    #                 blocks_set[remain_block] = True
+    #                 positions[remain_block] = object_qpos[:3]
+    #                 self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[remain_block]), object_qpos)
+    #
+    #     else:
+    #         if sum(init_config[:3]) == 0:
+    #             # All blocks are far
+    #             offset = self.np_random.uniform(0.1, self.obj_range)
+    #             offset1 = self.np_random.uniform(0.1, self.obj_range)
+    #             offsets = [[offset, -offset1], [-offset, offset1], [-offset1, -offset]]
+    #             np.random.shuffle(offsets)
+    #             for i, obj_name in enumerate(self.object_names):
+    #                 object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+    #                 assert object_qpos.shape == (7,)
+    #                 object_qpos[2] = 0.425
+    #                 object_xpos = self.initial_gripper_xpos[:2] + offsets[i]
+    #                 object_qpos[:2] = object_xpos
+    #                 blocks_set[i] = True
+    #                 positions[i] = object_qpos[:3]
+    #                 self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+    #
+    #         else:
+    #             possible_pairs = np.array([[0, 1], [0, 2], [1, 2]])
+    #             actual_close_pairs = possible_pairs[np.where(np.array(init_config[:3]) == 1.)]
+    #             if len(actual_close_pairs) == 3:
+    #                 # All blocks are close to each other
+    #                 pos_on_table_1 = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range,
+    #                                                                                         size=2)
+    #                 pos_on_table_2 = pos_on_table_1 + [0, 0.05]
+    #                 pos_on_table_3 = pos_on_table_1 + [0.025, 0.05]
+    #                 xy = [pos_on_table_1, pos_on_table_2, pos_on_table_3]
+    #                 for i, obj_name in enumerate(self.object_names):
+    #                     object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+    #                     object_qpos[2] = 0.425
+    #                     object_xpos = xy[i]
+    #                     object_qpos[:2] = object_xpos
+    #                     blocks_set[i] = True
+    #                     positions[i] = object_qpos[:3]
+    #                     self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+    #             elif len(actual_close_pairs) == 2:
+    #                 pivot = list(set(actual_close_pairs[0]) & set(actual_close_pairs[1]))[0]
+    #                 indexes = [i for i in itertools.chain(actual_close_pairs[0], actual_close_pairs[1]) if i != pivot]
+    #                 indexes = [pivot] + indexes
+    #                 pos_on_tab_1 = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range,size=2)
+    #                 pos_on_tab_2 = pos_on_tab_1 + np.array([0., 0.07])
+    #                 pos_on_tab_3 = pos_on_tab_1 - np.array([0., 0.07])
+    #                 xy = [pos_on_tab_1, pos_on_tab_2, pos_on_tab_3]
+    #                 for i, pos in zip(indexes, xy):
+    #                     object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[i]))
+    #                     object_qpos[2] = 0.425
+    #                     object_xpos = pos
+    #                     object_qpos[:2] = object_xpos
+    #                     blocks_set[i] = True
+    #                     positions[i] = object_qpos[:3]
+    #                     self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), object_qpos)
+    #             else:
+    #                 for pair in actual_close_pairs:
+    #                     if not blocks_set[pair[0]]:
+    #                         pos_on_table_1 = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range,
+    #                                                                                                 size=2)
+    #                     else:
+    #                         pos_on_table_1 = positions[pair[0]][:2]
+    #                     pos_on_table_2 = pos_on_table_1 + np.array([0, 0.07])
+    #                     xy = [pos_on_table_1, pos_on_table_2]
+    #                     for i, pos in zip(pair, xy):
+    #                         object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[i]))
+    #                         object_qpos[2] = 0.425
+    #                         object_xpos = pos
+    #                         object_qpos[:2] = object_xpos
+    #                         blocks_set[i] = True
+    #                         positions[i] = object_qpos[:3]
+    #                         self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), object_qpos)
+    #                 if sum(blocks_set) != len(blocks_set):
+    #                     remain_block = np.where(np.invert(blocks_set))[0][0]
+    #                     object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[remain_block]))
+    #                     object_qpos[2] = 0.425
+    #                     # Added center to make sure the block stays on the table
+    #                     center = positions[np.where(blocks_set)[0][0]][:2] - self.initial_gripper_xpos[:2]
+    #                     object_xpos = positions[np.where(blocks_set)[0][0]][:2] + \
+    #                                   np.array([-np.sign(center[0])*0.1, -np.sign(center[1])*0.1])
+    #                     object_qpos[:2] = object_xpos
+    #                     blocks_set[remain_block] = True
+    #                     positions[remain_block] = object_qpos[:3]
+    #                     self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[remain_block]), object_qpos)
+    #
+    #     self.sim.forward()
+    #     obs = self._get_obs()
+    #
+    #     return obs
