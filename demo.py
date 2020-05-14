@@ -4,13 +4,20 @@ from arguments import get_args
 import env
 import gym
 import numpy as np
-from utils import generate_goals
+from utils import generate_goals, generate_all_goals_in_goal_space
 from rollout import RolloutWorker
 import json
 from types import SimpleNamespace
 from goal_sampler import GoalSampler
 import  random
 from mpi4py import MPI
+import torch
+import pickle
+from copy import deepcopy
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
 
 # process the inputs
 def normalize_goal(g, g_mean, g_std, args):
@@ -43,15 +50,106 @@ def get_env_params(env):
               'max_timesteps': env._max_episode_steps}
     return params
 
+def sample_vae(vae, inst_to_one_hot, config_init, sentence, n=1):
+
+    one_hot = np.expand_dims(np.array(inst_to_one_hot[sentence.lower()]), 0)
+    c_i = np.expand_dims(config_init, 0)
+    one_hot = np.repeat(one_hot, n, axis=0)
+    c_i = np.repeat(c_i, n, axis=0)
+    c_i, s = torch.Tensor(c_i).to(device), torch.Tensor(one_hot).to(device)
+    x = (vae.inference(c_i, s, n=n).detach().numpy() > 0.5).astype(np.int)
+
+    return x
+
+def sample_vae_logic(vae, inst_to_one_hot, config_init, expression, dict_goals, n=30):
+
+    expression_type = expression[0]
+
+    if isinstance(expression[1], str):
+        x = sample_vae(vae, inst_to_one_hot, config_init, deepcopy(expression[1]), n=n)
+        x_strs = [str(xi) for xi in x]
+        set_1 = set(x_strs)
+    elif isinstance(expression[1], list):
+        set_1 = sample_vae_logic(vae, inst_to_one_hot, config_init, deepcopy(expression[1]), dict_goals=dict_goals)
+    else:
+        raise NotImplementedError
+
+    if expression_type == 'not':
+        return set(dict_goals.keys()).difference(set_1)
+    elif expression_type in ['and', 'or']:
+        if isinstance(expression[2], str):
+            x = sample_vae(vae, inst_to_one_hot, config_init, deepcopy(expression[2]), n=n)
+            x_strs = [str(xi) for xi in x]
+            set_2 = set(x_strs)
+        elif isinstance(expression[2], list):
+            set_2 = sample_vae_logic(vae, inst_to_one_hot, config_init, deepcopy(expression[2]), dict_goals=dict_goals)
+        else:
+            raise NotImplementedError
+
+        if expression_type == 'and':
+            return set_1.intersection(set_2)
+        elif expression_type == 'or':
+            return set_1.union(set_2)
+    else:
+        raise NotImplementedError
+
+
+
+def rollout(vae, sentences, inst_to_one_hot, dict_goals, env, policy, env_params, inits, goals, self_eval, true_eval, biased_init=False, animated=False):
+    episodes = []
+    observation = env.unwrapped.reset_goal(np.array(goals[i]), init=inits[i], biased_init=biased_init)
+    env.render()
+
+
+    for sentence in sentences:
+        print(sentence)
+        # sentence = input()
+        expression = ['or', ['and', 'put red close_to green', 'put blue close_to green' ], ['and', 'put red above green', ['not', 'put blue close_to green']]]
+        expression = ['and', 'put red above blue', 'put blue on_top_of green' ]
+
+        if True:#sentence.lower() in inst_to_one_hot.keys():
+            # goal = sample_vae(vae, inst_to_one_hot, observation['achieved_goal'], sentence, n=1).flatten().astype(np.float32)
+
+            goals_str = sample_vae_logic(vae, inst_to_one_hot, observation['achieved_goal'], expression, dict_goals)
+
+            goal = dict_goals[np.random.choice(list(goals_str))]
+            env.unwrapped.target_goal = goal.copy()
+            observation = env.unwrapped._get_obs()
+            obs = observation['observation']
+            ag = observation['achieved_goal']
+            g = observation['desired_goal']
+            ep_obs, ep_ag, ep_g, ep_actions, ep_success = [], [], [], [], []
+
+            # start to collect samples
+            for t in range(env_params['max_timesteps']):
+                # run policy
+                no_noise = self_eval or true_eval
+                action = policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
+                ep_ag.append(ag.copy())
+                ep_g.append(g.copy())
+
+                # feed the actions into the environment
+                if animated:
+                    env.render()
+                observation_new, _, _, info = env.step(action)
+                obs = observation_new['observation']
+                ag = observation_new['achieved_goal']
+            ep_ag.append(ag.copy())
+
+            episode = dict(g=np.array(ep_g),
+                           ag=np.array(ep_ag))
+            episodes.append(episode)
+        else:
+            print('Wrong sentence.')
+
 if __name__ == '__main__':
     num_eval = 10
-    path = '/home/flowers/Desktop/Scratch/sac_curriculum/ignoramus/2020-05-01 17:37:33.000157_curriculum_deepsets/'
-    model_path = path + 'model_0.pt'
+    path = '/home/flowers/Downloads/test/'
+    model_path = path + 'model_600.pt'
 
     with open(path + 'config.json', 'r') as f:
         params = json.load(f)
     args = SimpleNamespace(**params)
-
 
     # Make the environment
     env = gym.make(args.env_name)
@@ -82,10 +180,27 @@ if __name__ == '__main__':
     eval_goals = goal_sampler.valid_goals
     inits = [None] * len(eval_goals)
     all_results = []
+
+    with open(path + 'vae_model.pkl', 'rb') as f:
+        vae = torch.load(f)
+
+
+    with open(path + 'inst_to_one_hot.pkl', 'rb') as f:
+        inst_to_one_hot = pickle.load(f)
+
+    with open(path + 'sentences_list.pkl', 'rb') as f:
+        sentences = pickle.load(f)
+
+    all_goals = generate_all_goals_in_goal_space()
+    dict_goals = dict(zip([str(g) for g in all_goals], all_goals))
     for i in range(num_eval):
-        episodes = rollout_worker.generate_rollout(inits, eval_goals, self_eval=True, true_eval=True, animated=True)
+        # uncomment here to run normal eval
+        # episodes = rollout_worker.generate_rollout(inits, eval_goals, self_eval=True, true_eval=True, animated=True)
+        episodes = rollout(vae, sentences, inst_to_one_hot, dict_goals, env, policy, args.env_params, inits, eval_goals, self_eval=True, true_eval=True, animated=True)
+
         results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
         all_results.append(results)
 
     results = np.array(all_results)
     print('Av Success Rate: {}'.format(results.mean()))
+
