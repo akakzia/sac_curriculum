@@ -10,6 +10,7 @@ from language.build_dataset import get_dataset
 import numpy as np
 import pickle
 
+SAVE_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/language/data/vae_model.pkl'
 def get_test_sets(configs, sentences, set_inds, all_possible_configs, str_to_index):
 
     configs = configs[set_inds]
@@ -214,6 +215,12 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
             print('Score train set: possible : {}, dataset : {}'.format(score / len(train_test_data[0]), score_dataset / len(train_test_data[0])))
 
     stop = 1
+
+    with open(SAVE_PATH, 'wb') as f:
+        torch.save(vae, f)
+
+    with open(SAVE_PATH, 'rb') as f:
+        vae = torch.load(f)
 
     results = np.zeros([len(set_inds), 2])
     # test train statistics
