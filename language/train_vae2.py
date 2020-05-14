@@ -63,6 +63,9 @@ def main(args):
         inst_to_one_hot[' '.join(s_instr)] = one_hot_encoder.encode(s_instr)
 
 
+    with open('/home/flowers/Desktop/inst_to_one_hot.pkl', 'wb') as f:
+        pickle.dump(inst_to_one_hot, f)
+
     all_str = ['start' + str(c[0]) + s + str(c[1]) + 'end' for c, s in zip(configs, sentences)]
     all_possible_configs_str = [str(c[0]) + s for c, s in zip(all_possible_configs, all_possible_sentences)]
 
