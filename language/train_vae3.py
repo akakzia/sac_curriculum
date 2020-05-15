@@ -65,6 +65,12 @@ def main(args):
 
     configs, sentences, states, all_possible_configs, all_possible_sentences = get_dataset(binary=False)
 
+    fake_states = np.concatenate([states[:, 0, :], states[:, 1, :]], axis=0)
+    s_max = fake_states.max(axis=0)
+    s_min = fake_states.min(axis=0)
+
+    states = (states - s_min) / (s_max - s_min)
+
     set_sentences = set(sentences)
     split_instructions, max_seq_length, word_set = analyze_inst(set_sentences)
     vocab = Vocab(word_set)
@@ -176,20 +182,18 @@ def main(args):
     def loss_fn(recon_x, x, mean, log_var):
         BCE = torch.nn.functional.binary_cross_entropy(recon_x, x, reduction='sum')
         KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
-
         return (BCE + KLD) / x.size(0)
 
     def loss_fn_cont(recon_x, x, mean, log_var):
         MSE = torch.nn.functional.mse_loss(recon_x, x, reduction='sum')
         KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
-
         return (MSE + KLD) / x.size(0)
-    return vocab, device, data_loader, loss_fn_cont, inst_to_one_hot, \
-           train_test_data, test_data, set_inds, states
+    return vocab, device, data_loader, loss_fn, inst_to_one_hot, \
+           train_test_data, test_data, set_inds, states, s_min, s_max
 
 
 def train(vocab, states, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, test_data, set_inds,
-          layers, embedding_size, latent_size, learning_rate, args):
+          layers, embedding_size, latent_size, learning_rate, s_min, s_max, args):
 
     vae = ContextVAE(vocab.size, binary=False, inner_sizes=layers, state_size=states.shape[2], embedding_size=embedding_size, latent_size=latent_size).to(device)
 
@@ -231,6 +235,9 @@ def train(vocab, states, device, data_loader, loss_fn, inst_to_one_hot, train_te
                 co_i = np.expand_dims(co_i, 0)
                 co_i, s = torch.Tensor(co_i).to(device), torch.Tensor(one_hot).to(device)
                 x = vae.inference(co_i, s, n=1).detach().numpy().flatten()#.astype(np.int)
+
+                x = x * (s_max - s_min) + s_min
+
                 x = get_config(x.reshape([3, 3])).astype(np.int)
 
                 if str(x) in c_f_possible:
@@ -325,14 +332,14 @@ if __name__ == '__main__':
     # good ones
     embedding_size = 100
     layers = [128, 128]
-    learning_rate = 0.001
+    learning_rate = 0.005
     latent_size = 18
 
     vocab, device, data_loader, loss_fn_cont, inst_to_one_hot, \
-    train_test_data, test_data, set_inds, states = main(args)
+    train_test_data, test_data, set_inds, states, s_min, s_max = main(args)
 
     train(vocab, states, device, data_loader, loss_fn_cont, inst_to_one_hot, train_test_data, test_data, set_inds,
-          layers, embedding_size, latent_size, learning_rate, args)
+          layers, embedding_size, latent_size, learning_rate,s_min, s_max,args)
 
     # import time
     # results = np.zeros([4, 3, 3, 3, 6, 2])

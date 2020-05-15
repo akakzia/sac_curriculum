@@ -161,7 +161,6 @@ def main(args):
     def loss_fn(recon_x, x, mean, log_var):
         BCE = torch.nn.functional.binary_cross_entropy(recon_x, x, reduction='sum')
         KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
-
         return (BCE + KLD) / x.size(0)
 
     return vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, set_inds, sentences, all_possible_configs, str_to_index
