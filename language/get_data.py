@@ -31,7 +31,7 @@ def get_data(binary=True):
     # plt.xlabel('Magnitude of config differences')
     # plt.ylabel('Counts')
     # if not binary:
-    reached_config_transitions = reached_config_transitions[:500]
+    reached_config_transitions = reached_config_transitions[:5000]
 
     if binary:
         _, inds = np.unique(reached_config_transitions[:, :2, :].astype(np.int), axis=0, return_index=True)
