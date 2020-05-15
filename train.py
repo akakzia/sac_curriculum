@@ -145,7 +145,7 @@ def launch(args):
             if rank == 0:
                 av_res = np.array(all_results).mean(axis=0)
                 global_sr = np.mean(av_res)
-                log_and_save(logdir, goal_sampler, epoch, episode_count, av_res, global_sr,time_dict)
+                log_and_save(logdir, goal_sampler, epoch, episode_count, av_res, global_sr, time_dict)
                 if epoch % args.save_freq == 0:
                     policy.save(model_path, epoch)
                     goal_sampler.save_bucket_contents(bucket_path, epoch)
