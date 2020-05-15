@@ -218,10 +218,10 @@ class GoalSampler:
             for k in self.buckets.keys():
                 for sf in np.flip(self.successes_and_failures, axis=0):
                     if self.use_pairs:
-                        end = sf[2:].tolist()
+                        goal_id = sf[2:].tolist()
                     else:
-                        end = sf[-1]
-                    if end in self.buckets[k]:
+                        goal_id = sf[-1]
+                    if goal_id in self.buckets[k]:
                         succ_fail_per_bucket[k].append(sf[:2])
                         if len(succ_fail_per_bucket[k]) == self.queue_length:
                             break
