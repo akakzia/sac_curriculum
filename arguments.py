@@ -20,7 +20,7 @@ def get_args():
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
     parser.add_argument('--automatic-buckets', type=bool, default=False, help='automatically generate buckets during training')
     parser.add_argument('--use-pairs', type=bool, default=False, help='use pairs of goals for buckets')
-    parser.add_argument('--num-buckets', type=int, default=7, help='number of buckets for automatic generation')
+    parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
 
     parser.add_argument('--evaluations', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
     parser.add_argument('--save-freq', type=int, default=10, help='the interval that save the trajectory')
@@ -52,7 +52,7 @@ def get_args():
     parser.add_argument('--curriculum-eps', type=float, default=0.3, help='Prob of sampling random goal in curriculum')
     parser.add_argument('--curriculum-nu', type=float, default=0.6, help='Prob of sampling random goal in curriculum')
     parser.add_argument('--multihead-buffer', type=bool, default=True, help='use a multihead replay buffer in curriculum')
-    parser.add_argument('--queue-length', type=int, default=1250, help='The window size when computing competence')
+    parser.add_argument('--queue-length', type=int, default=900, help='The window size when computing competence')
 
     # Deep sets arguments
     parser.add_argument('--architecture', type=str, default='deepsets', help='The architecture of the networks')
