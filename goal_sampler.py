@@ -140,6 +140,7 @@ class GoalSampler:
             # find out if new goals were discovered
             # label each episode with the oracle id of the last ag (to know where to store it in buffers)
             if not self.curriculum_learning or self.automatic_buckets:
+                new_goal_found = False
                 for e in all_episode_list:
                     # if we're looking for pairs
                     id_ag_0 = self.g_str_to_oracle_id[str(e['ag'][0])]
@@ -150,6 +151,7 @@ class GoalSampler:
                         if str(e['ag'][-1]) not in self.valid_goals_str:
                             stop = 1
                         else:
+                            new_goal_found = True
                             self.discovered_goals.append(e['ag'][-1].copy())
                             self.discovered_goals_str.append(str(e['ag'][-1]))
                             self.discovered_goals_oracle_id.append(id_ag_end)
@@ -176,8 +178,10 @@ class GoalSampler:
                     #             self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag])
 
                 # update buckets
-                if self.automatic_buckets:
+                if self.automatic_buckets and new_goal_found:
                     self.update_buckets()
+                    self.update_LP()
+
 
             if self.curriculum_learning:
                 # update list of successes and failures
@@ -251,6 +255,9 @@ class GoalSampler:
                     self.C[k] = np.mean(sf[n_points // 2:, 1])
                     self.LP[k] = np.abs(np.sum(sf[n_points // 2:, 1]) - np.sum(sf[: n_points // 2, 1])) / n_points
                     # self.LP[k] = np.abs(np.mean(sf[n_points // 2:, 1]) - np.mean(sf[: n_points // 2, 1]))
+                else:
+                    self.C[k] = 0
+                    self.LP[k] = 0
 
             # compute p
             if self.LP.sum() == 0:
