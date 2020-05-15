@@ -219,10 +219,10 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
 
     stop = 1
 
-    with open(SAVE_PATH + 'model_vae.pkl', 'wb') as f:
+    with open(SAVE_PATH + 'vae_model.pkl', 'wb') as f:
         torch.save(vae, f)
 
-    with open(SAVE_PATH + 'model_vae.pkl', 'rb') as f:
+    with open(SAVE_PATH + 'vae_model.pkl', 'rb') as f:
         vae = torch.load(f)
 
     results = np.zeros([len(set_inds), 2])
@@ -289,7 +289,7 @@ if __name__ == '__main__':
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--epochs", type=int, default=60)
     parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--learning_rate", type=float, default=0.001)
+    parser.add_argument("--learning_rate", type=float, default=0.0005)
     parser.add_argument("--encoder_layer_sizes", type=list, default=[784, 256])
     parser.add_argument("--decoder_layer_sizes", type=list, default=[256, 784])
     parser.add_argument("--latent_size", type=int, default=2)
