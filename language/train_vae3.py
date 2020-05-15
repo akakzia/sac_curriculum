@@ -9,37 +9,48 @@ from language.vae import ContextVAE
 from language.build_dataset import get_dataset
 import numpy as np
 import pickle
+import env
+import gym
 
-SAVE_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/language/data/'
-def get_test_sets(configs, sentences, set_inds, all_possible_configs, str_to_index):
+def get_test_sets(configs, sentences, set_inds, states, all_possible_configs, str_to_index):
 
     configs = configs[set_inds]
+    states = states[set_inds]
     sentences = np.array(sentences)[set_inds].tolist()
 
     config_init_and_sentence = []
     for i in range(configs.shape[0]):
         config_init_and_sentence.append(str(configs[i, 0]) + sentences[i])
     unique, idx, idx_in_array = np.unique(np.array(config_init_and_sentence), return_inverse=True, return_index=True)
+
     train_inits = []
     train_sents = []
     train_finals_dataset = []
     train_finals_possible = []
-    for i, i_array in enumerate(idx):
+    train_cont_inits = []
+    for i, i_array in enumerate(np.arange(len(sentences))):
         train_inits.append(configs[i_array, 0])
         train_sents.append(sentences[i_array])
-        idx_finals = np.argwhere(idx_in_array == i).flatten()
+        train_cont_inits.append(states[i_array, 0])
+        # find all final configs compatible with init and sentence (in dataset and in possible configs)
         init_sent_str = config_init_and_sentence[i_array]
+        # find all possible final configs (from dataset + synthetic)
         final_confs = all_possible_configs[str_to_index[init_sent_str], 1]
         final_str = [str(c) for c in final_confs]
-        for c in configs[idx_finals, 1]:
-            if str(c) not in final_str:
-                print(str(c))
-                stop = 1
+        # find all possible final configs (from dataset)
+        id_in_unique = unique.tolist().index(init_sent_str)
+        idx_finals = np.argwhere(idx_in_array == id_in_unique).flatten()
+        unique_final = np.unique(configs[idx_finals, 1], axis=0)
+        # check that the one found in dataset are indeed in all the final configs possible
+        # for c in unique_final:
+        #     if str(c) not in final_str:
+        #         print(str(c))
+        #         stop = 1
         train_finals_possible.append(final_str)
-        c_f_dataset = [str(c) for c in configs[idx_finals, 1]]
+        c_f_dataset = [str(c) for c in unique_final]
         train_finals_dataset.append(c_f_dataset)
 
-    return train_inits, train_sents, train_finals_dataset, train_finals_possible
+    return train_inits, train_sents, train_finals_dataset, train_finals_possible, train_cont_inits
 
 def main(args):
 
@@ -52,7 +63,7 @@ def main(args):
 
     ts = time.time()
 
-    configs, sentences, _, all_possible_configs, all_possible_sentences = get_dataset()
+    configs, sentences, states, all_possible_configs, all_possible_sentences = get_dataset(binary=False)
 
     set_sentences = set(sentences)
     split_instructions, max_seq_length, word_set = analyze_inst(set_sentences)
@@ -150,9 +161,16 @@ def main(args):
     for k in str_to_index.keys():
         str_to_index[k] = np.array(str_to_index[k])
 
-    train_test_data = get_test_sets(configs, sentences, set_inds[0], all_possible_configs, str_to_index)
+    train_test_data = get_test_sets(configs, sentences, set_inds[0], states, all_possible_configs, str_to_index)
+    test_data = [get_test_sets(configs, sentences, set_ids, states, all_possible_configs, str_to_index) for set_ids in set_inds[1:]]
     valid_inds = np.array(set_inds[0])
-    dataset = ConfigLanguageDataset(configs[valid_inds], np.array(sentences)[valid_inds].tolist(), None, inst_to_one_hot, binary=False)
+    dataset = ConfigLanguageDataset(configs[valid_inds],
+                                    np.array(sentences)[valid_inds].tolist(),
+                                    states[valid_inds],
+                                    inst_to_one_hot,
+                                    binary=False)
+    configs = None
+    sentences = None
     data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True)
 
     def loss_fn(recon_x, x, mean, log_var):
@@ -161,28 +179,35 @@ def main(args):
 
         return (BCE + KLD) / x.size(0)
 
-    return vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, set_inds, sentences, all_possible_configs, str_to_index
+    def loss_fn_cont(recon_x, x, mean, log_var):
+        MSE = torch.nn.functional.mse_loss(recon_x, x, reduction='sum')
+        KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
+
+        return (MSE + KLD) / x.size(0)
+    return vocab, device, data_loader, loss_fn_cont, inst_to_one_hot, \
+           train_test_data, test_data, set_inds, states
 
 
-def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, set_inds, sentences,
-          layers, embedding_size, latent_size, learning_rate,  all_possible_configs, str_to_index, args):
-    vae = ContextVAE(vocab.size, inner_sizes=layers, state_size=configs.shape[2], embedding_size=embedding_size, latent_size=latent_size).to(device)
+def train(vocab, states, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, test_data, set_inds,
+          layers, embedding_size, latent_size, learning_rate, args):
+
+    vae = ContextVAE(vocab.size, binary=False, inner_sizes=layers, state_size=states.shape[2], embedding_size=embedding_size, latent_size=latent_size).to(device)
 
     optimizer = torch.optim.Adam(vae.parameters(), lr=learning_rate)
 
     logs = defaultdict(list)
+    env = gym.make('FetchManipulate3ObjectsContinuous-v0')
+    get_config = env.unwrapped._get_configuration
 
     for epoch in range(args.epochs):
 
-        for iteration, (init_state, sentence, state) in enumerate(data_loader):
+        for iteration, (init_config, sentence, config, init_state, state) in enumerate(data_loader):
 
             init_state, state, sentence = init_state.to(device), state.to(device), sentence.to(device)
 
-
             recon_state, mean, log_var, z = vae(init_state, sentence, state)
 
-            target = state
-            loss = loss_fn(recon_state, target, mean, log_var)
+            loss = loss_fn(recon_state, state, mean, log_var)
 
             optimizer.zero_grad()
             loss.backward()
@@ -197,17 +222,17 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
 
             score = 0
             score_dataset = 0
-            for c_i, s, c_f_dataset, c_f_possible in zip(*train_test_data):
+            inds = np.arange(len(train_test_data[0]))
+            np.random.shuffle(inds)
+            inds = inds[:1500]
+            t_t_data = [np.array(train_test_data[i])[inds] for i in range(len(train_test_data))]
+            for c_i, s, c_f_dataset, c_f_possible, co_i in zip(*t_t_data):
                 one_hot = np.expand_dims(np.array(inst_to_one_hot[s.lower()]), 0)
-                c_i = np.expand_dims(c_i, 0)
-                c_i, s = torch.Tensor(c_i).to(device), torch.Tensor(one_hot).to(device)
-                x = (vae.inference(c_i, s, n=1).detach().numpy().flatten()>0.5).astype(np.int)
-                # x = vae.inference(c_i, s, n=1).detach().numpy().flatten() * 2 - 1
-                # x[np.argwhere(x > 0.33).flatten()] = 1
-                # x[np.argwhere(x < -0.33).flatten()] = -1
-                # x[np.argwhere(np.logical_and(x > -0.33, x < 0.33)).flatten()] = 0
-                # x = x + c_i.numpy().flatten()
-                # x = x.astype(np.int)
+                co_i = np.expand_dims(co_i, 0)
+                co_i, s = torch.Tensor(co_i).to(device), torch.Tensor(one_hot).to(device)
+                x = vae.inference(co_i, s, n=1).detach().numpy().flatten()#.astype(np.int)
+                x = get_config(x.reshape([3, 3])).astype(np.int)
+
                 if str(x) in c_f_possible:
                     score += 1
                 if str(x) in c_f_dataset:
@@ -215,13 +240,6 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
             print('Score train set: possible : {}, dataset : {}'.format(score / len(train_test_data[0]), score_dataset / len(train_test_data[0])))
 
     stop = 1
-
-    with open(SAVE_PATH + 'vae_model.pkl', 'wb') as f:
-        torch.save(vae, f)
-
-    # with open(SAVE_PATH + 'vae_model.pkl', 'rb') as f:
-    #     vae = torch.load(f)
-
 
     results = np.zeros([len(set_inds), 2])
     # test train statistics
@@ -238,18 +256,24 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
         variabilities = []
         nb_cf_possible = []
         nb_cf_dataset = []
-        data_set = get_test_sets(configs, sentences, set_inds[i_gen], all_possible_configs, str_to_index)
-        for c_i, s, c_f_dataset, c_f_possible in zip(*data_set):
+        if i_gen == 0:
+            data_set = train_test_data
+        else:
+            data_set = test_data[i_gen - 1]
+        for c_i, s, c_f_dataset, c_f_possible, co_i in zip(*data_set):
             one_hot = np.expand_dims(np.array(inst_to_one_hot[s.lower()]), 0)
-            c_i = np.expand_dims(c_i, 0)
+            co_i = np.expand_dims(co_i, 0)
             one_hot = np.repeat(one_hot, factor, axis=0)
-            c_i = np.repeat(c_i, factor, axis=0)
-            c_i, s = torch.Tensor(c_i).to(device), torch.Tensor(one_hot).to(device)
+            co_i = np.repeat(co_i, factor, axis=0)
+            co_i, s = torch.Tensor(co_i).to(device), torch.Tensor(one_hot).to(device)
 
-            x = (vae.inference(c_i, s, n=factor).detach().numpy() > 0.5).astype(np.int)
-
-            x_strs = [str(xi) for xi in x]
+            x = vae.inference(co_i, s, n=factor).detach().numpy()
+            x_strs = []
+            for xi in x:
+                xi = get_config(xi.reshape([3, 3])).astype(np.int)
+                x_strs.append(str(xi))
             variabilities.append(len(set(x_strs)))
+
             count_found = 0
             at_least_1_true = False
             false_preds.append(0)
@@ -265,7 +289,7 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
                     at_least_1_true = True
             scores.append(count_found / len(c_f_dataset))
             at_least_1.append(at_least_1_true)
-            false_preds[-1] /= factor#len(set(x_strs))
+            false_preds[-1] /= factor  # len(set(x_strs))
             nb_cf_possible.append(len(c_f_possible))
             nb_cf_dataset.append(len(c_f_dataset))
         print('\n{}: Average of percentage of final states found: {}'.format(set_name, np.mean(scores)))
@@ -283,10 +307,11 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
 
 
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--epochs", type=int, default=60)
-    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--learning_rate", type=float, default=0.001)
     parser.add_argument("--encoder_layer_sizes", type=list, default=[784, 256])
     parser.add_argument("--decoder_layer_sizes", type=list, default=[256, 784])
@@ -300,15 +325,14 @@ if __name__ == '__main__':
     # good ones
     embedding_size = 100
     layers = [128, 128]
-    learning_rate = 0.005
+    learning_rate = 0.001
     latent_size = 18
 
-    vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, set_inds, sentences, \
-    all_possible_configs, str_to_index = main(args)
+    vocab, device, data_loader, loss_fn_cont, inst_to_one_hot, \
+    train_test_data, test_data, set_inds, states = main(args)
 
-    train(vocab, configs, device, data_loader, loss_fn,
-          inst_to_one_hot, train_test_data, set_inds, sentences,
-          layers, embedding_size, latent_size, learning_rate,  all_possible_configs, str_to_index, args)
+    train(vocab, states, device, data_loader, loss_fn_cont, inst_to_one_hot, train_test_data, test_data, set_inds,
+          layers, embedding_size, latent_size, learning_rate, args)
 
     # import time
     # results = np.zeros([4, 3, 3, 3, 6, 2])
