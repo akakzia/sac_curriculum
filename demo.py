@@ -106,7 +106,7 @@ def rollout(vae, sentences, inst_to_one_hot, dict_goals, env, policy, env_params
         # sentence = input()
         expression = ['or', ['and', 'put red close_to green', 'put blue close_to green' ], ['and', 'put red above green', ['not', 'put blue close_to green']]]
         expression = ['and', 'put red above blue', 'put blue on_top_of green' ]
-
+        expression = ['and', 'put red above green', 'put red above blue']
         if True:#sentence.lower() in inst_to_one_hot.keys():
             # goal = sample_vae(vae, inst_to_one_hot, observation['achieved_goal'], sentence, n=1).flatten().astype(np.float32)
 
