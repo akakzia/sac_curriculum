@@ -255,6 +255,9 @@ class GoalSampler:
                     self.C[k] = np.mean(sf[n_points // 2:, 1])
                     self.LP[k] = np.abs(np.sum(sf[n_points // 2:, 1]) - np.sum(sf[: n_points // 2, 1])) / n_points
                     # self.LP[k] = np.abs(np.mean(sf[n_points // 2:, 1]) - np.mean(sf[: n_points // 2, 1]))
+                else:
+                    self.C[k] = 0
+                    self.LP[k] = 0
 
             # compute p
             if self.LP.sum() == 0:
