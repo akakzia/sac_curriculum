@@ -182,13 +182,46 @@ def main(args):
     def loss_fn(recon_x, x, mean, log_var):
         BCE = torch.nn.functional.binary_cross_entropy(recon_x, x, reduction='sum')
         KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
+        print(BCE, KLD)
         return (BCE + KLD) / x.size(0)
+
+    def loss_fn_soft_bce(recon_x, x, mean, log_var):
+        recon_x = torch.clamp(recon_x, min=1e-4, max=1 - 1e-4)
+        log_norm_const = cont_bern_log_norm(recon_x)
+        log_p_all = torch.sum(x * torch.log(recon_x) + (1 - x) * torch.log(1 - recon_x) + log_norm_const, dim=1)
+        log_p = torch.mean(log_p_all)
+
+        KL = -0.5 * torch.sum(mean.pow(2) + log_var.exp() - log_var - 1.0, dim=1)
+        KL = torch.mean(KL)
+
+        ELBO = log_p + KL
+        cost = - ELBO
+        # BCE = torch.nn.functional.binary_cross_entropy(recon_x, x, reduction='sum')
+        # KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp(), dim=1)
+        return cost
+
+    def atanh(x):
+        return 0.5 * torch.log(1 + x) - torch.log(1 - x)
+
+    def cont_bern_log_norm(lam, l_lim=0.49, u_lim=0.51):
+        # computes the log normalizing constant of a continuous Bernoulli distribution in a numerically stable way.
+        # returns the log normalizing constant for lam in (0, l_lim) U (u_lim, 1) and a Taylor approximation in
+        # [l_lim, u_lim].
+        # cut_y below might appear useless, but it is important to not evaluate log_norm near 0.5 as tf.where evaluates
+        # both options, regardless of the value of the condition.
+        cut_lam = torch.where((lam < l_lim) + (lam > u_lim), lam, l_lim * torch.ones(lam.shape))
+        log_norm = torch.log(torch.abs(2.0 * atanh(1 - 2.0 * cut_lam))) - torch.log(torch.abs(1 - 2.0 * cut_lam))
+        taylor = np.log(2.0) + 4.0 / 3.0 * torch.pow(lam - 0.5, 2) + 104.0 / 45.0 * torch.pow(lam - 0.5, 4)
+        return torch.where((lam < l_lim) + (lam > u_lim), log_norm, taylor)
+
+
 
     def loss_fn_cont(recon_x, x, mean, log_var):
         MSE = torch.nn.functional.mse_loss(recon_x, x, reduction='sum')
         KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
+        # print(MSE, KLD)
         return (MSE + KLD) / x.size(0)
-    return vocab, device, data_loader, loss_fn, inst_to_one_hot, \
+    return vocab, device, data_loader, loss_fn_cont, inst_to_one_hot, \
            train_test_data, test_data, set_inds, states, s_min, s_max
 
 
@@ -207,6 +240,8 @@ def train(vocab, states, device, data_loader, loss_fn, inst_to_one_hot, train_te
 
         for iteration, (init_config, sentence, config, init_state, state) in enumerate(data_loader):
 
+            # init_state = torch.FloatTensor(np.ones(init_state.shape) * 0.7)
+            # state = torch.FloatTensor(np.ones(init_state.shape) * 0.2)
             init_state, state, sentence = init_state.to(device), state.to(device), sentence.to(device)
 
             recon_state, mean, log_var, z = vae(init_state, sentence, state)
@@ -222,8 +257,6 @@ def train(vocab, states, device, data_loader, loss_fn, inst_to_one_hot, train_te
         if iteration % args.print_every == 0 or iteration == len(data_loader)-1:
             print("Epoch {:02d}/{:02d} Batch {:04d}/{:d}, Loss {:9.4f}".format(
                 epoch, args.epochs, iteration, len(data_loader)-1, loss.item()))
-
-
             score = 0
             score_dataset = 0
             inds = np.arange(len(train_test_data[0]))
@@ -237,9 +270,7 @@ def train(vocab, states, device, data_loader, loss_fn, inst_to_one_hot, train_te
                 x = vae.inference(co_i, s, n=1).detach().numpy().flatten()#.astype(np.int)
 
                 x = x * (s_max - s_min) + s_min
-
                 x = get_config(x.reshape([3, 3])).astype(np.int)
-
                 if str(x) in c_f_possible:
                     score += 1
                 if str(x) in c_f_dataset:
@@ -332,7 +363,7 @@ if __name__ == '__main__':
     # good ones
     embedding_size = 100
     layers = [128, 128]
-    learning_rate = 0.005
+    learning_rate = 0.0005
     latent_size = 18
 
     vocab, device, data_loader, loss_fn_cont, inst_to_one_hot, \
