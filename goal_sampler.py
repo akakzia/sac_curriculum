@@ -21,7 +21,10 @@ class GoalSampler:
         self.epsilon = args.curriculum_eps
 
         buckets = generate_goals(nb_objects=3, sym=1, asym=1)
-        if not self.automatic_buckets: self.num_buckets = len(buckets)
+        # If no curriculum is used then 0 buckets
+        # If no automatic buckets, then number of buckets = number of predefined buckets
+        if not self.curriculum_learning: self.num_buckets = 0
+        elif not self.automatic_buckets: self.num_buckets = len(buckets)
         all_goals = generate_all_goals_in_goal_space().astype(np.float32)
         valid_goals = []
         for k in buckets.keys():
@@ -137,26 +140,47 @@ class GoalSampler:
             # find out if new goals were discovered
             # label each episode with the oracle id of the last ag (to know where to store it in buffers)
             if not self.curriculum_learning or self.automatic_buckets:
+                new_goal_found = False
                 for e in all_episode_list:
                     # if we're looking for pairs
                     id_ag_0 = self.g_str_to_oracle_id[str(e['ag'][0])]
 
-                    for ag in e['ag']:
-                        # check if ag is a new goal
-                        if str(ag) not in self.discovered_goals_str:
-                            # it is, update info
-                            self.discovered_goals.append(ag.copy())
-                            self.discovered_goals_str.append(str(ag))
-                            self.discovered_goals_oracle_id.append(self.g_str_to_oracle_id[str(ag)])
+                    id_ag_end = self.g_str_to_oracle_id[str(e['ag'][-1])]
 
-                        # update discovered pairs
-                        id_ag = self.g_str_to_oracle_id[str(ag)]
-                        if id_ag_0 != id_ag and [id_ag_0, id_ag] not in self.discovered_pairs_oracle_ids:
-                            self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag])
+                    if str(e['ag'][-1]) not in self.discovered_goals_str:
+                        if str(e['ag'][-1]) not in self.valid_goals_str:
+                            stop = 1
+                        else:
+                            new_goal_found = True
+                            self.discovered_goals.append(e['ag'][-1].copy())
+                            self.discovered_goals_str.append(str(e['ag'][-1]))
+                            self.discovered_goals_oracle_id.append(id_ag_end)
+
+                    if self.use_pairs:
+                        if id_ag_0 != id_ag_end and [id_ag_0, id_ag_end] not in self.discovered_pairs_oracle_ids:
+                            self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag_end])
+
+                    # for ag in e['ag']:
+                    #     # check if ag is a new goal
+                    #     if str(ag) not in self.discovered_goals_str:
+                    #         if str(ag) not in self.valid_goals_str:
+                    #             stop = 1
+                    #         # it is, update info
+                    #         else:
+                    #             self.discovered_goals.append(ag.copy())
+                    #             self.discovered_goals_str.append(str(ag))
+                    #             self.discovered_goals_oracle_id.append(self.g_str_to_oracle_id[str(ag)])
+                    #
+                    #     # update discovered pairs
+                    #     if self.use_pairs:
+                    #         id_ag = self.g_str_to_oracle_id[str(ag)]
+                    #         if id_ag_0 != id_ag and [id_ag_0, id_ag] not in self.discovered_pairs_oracle_ids:
+                    #             self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag])
 
                 # update buckets
-                if self.automatic_buckets:
+                if self.automatic_buckets and new_goal_found:
                     self.update_buckets()
+                    self.update_LP()
 
             if self.curriculum_learning:
                 # update list of successes and failures
@@ -177,10 +201,8 @@ class GoalSampler:
 
         self.sync()
         for e in episodes:
-            # last_ag = e['ag'][-1]
-            # oracle_id = self.g_str_to_oracle_id[str(last_ag)]
-            g = e['g_binary']
-            oracle_id = self.g_str_to_oracle_id[str(g)]
+            last_ag = e['ag_binary'][-1]
+            oracle_id = self.g_str_to_oracle_id[str(last_ag)]
             e['last_ag_oracle_id'] = oracle_id
 
         return episodes
@@ -213,10 +235,10 @@ class GoalSampler:
             for k in self.buckets.keys():
                 for sf in np.flip(self.successes_and_failures, axis=0):
                     if self.use_pairs:
-                        end = sf[2:].tolist()
+                        goal_id = sf[2:].tolist()
                     else:
-                        end = sf[-1]
-                    if end in self.buckets[k]:
+                        goal_id = sf[-1]
+                    if goal_id in self.buckets[k]:
                         succ_fail_per_bucket[k].append(sf[:2])
                         if len(succ_fail_per_bucket[k]) == self.queue_length:
                             break
@@ -229,13 +251,16 @@ class GoalSampler:
                     self.C[k] = np.mean(sf[n_points // 2:, 1])
                     self.LP[k] = np.abs(np.sum(sf[n_points // 2:, 1]) - np.sum(sf[: n_points // 2, 1])) / n_points
                     # self.LP[k] = np.abs(np.mean(sf[n_points // 2:, 1]) - np.mean(sf[: n_points // 2, 1]))
+                else:
+                    self.C[k] = 0
+                    self.LP[k] = 0
 
             # compute p
             if self.LP.sum() == 0:
                 self.p = np.ones([self.num_buckets]) / self.num_buckets
             else:
-                # self.p = self.LP / self.LP.sum()
-                self.p = self.epsilon * (1 - self.C) / (1 - self.C).sum() + (1 - self.epsilon) * self.LP / self.LP.sum()
+                self.p = self.LP / self.LP.sum()
+                # self.p = self.epsilon * (1 - self.C) / (1 - self.C).sum() + (1 - self.epsilon) * self.LP / self.LP.sum()
 
             if self.p.sum() > 1:
                 self.p[np.argmax(self.p)] -= self.p.sum() - 1
@@ -246,9 +271,11 @@ class GoalSampler:
         # logger.info('R{}be, p{}'.format(self.rank, self.p))
         # logger.info('R{}be, dg{}'.format(self.rank, self.discovered_goals_str))
         # logger.info('R{}be, b{}, {}, {}, {}'.format(self.rank, self.buckets[0], self.buckets[1], self.buckets[2], self.buckets[3]))
-        self.p = MPI.COMM_WORLD.bcast(self.p, root=0)
-        self.LP = MPI.COMM_WORLD.bcast(self.LP, root=0)
-        self.C = MPI.COMM_WORLD.bcast(self.C, root=0)
+        if self.curriculum_learning:
+            self.p = MPI.COMM_WORLD.bcast(self.p, root=0)
+            self.LP = MPI.COMM_WORLD.bcast(self.LP, root=0)
+            self.C = MPI.COMM_WORLD.bcast(self.C, root=0)
+            self.buckets = MPI.COMM_WORLD.bcast(self.buckets, root=0)
         self.discovered_goals = MPI.COMM_WORLD.bcast(self.discovered_goals, root=0)
         self.discovered_goals_str = MPI.COMM_WORLD.bcast(self.discovered_goals_str, root=0)
         self.discovered_goals_oracle_id = MPI.COMM_WORLD.bcast(self.discovered_goals_oracle_id, root=0)
@@ -260,18 +287,18 @@ class GoalSampler:
     def build_batch(self, batch_size):
         # only consider buckets filled with discovered goals
         LP = self.LP
-        C = self.C
+        # C = self.C
         if LP.sum() == 0:
             p = np.ones([self.num_buckets]) / self.num_buckets
         else:
-            # p = self.epsilon * np.ones([self.num_buckets]) / self.num_buckets + (1 - self.epsilon) * LP / LP.sum()
-            p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
+            p = self.epsilon * np.ones([self.num_buckets]) / self.num_buckets + (1 - self.epsilon) * LP / LP.sum()
+            # p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
         if p.sum() > 1:
             p[np.argmax(self.p)] -= p.sum() - 1
         elif p.sum() < 1:
             p[-1] = 1 - p[:-1].sum()
-        # buckets = np.random.choice(range(self.num_buckets), p=p, size=batch_size)
-        buckets = np.random.choice(range(self.num_buckets), p=p) * np.ones(batch_size)
+        buckets = np.random.choice(range(self.num_buckets), p=p, size=batch_size)
+        # buckets = np.random.choice(range(self.num_buckets), p=p) * np.ones(batch_size)
         goal_ids = []
         for b in buckets:
             if len(self.buckets[b]) > 0:
@@ -336,5 +363,6 @@ class GoalSampler:
         data.to_csv(os.path.join(eval_path, 'evaluations.csv'))
 
     def save_bucket_contents(self, bucket_path, epoch):
-        with open(bucket_path + '/bucket_ep_{}.pkl'.format(epoch), 'wb') as f:
-            pickle.dump(self.buckets, f)
+        if self.curriculum_learning:
+            with open(bucket_path + '/bucket_ep_{}.pkl'.format(epoch), 'wb') as f:
+                pickle.dump(self.buckets, f)

@@ -1,9 +1,9 @@
 import numpy as np
+from mpi4py import MPI
 import env
 import gym
 import os, sys
 from arguments import get_args
-from mpi4py import MPI
 from rl_modules.sac_agent2 import SACAgent
 import random
 import torch
@@ -81,10 +81,18 @@ def launch(args):
 
             # collect episodes
             t_i = time.time()
+            # Add condition on number of discovered goals to make sure no stacks are discovered at early stage
+            # 12 is chosen heuristically, being greater than 8 (to allow discovering close configs first, and
+            # some random above configs
+            if epoch < 25 and args.automatic_buckets:
+                biased_init = False
+            else:
+                biased_init = args.biased_init
             episodes = rollout_worker.generate_rollout(inits=inits,
                                                        goals=goals,
                                                        self_eval=self_eval,
-                                                       true_eval=False)
+                                                       true_eval=False,
+                                                       biased_init=biased_init)
             time_dict['rollout'] += time.time() - t_i
 
             # update goal sampler (add new discovered goals to the list
@@ -106,16 +114,18 @@ def launch(args):
 
             # train policy
             t_i = time.time()
-            for _ in range(args.n_batches):
-                policy.train()
+            if episode_count > args.n_exploration_episodes:
+                for _ in range(args.n_batches):
+                    policy.train()
             time_dict['policy_train'] += time.time() - t_i
 
             episode_count += args.num_rollouts_per_mpi * args.num_workers
 
         t_i = time.time()
-        goal_sampler.update_LP()
+        if goal_sampler.curriculum_learning:
+            goal_sampler.update_LP()
         time_dict['lp_update'] += time.time() - t_i
-        time_dict['epoch'] += time.time() -t_init
+        time_dict['epoch'] += time.time() - t_init
         time_dict['total'] = time.time() - t_total_init
 
         if args.evaluations:
@@ -125,7 +135,8 @@ def launch(args):
             episodes = rollout_worker.generate_rollout(inits=[None] * len(eval_goals),
                                                        goals=eval_goals,
                                                        self_eval=True,
-                                                       true_eval=True)
+                                                       true_eval=True,
+                                                       biased_init=False)
 
             results = np.array([str(e['g_binary']) == str(e['ag_binary'][-1]) for e in episodes]).astype(np.int)
             all_results = MPI.COMM_WORLD.gather(results, root=0)
@@ -134,7 +145,7 @@ def launch(args):
             if rank == 0:
                 av_res = np.array(all_results).mean(axis=0)
                 global_sr = np.mean(av_res)
-                log_and_save(logdir, goal_sampler, epoch, episode_count, av_res, global_sr,time_dict)
+                log_and_save(logdir, goal_sampler, epoch, episode_count, av_res, global_sr, time_dict)
                 if epoch % args.save_freq == 0:
                     policy.save(model_path, epoch)
                     goal_sampler.save_bucket_contents(bucket_path, epoch)

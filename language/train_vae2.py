@@ -10,6 +10,7 @@ from language.build_dataset import get_dataset
 import numpy as np
 import pickle
 
+SAVE_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/language/data/'
 def get_test_sets(configs, sentences, set_inds, all_possible_configs, str_to_index):
 
     configs = configs[set_inds]
@@ -62,7 +63,7 @@ def main(args):
         inst_to_one_hot[' '.join(s_instr)] = one_hot_encoder.encode(s_instr)
 
 
-    with open('/home/flowers/Desktop/inst_to_one_hot.pkl', 'wb') as f:
+    with open(SAVE_PATH + 'inst_to_one_hot.pkl', 'wb') as f:
         pickle.dump(inst_to_one_hot, f)
 
     all_str = ['start' + str(c[0]) + s + str(c[1]) + 'end' for c, s in zip(configs, sentences)]
@@ -160,7 +161,6 @@ def main(args):
     def loss_fn(recon_x, x, mean, log_var):
         BCE = torch.nn.functional.binary_cross_entropy(recon_x, x, reduction='sum')
         KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
-
         return (BCE + KLD) / x.size(0)
 
     return vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, set_inds, sentences, all_possible_configs, str_to_index
@@ -217,6 +217,12 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
             print('Score train set: possible : {}, dataset : {}'.format(score / len(train_test_data[0]), score_dataset / len(train_test_data[0])))
 
     stop = 1
+
+    with open(SAVE_PATH + 'vae_model.pkl', 'wb') as f:
+        torch.save(vae, f)
+
+    with open(SAVE_PATH + 'vae_model.pkl', 'rb') as f:
+        vae = torch.load(f)
 
     results = np.zeros([len(set_inds), 2])
     # test train statistics
@@ -282,7 +288,7 @@ if __name__ == '__main__':
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--epochs", type=int, default=60)
     parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--learning_rate", type=float, default=0.001)
+    parser.add_argument("--learning_rate", type=float, default=0.0005)
     parser.add_argument("--encoder_layer_sizes", type=list, default=[784, 256])
     parser.add_argument("--decoder_layer_sizes", type=list, default=[256, 784])
     parser.add_argument("--latent_size", type=int, default=2)

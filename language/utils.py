@@ -20,19 +20,50 @@ class ConfigLanguageDataset(Dataset):
         if continuous is not None:
             self.binary = False
             self.continuous = continuous[inds].astype(np.float32)
+
+            unique, idx = np.unique(self.continuous, axis=0, return_inverse=True)
+            conts = []
+            configs = []
+            sentences = []
+            for id in range(unique.shape[0]):
+                ids_in_array = np.argwhere(idx == id).flatten()
+                conts.append(unique[id].copy())
+                configs.append(self.configs[ids_in_array[0]].copy())
+                sentences.append(self.sentences[ids_in_array].copy())
+            self.continuous = np.array(conts).copy()
+            self.configs = np.array(configs).copy()
+            self.sentences = sentences.copy()
         else:
             self.binary = True
-
+            unique, idx = np.unique(self.configs, axis=0, return_inverse=True)
+            configs = []
+            sentences = []
+            for id in range(unique.shape[0]):
+                ids_in_array = np.argwhere(idx == id).flatten()
+                configs.append(unique[id].copy())
+                sentences.append(self.sentences[ids_in_array].copy())
+            self.configs = np.array(configs).copy()
+            self.sentences = sentences.copy()
+        self.idx = []
+        for i in range(self.configs.shape[0]):
+            for j in range(self.sentences[i].shape[0]):
+                self.idx.append([i, j])
+        self.idx = np.array(self.idx)
+        configs = None
+        sentences = None
+        continuous = None
 
     def __getitem__(self, index):
         if self.binary:
-            return self.configs[index][0], self.sentences[index], self.configs[index][1]
+            idx = self.idx[index]
+            return self.configs[idx[0]][0], self.sentences[idx[0]][idx[1]], self.configs[idx[0]][1]
         else:
-            return self.configs[index][0], self.sentences[index], self.configs[index][1], self.continuous[index][0], self.continuous[index][1]
+            idx = self.idx[index]
+            return self.configs[idx[0]][0], self.sentences[idx[0]][idx[1]], self.configs[idx[0]][1], self.continuous[idx[0]][0], self.continuous[idx[0]][1]
 
 
     def __len__(self):
-        return self.configs.shape[0]
+        return self.idx.shape[0]
 
 def analyze_inst(instructions):
     '''
