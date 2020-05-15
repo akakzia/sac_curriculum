@@ -160,6 +160,10 @@ def main(args):
 
     def loss_fn(recon_x, x, mean, log_var):
         BCE = torch.nn.functional.binary_cross_entropy(recon_x, x, reduction='sum')
+        # recon_x = torch.clamp(recon_x, min=1e-4, max=1 - 1e-4)
+        #
+        # BCE = x * torch.log(recon_x) + (1 - x) * torch.log(1 - recon_x)
+        # BCE = - torch.sum(BCE)
         KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
         return (BCE + KLD) / x.size(0)
 
@@ -177,7 +181,8 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
     for epoch in range(args.epochs):
 
         for iteration, (init_state, sentence, state) in enumerate(data_loader):
-
+            # init_state = torch.FloatTensor(np.ones(init_state.shape) * 0.7)
+            # state = torch.FloatTensor(np.ones(init_state.shape) * 0.2)
             init_state, state, sentence = init_state.to(device), state.to(device), sentence.to(device)
 
 
