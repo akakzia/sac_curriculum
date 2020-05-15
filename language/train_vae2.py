@@ -10,7 +10,7 @@ from language.build_dataset import get_dataset
 import numpy as np
 import pickle
 
-SAVE_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/language/data/vae_model.pkl'
+SAVE_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/language/data/'
 def get_test_sets(configs, sentences, set_inds, all_possible_configs, str_to_index):
 
     configs = configs[set_inds]
@@ -62,6 +62,9 @@ def main(args):
     for s_instr in split_instructions:
         inst_to_one_hot[' '.join(s_instr)] = one_hot_encoder.encode(s_instr)
 
+
+    with open(SAVE_PATH + 'inst_to_one_hot.pkl', 'wb') as f:
+        pickle.dump(inst_to_one_hot, f)
 
     all_str = ['start' + str(c[0]) + s + str(c[1]) + 'end' for c, s in zip(configs, sentences)]
     all_possible_configs_str = [str(c[0]) + s for c, s in zip(all_possible_configs, all_possible_sentences)]
@@ -216,10 +219,10 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
 
     stop = 1
 
-    with open(SAVE_PATH, 'wb') as f:
+    with open(SAVE_PATH + 'model_vae.pkl', 'wb') as f:
         torch.save(vae, f)
 
-    with open(SAVE_PATH, 'rb') as f:
+    with open(SAVE_PATH + 'model_vae.pkl', 'rb') as f:
         vae = torch.load(f)
 
     results = np.zeros([len(set_inds), 2])
