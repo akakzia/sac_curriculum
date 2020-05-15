@@ -422,7 +422,21 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
 
             if base1 == base2:
                 valid = False
-
+            else:
+                # check in stack that bottom and top are not close
+                if stacked1 != stacked2:
+                    if stacked1 == base2:
+                        if set([stacked2, base1]) in actual_close_pairs:
+                            valid = False
+                    elif stacked2 == base1:
+                        if set([stacked1, base2]) in actual_close_pairs:
+                            valid = False
+                    else:
+                        raise ValueError
+                else:
+                    # check in pyramid that bases are close
+                    if set([base1, base2]) not in actual_close_pairs:
+                        valid = False
             # check that the stacked blocks are close
             if set([stacked1, base1]) not in actual_close_pairs:
                 valid = False
@@ -430,6 +444,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
             # check that the stacked blocks are close
             if set([stacked2, base2]) not in actual_close_pairs:
                 valid = False
+
 
         elif actual_stacks.shape[0] > 2:
             # cannot have more than two stacks
