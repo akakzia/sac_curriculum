@@ -93,3 +93,25 @@ class MultiBuffer:
         if inc == 1:
             idx = idx[0]
         return idx
+
+
+    def _get_storage_idx_fifo(self, inc=None):
+        inc = inc or 1  # size increment
+        assert inc <= self.size, "Batch committed to replay is too large!"
+        # fifo memory
+        if self.pointer + inc <= self.size:
+            idx = np.arange(self.pointer, self.pointer + inc)
+            self.pointer = self.pointer + inc
+        else:
+            overflow = inc - (self.size - self.pointer)
+            idx_a = np.arange(self.pointer, self.size)
+            idx_b = np.arange(0, overflow)
+            idx = np.concatenate([idx_a, idx_b])
+            self.pointer = overflow
+
+        # update replay size
+        self.current_size = min(self.size, self.current_size + inc)
+
+        if inc == 1:
+            idx = idx[0]
+        return idx
