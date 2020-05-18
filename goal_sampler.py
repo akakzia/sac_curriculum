@@ -115,10 +115,7 @@ class GoalSampler:
                         buckets = np.random.choice(range(self.num_buckets), size=n_goals)
                     # if no self evaluation
                     else:
-                        if np.random.random() < 0.1:
-                            buckets = np.random.choice(range(self.num_buckets), size=n_goals)
-                        else:
-                            buckets = np.random.choice(range(self.num_buckets), p=self.p, size=n_goals)
+                        buckets = np.random.choice(range(self.num_buckets), p=self.p, size=n_goals)
                     goals = []
                     for i_b, b in enumerate(buckets):
                         if self.use_pairs:
@@ -190,9 +187,9 @@ class GoalSampler:
                 # update list of successes and failures
                 for e in all_episode_list:
                     if e['self_eval']:
-                        oracle_id_init = self.g_str_to_oracle_id[str(e['ag'][0])]
-                        oracle_id = self.g_str_to_oracle_id[str(e['g'][0])]
-                        if str(e['g'][0]) == str(e['ag'][-1]):
+                        oracle_id_init = self.g_str_to_oracle_id[str(e['ag_binary'][0])]
+                        oracle_id = self.g_str_to_oracle_id[str(e['g_binary'])]
+                        if str(e['g_binary']) == str(e['ag_binary'][-1]):
                             success = 1
                         else:
                             success = 0
@@ -205,12 +202,9 @@ class GoalSampler:
 
         self.sync()
         for e in episodes:
-            last_ag = e['ag'][-1]
+            last_ag = e['ag_binary'][-1]
             oracle_id = self.g_str_to_oracle_id[str(last_ag)]
             e['last_ag_oracle_id'] = oracle_id
-            # g = e['g'][0]
-            # oracle_id = self.g_str_to_oracle_id[str(g)]
-            # e['g_oracle_id'] = oracle_id
 
         return episodes
 
@@ -242,10 +236,10 @@ class GoalSampler:
             for k in self.buckets.keys():
                 for sf in np.flip(self.successes_and_failures, axis=0):
                     if self.use_pairs:
-                        end = sf[2:].tolist()
+                        goal_id = sf[2:].tolist()
                     else:
-                        end = sf[-1]
-                    if end in self.buckets[k]:
+                        goal_id = sf[-1]
+                    if goal_id in self.buckets[k]:
                         succ_fail_per_bucket[k].append(sf[:2])
                         if len(succ_fail_per_bucket[k]) == self.queue_length:
                             break

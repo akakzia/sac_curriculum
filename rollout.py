@@ -16,9 +16,10 @@ class RolloutWorker:
             observation = self.env.unwrapped.reset_goal(np.array(goals[i]), init=inits[i], biased_init=biased_init)
             obs = observation['observation']
             ag = observation['achieved_goal']
+            ag_bin = observation['achieved_goal_binary']
             g = observation['desired_goal']
 
-            ep_obs, ep_ag, ep_g, ep_actions, ep_success = [], [], [], [], []
+            ep_obs, ep_ag, ep_ag_bin, ep_g, ep_actions, ep_success = [], [], [], [], [], []
 
             # start to collect samples
             for t in range(self.env_params['max_timesteps']):
@@ -34,6 +35,7 @@ class RolloutWorker:
                 observation_new, _, _, info = self.env.step(action)
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
+                ag_new_bin = observation['achieved_goal_binary']
 
                 # USE THIS FOR DEBUG
                 # if str(ag_new) not in self.goal_sampler.valid_goals_str:
@@ -43,20 +45,25 @@ class RolloutWorker:
                 # append rollouts
                 ep_obs.append(obs.copy())
                 ep_ag.append(ag.copy())
+                ep_ag_bin.append(ag_bin.copy())
                 ep_g.append(g.copy())
                 ep_actions.append(action.copy())
 
                 # re-assign the observation
                 obs = obs_new
                 ag = ag_new
+                ag_bin = ag_new_bin
 
             ep_obs.append(obs.copy())
             ep_ag.append(ag.copy())
+            ep_ag_bin.append(ag_bin.copy())
 
             episode = dict(obs=np.array(ep_obs),
                            act=np.array(ep_actions),
                            g=np.array(ep_g),
                            ag=np.array(ep_ag),
+                           g_binary=goals[i].copy(),
+                           ag_binary=np.array(ep_ag_bin),
                            self_eval=self_eval)
             episodes.append(episode)
 

@@ -23,6 +23,11 @@ register(id='FetchManipulate3Objects-v0',
          kwargs=kwargs,
          max_episode_steps=100,)
 
+register(id='FetchManipulate3ObjectsContinuous-v0',
+         entry_point='env.envs:FetchManipulateEnvContinuous',
+         kwargs=kwargs,
+         max_episode_steps=100,)
+
 register(id='FetchManipulate3AboveObjects-v0',
          entry_point='env.envs:FetchManipulateAboveEnv',
          kwargs=kwargs,

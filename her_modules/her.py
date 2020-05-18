@@ -10,7 +10,7 @@ class her_sampler:
             self.future_p = 1 - (1. / (1 + replay_k))
         else:
             self.future_p = 0
-        self.reward_func = reward_func
+        self.reward_func = compute_reward
 
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions):
         T = episode_batch['actions'].shape[1]
@@ -32,8 +32,14 @@ class her_sampler:
         future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
         transitions['g'][her_indexes] = future_ag
         # to get the params to re-compute reward
-        # transitions['r'] = np.expand_dims(self.reward_func(transitions['ag_next'], transitions['g'], None), 1)
-        transitions['r'] = np.expand_dims(np.array([self.reward_func(ag_next, g, None) for ag_next, g in zip(transitions['ag_next'],
-                                                                                        transitions['g'])]), 1)
+        transitions['r'] = np.expand_dims(self.reward_func(transitions['ag_next'], transitions['g'], None), 1)
+        # transitions['r'] = np.expand_dims(np.array([self.reward_func(ag_next, g, None) for ag_next, g in zip(transitions['ag_next'],
+        #                                                                                 transitions['g'])]), 1)
 
         return transitions
+
+def compute_reward(g, ag, info):
+    dists = []
+    for i in range(3):
+        dists.append(np.linalg.norm(g[:, i * 3: (i+1) * 3] - ag[:, i * 3: (i+1) * 3], axis=1))
+    return (np.array(dists).max(axis=0) < 0.05).astype(np.float32)

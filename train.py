@@ -139,14 +139,14 @@ def launch(args):
                                                        true_eval=True,
                                                        biased_init=False)
 
-            results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
+            results = np.array([str(e['g_binary']) == str(e['ag_binary'][-1]) for e in episodes]).astype(np.int)
             all_results = MPI.COMM_WORLD.gather(results, root=0)
             time_dict['eval'] += time.time() - t_i
 
             if rank == 0:
                 av_res = np.array(all_results).mean(axis=0)
                 global_sr = np.mean(av_res)
-                log_and_save(logdir, goal_sampler, epoch, episode_count, av_res, global_sr,time_dict)
+                log_and_save(logdir, goal_sampler, epoch, episode_count, av_res, global_sr, time_dict)
                 if epoch % args.save_freq == 0:
                     policy.save(model_path, epoch)
                     goal_sampler.save_bucket_contents(bucket_path, epoch)
