@@ -115,7 +115,10 @@ class GoalSampler:
                         buckets = np.random.choice(range(self.num_buckets), size=n_goals)
                     # if no self evaluation
                     else:
-                        buckets = np.random.choice(range(self.num_buckets), p=self.p, size=n_goals)
+                        if np.random.random() < 0.1:
+                            buckets = np.random.choice(range(self.num_buckets), size=n_goals)
+                        else:
+                            buckets = np.random.choice(range(self.num_buckets), p=self.p, size=n_goals)
                     goals = []
                     for i_b, b in enumerate(buckets):
                         if self.use_pairs:
