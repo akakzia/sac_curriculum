@@ -745,7 +745,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
 
 
         if not valid_config:
-            print('invalid config')
+            # print('invalid config')
             positions = []
             for _ in range(3):
                 ok = False

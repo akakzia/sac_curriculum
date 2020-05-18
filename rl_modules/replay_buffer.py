@@ -38,7 +38,7 @@ class MultiBuffer:
     def store_episode(self, episode_batch):
         batch_size = len(episode_batch)
         with self.lock:
-            idxs = self._get_storage_idx_fifo(inc=batch_size)
+            idxs = self._get_storage_idx(inc=batch_size)
 
             for i, e in enumerate(episode_batch):
                 # store the informations
