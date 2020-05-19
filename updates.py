@@ -50,35 +50,34 @@ def update_flat(actor_network, critic_network, critic_target_network, policy_opt
         # next_q_value = torch.clamp(next_q_value, -clip_return, 3)
 
     # the q loss
-    with torch.autograd.set_detect_anomaly(True):
-        qf1, qf2 = critic_network(inputs_norm_tensor, actions_tensor)
-        qf1_loss = F.mse_loss(qf1, next_q_value)
-        qf2_loss = F.mse_loss(qf2, next_q_value)
+    qf1, qf2 = critic_network(inputs_norm_tensor, actions_tensor)
+    qf1_loss = F.mse_loss(qf1, next_q_value)
+    qf2_loss = F.mse_loss(qf2, next_q_value)
 
-        # the actor loss
-        pi, log_pi, _ = actor_network.sample(inputs_norm_tensor)
-        qf1_pi, qf2_pi = critic_network(inputs_norm_tensor, pi)
-        min_qf_pi = torch.min(qf1_pi, qf2_pi)
-        policy_loss = ((alpha * log_pi) - min_qf_pi).mean()
+    # the actor loss
+    pi, log_pi, _ = actor_network.sample(inputs_norm_tensor)
+    qf1_pi, qf2_pi = critic_network(inputs_norm_tensor, pi)
+    min_qf_pi = torch.min(qf1_pi, qf2_pi)
+    policy_loss = ((alpha * log_pi) - min_qf_pi).mean()
 
-        # start to update the network
-        policy_optim.zero_grad()
-        policy_loss.backward()
-        sync_grads(actor_network)
-        policy_optim.step()
+    # start to update the network
+    policy_optim.zero_grad()
+    policy_loss.backward()
+    sync_grads(actor_network)
+    policy_optim.step()
 
-        # update the critic_network
-        critic_optim.zero_grad()
-        qf1_loss.backward()
-        sync_grads(critic_network)
-        critic_optim.step()
+    # update the critic_network
+    critic_optim.zero_grad()
+    qf1_loss.backward()
+    sync_grads(critic_network)
+    critic_optim.step()
 
-        critic_optim.zero_grad()
-        qf2_loss.backward()
-        sync_grads(critic_network)
-        critic_optim.step()
+    critic_optim.zero_grad()
+    qf2_loss.backward()
+    sync_grads(critic_network)
+    critic_optim.step()
 
-        alpha_loss, alpha_tlogs = update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
+    alpha_loss, alpha_tlogs = update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
 
     return qf1_loss.item(), qf2_loss.item(), policy_loss.item(), alpha_loss.item(), alpha_tlogs.item()
 
@@ -163,70 +162,72 @@ def update_disentangled(actor_network, critic_network, critic_target_network, co
 def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_entropy, alpha_optim, obs_norm, ag_norm, g_norm,
                     obs_next_norm, ag_next_norm, actions, rewards, args):
 
-    obs_norm_tensor = torch.tensor(obs_norm, dtype=torch.float32)
-    obs_next_norm_tensor = torch.tensor(obs_next_norm, dtype=torch.float32)
-    g_norm_tensor = torch.tensor(g_norm, dtype=torch.float32)
-    ag_norm_tensor = torch.tensor(ag_norm, dtype=torch.float32)
-    ag_next_norm_tensor = torch.tensor(ag_next_norm, dtype=torch.float32)
-    actions_tensor = torch.tensor(actions, dtype=torch.float32)
-    r_tensor = torch.tensor(rewards, dtype=torch.float32).reshape(rewards.shape[0], 1)
+    with torch.autograd.set_detect_anomaly(True):
 
-    if args.cuda:
-        obs_norm_tensor = obs_norm_tensor.cuda()
-        obs_next_norm_tensor = obs_next_norm_tensor.cuda()
-        g_norm_tensor = g_norm_tensor.cuda()
-        ag_norm_tensor = ag_norm_tensor.cuda()
-        ag_next_norm_tensor = ag_next_norm_tensor.cuda()
-        actions_tensor = actions_tensor.cuda()
-        r_tensor = r_tensor.cuda()
+        obs_norm_tensor = torch.tensor(obs_norm, dtype=torch.float32)
+        obs_next_norm_tensor = torch.tensor(obs_next_norm, dtype=torch.float32)
+        g_norm_tensor = torch.tensor(g_norm, dtype=torch.float32)
+        ag_norm_tensor = torch.tensor(ag_norm, dtype=torch.float32)
+        ag_next_norm_tensor = torch.tensor(ag_next_norm, dtype=torch.float32)
+        actions_tensor = torch.tensor(actions, dtype=torch.float32)
+        r_tensor = torch.tensor(rewards, dtype=torch.float32).reshape(rewards.shape[0], 1)
 
-    with torch.no_grad():
-        model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor)
-        actions_next, log_pi_next = model.pi_tensor, model.log_prob
-        qf1_next_target, qf2_next_target = model.target_q1_pi_tensor, model.target_q2_pi_tensor
-        min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * log_pi_next
-        next_q_value = r_tensor + args.gamma * min_qf_next_target
+        if args.cuda:
+            obs_norm_tensor = obs_norm_tensor.cuda()
+            obs_next_norm_tensor = obs_next_norm_tensor.cuda()
+            g_norm_tensor = g_norm_tensor.cuda()
+            ag_norm_tensor = ag_norm_tensor.cuda()
+            ag_next_norm_tensor = ag_next_norm_tensor.cuda()
+            actions_tensor = actions_tensor.cuda()
+            r_tensor = r_tensor.cuda()
 
-    # the q loss
-    qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, actions=actions_tensor)
-    qf1_loss = F.mse_loss(qf1, next_q_value)
-    qf2_loss = F.mse_loss(qf2, next_q_value)
+        with torch.no_grad():
+            model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor)
+            actions_next, log_pi_next = model.pi_tensor, model.log_prob
+            qf1_next_target, qf2_next_target = model.target_q1_pi_tensor, model.target_q2_pi_tensor
+            min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * log_pi_next
+            next_q_value = r_tensor + args.gamma * min_qf_next_target
 
-    # the actor loss
-    # forward pass already done above
-    # model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor)
-    pi, log_pi = model.pi_tensor, model.log_prob
-    qf1_pi, qf2_pi = model.q1_pi_tensor, model.q2_pi_tensor
-    min_qf_pi = torch.min(qf1_pi, qf2_pi)
-    policy_loss = ((alpha * log_pi) - min_qf_pi).mean()
+        # the q loss
+        qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, actions=actions_tensor)
+        qf1_loss = F.mse_loss(qf1, next_q_value)
+        qf2_loss = F.mse_loss(qf2, next_q_value)
 
-    # start to update the network
-    policy_optim.zero_grad()
-    policy_loss.backward(retain_graph=True)
-    if args.deepsets_attention:
-        sync_grads(model.attention_actor)
-    sync_grads(model.single_phi_actor)
-    sync_grads(model.rho_actor)
-    policy_optim.step()
+        # the actor loss
+        # forward pass already done above
+        # model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor)
+        pi, log_pi = model.pi_tensor, model.log_prob
+        qf1_pi, qf2_pi = model.q1_pi_tensor, model.q2_pi_tensor
+        min_qf_pi = torch.min(qf1_pi, qf2_pi)
+        policy_loss = ((alpha * log_pi) - min_qf_pi).mean()
 
-    # update the critic_network
-    # attention_optim.zero_grad()
-    critic_optim.zero_grad()
-    qf1_loss.backward(retain_graph=True)
-    if args.deepsets_attention:
-        sync_grads(model.attention_critic_1)
-    sync_grads(model.single_phi_critic)
-    sync_grads(model.rho_critic)
-    critic_optim.step()
+        # start to update the network
+        policy_optim.zero_grad()
+        policy_loss.backward(retain_graph=True)
+        if args.deepsets_attention:
+            sync_grads(model.attention_actor)
+        sync_grads(model.single_phi_actor)
+        sync_grads(model.rho_actor)
+        policy_optim.step()
 
-    critic_optim.zero_grad()
-    qf2_loss.backward()
-    if args.deepsets_attention:
-        sync_grads(model.attention_critic_2)
-    sync_grads(model.single_phi_critic)
-    sync_grads(model.rho_critic)
-    critic_optim.step()
+        # update the critic_network
+        # attention_optim.zero_grad()
+        critic_optim.zero_grad()
+        qf1_loss.backward(retain_graph=True)
+        if args.deepsets_attention:
+            sync_grads(model.attention_critic_1)
+        sync_grads(model.single_phi_critic)
+        sync_grads(model.rho_critic)
+        critic_optim.step()
 
-    alpha_loss, alpha_tlogs = update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
+        critic_optim.zero_grad()
+        qf2_loss.backward()
+        if args.deepsets_attention:
+            sync_grads(model.attention_critic_2)
+        sync_grads(model.single_phi_critic)
+        sync_grads(model.rho_critic)
+        critic_optim.step()
+
+        alpha_loss, alpha_tlogs = update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
 
     return qf1_loss.item(), qf2_loss.item(), policy_loss.item(), alpha_loss.item(), alpha_tlogs.item()
