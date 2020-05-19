@@ -50,34 +50,35 @@ def update_flat(actor_network, critic_network, critic_target_network, policy_opt
         # next_q_value = torch.clamp(next_q_value, -clip_return, 3)
 
     # the q loss
-    qf1, qf2 = critic_network(inputs_norm_tensor, actions_tensor)
-    qf1_loss = F.mse_loss(qf1, next_q_value)
-    qf2_loss = F.mse_loss(qf2, next_q_value)
+    with torch.autograd.set_detect_anomaly(True):
+        qf1, qf2 = critic_network(inputs_norm_tensor, actions_tensor)
+        qf1_loss = F.mse_loss(qf1, next_q_value)
+        qf2_loss = F.mse_loss(qf2, next_q_value)
 
-    # the actor loss
-    pi, log_pi, _ = actor_network.sample(inputs_norm_tensor)
-    qf1_pi, qf2_pi = critic_network(inputs_norm_tensor, pi)
-    min_qf_pi = torch.min(qf1_pi, qf2_pi)
-    policy_loss = ((alpha * log_pi) - min_qf_pi).mean()
+        # the actor loss
+        pi, log_pi, _ = actor_network.sample(inputs_norm_tensor)
+        qf1_pi, qf2_pi = critic_network(inputs_norm_tensor, pi)
+        min_qf_pi = torch.min(qf1_pi, qf2_pi)
+        policy_loss = ((alpha * log_pi) - min_qf_pi).mean()
 
-    # start to update the network
-    policy_optim.zero_grad()
-    policy_loss.backward()
-    sync_grads(actor_network)
-    policy_optim.step()
+        # start to update the network
+        policy_optim.zero_grad()
+        policy_loss.backward()
+        sync_grads(actor_network)
+        policy_optim.step()
 
-    # update the critic_network
-    critic_optim.zero_grad()
-    qf1_loss.backward()
-    sync_grads(critic_network)
-    critic_optim.step()
+        # update the critic_network
+        critic_optim.zero_grad()
+        qf1_loss.backward()
+        sync_grads(critic_network)
+        critic_optim.step()
 
-    critic_optim.zero_grad()
-    qf2_loss.backward()
-    sync_grads(critic_network)
-    critic_optim.step()
+        critic_optim.zero_grad()
+        qf2_loss.backward()
+        sync_grads(critic_network)
+        critic_optim.step()
 
-    alpha_loss, alpha_tlogs = update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
+        alpha_loss, alpha_tlogs = update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
 
     return qf1_loss.item(), qf2_loss.item(), policy_loss.item(), alpha_loss.item(), alpha_tlogs.item()
 
