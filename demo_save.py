@@ -181,21 +181,9 @@ if __name__ == '__main__':
     inits = [None] * len(eval_goals)
     all_results = []
 
-    with open(path + 'vae_model.pkl', 'rb') as f:
-        vae = torch.load(f)
-
-
-    with open(path + 'inst_to_one_hot.pkl', 'rb') as f:
-        inst_to_one_hot = pickle.load(f)
-
-    with open(path + 'sentences_list.pkl', 'rb') as f:
-        sentences = pickle.load(f)
-
-    all_goals = generate_all_goals_in_goal_space()
-    dict_goals = dict(zip([str(g) for g in all_goals], all_goals))
     dataset = []
     ids_objs = [np.array([10, 11, 12]), np.array([25, 26, 27]), np.array([40, 41, 42])]
-    for i in range(5000 // 35 + 1):
+    for i in range(1):#5000 // 35 + 1):
         print(len(dataset) / 5000)
         # uncomment here to run normal eval
         episodes = rollout_worker.generate_rollout(inits, eval_goals, self_eval=True, true_eval=True, animated=False)
@@ -207,9 +195,9 @@ if __name__ == '__main__':
             obj_pos_final = np.array([e['obs'][-1][ido] for ido in ids_objs]).flatten()
 
             dataset.append(np.array([e['ag'][0], e['ag'][-1], obj_pos_init, obj_pos_final]))
-
-    with open('/home/flowers/Desktop/dataset_config.pkl', 'wb') as f:
-        pickle.dump(dataset, f)
+        all_results.append(results)
+    # with open('/home/flowers/Desktop/dataset_config.pkl', 'wb') as f:
+    #     pickle.dump(dataset, f)
     results = np.array(all_results)
     print('Av Success Rate: {}'.format(results.mean()))
 
