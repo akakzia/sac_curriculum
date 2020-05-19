@@ -14,9 +14,9 @@ def get_args():
     # the environment setting
     parser.add_argument('--env-name', type=str, default='FetchManipulate3ObjectsContinuous-v0', help='the environment name')
     parser.add_argument('--agent', type=str, default='SAC', help='the agent name')
-    parser.add_argument('--n-epochs', type=int, default=10, help='the number of epochs to train the agent')
-    parser.add_argument('--n-cycles', type=int, default=5, help='the times to collect samples per epoch')
-    parser.add_argument('--n-batches', type=int, default=4, help='the times to update the network')
+    parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
+    parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
+    parser.add_argument('--n-batches', type=int, default=30, help='the times to update the network')
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
     parser.add_argument('--automatic-buckets', type=bool, default=False, help='automatically generate buckets during training')
     parser.add_argument('--use-pairs', type=bool, default=False, help='use pairs of goals for buckets')
