@@ -167,6 +167,7 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
         obs_norm_tensor = torch.tensor(obs_norm, dtype=torch.float32)
         obs_next_norm_tensor = torch.tensor(obs_next_norm, dtype=torch.float32)
         g_norm_tensor = torch.tensor(g_norm, dtype=torch.float32)
+        g_norm_tensor_next = torch.tensor(g_norm, dtype=torch.float32)
         ag_norm_tensor = torch.tensor(ag_norm, dtype=torch.float32)
         ag_next_norm_tensor = torch.tensor(ag_next_norm, dtype=torch.float32)
         actions_tensor = torch.tensor(actions, dtype=torch.float32)
@@ -176,13 +177,14 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
             obs_norm_tensor = obs_norm_tensor.cuda()
             obs_next_norm_tensor = obs_next_norm_tensor.cuda()
             g_norm_tensor = g_norm_tensor.cuda()
+            g_norm_tensor_next = g_norm_tensor_next.cuda()
             ag_norm_tensor = ag_norm_tensor.cuda()
             ag_next_norm_tensor = ag_next_norm_tensor.cuda()
             actions_tensor = actions_tensor.cuda()
             r_tensor = r_tensor.cuda()
 
         with torch.no_grad():
-            model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor)
+            model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor_next)
             actions_next, log_pi_next = model.pi_tensor, model.log_prob
             qf1_next_target, qf2_next_target = model.target_q1_pi_tensor, model.target_q2_pi_tensor
             min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * log_pi_next
@@ -199,7 +201,7 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
         pi, log_pi = model.pi_tensor, model.log_prob
         qf1_pi, qf2_pi = model.q1_pi_tensor, model.q2_pi_tensor
         min_qf_pi = torch.min(qf1_pi, qf2_pi)
-        policy_loss = ((alpha * log_pi) - min_qf_pi).mean()
+        policy_loss = torch.mean((alpha * log_pi) - min_qf_pi)
 
         # start to update the network
         policy_optim.zero_grad()
