@@ -38,7 +38,7 @@ class her_sampler:
 
         return transitions
 
-def compute_reward(g, ag, info):
+def compute_reward(ag, g, info):
     dists = []
     for i in range(3):
         dists.append(np.linalg.norm(g[:, i * 3: (i+1) * 3] - ag[:, i * 3: (i+1) * 3], axis=1))

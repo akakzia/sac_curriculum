@@ -3,7 +3,7 @@ import os
 import itertools
 
 from env import rotations, robot_env, utils
-
+from utils import generate_goals
 
 def objects_distance(x, y):
     """
@@ -73,6 +73,12 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         self.location_record_steps_recorded = 0
         self.location_record_max_steps = 2000
 
+        buckets = generate_goals(nb_objects=3, sym=1, asym=1)
+        valid_goals = []
+        for k in buckets.keys():
+            valid_goals += buckets[k]
+        self.valid_goals = np.array(valid_goals)
+        self.valid_str = [str(vg) for vg in self.valid_goals]
 
         # temporary values
         self.min_max_x = (1.19,1.49)
@@ -251,6 +257,13 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
     def _render_callback(self):
         # Visualize target.
         sites_offset = (self.sim.data.site_xpos - self.sim.model.site_pos).copy()
+        for obj in range(self.num_blocks):
+            site_id = self.sim.model.site_name2id('target{}'.format(obj))
+            pos = self.target_goal[obj * 3: (obj + 1) * 3].copy() - sites_offset[0]
+            pos[2] += 0.05
+            self.sim.model.site_pos[site_id] = pos.copy()
+        self.sim.forward()
+
         # print("sites offset: {}".format(sites_offset[0]))
         #for i in range(self.num_blocks):
 
@@ -258,31 +271,6 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
             #self.sim.model.site_pos[site_id] = self.goal[i*3:(i+1)*3] - sites_offset[i]
 
         self.sim.forward()
-
-    def _grasp(self, obs, target_idx):
-        success = False
-        itr = 0
-        observation = obs['observation']
-        # Make sure to get high enough not to hit objects
-        # for _ in range(10):
-        #     next_obs, r, d, info = self.step([0, 0, 1, 1])
-        #     observation = next_obs['observation']
-        # Reach object and grasp it
-        while not success and itr < 30:
-            action = np.concatenate((7 * (-observation[:3] + observation[10 + 15 * target_idx:13 + 15 * target_idx]), np.ones(1)))
-            if np.linalg.norm(-observation[:3] + observation[10 + 15 * target_idx:13 + 15 * target_idx]) < 0.005:
-                for _ in range(15):
-                    action = [0., 0., 0.4, -1]
-                    next_obs, r, d, info = self.step(action)
-                    observation = next_obs['observation']
-                    itr += 1
-                success = True
-            else:
-                next_obs, r, d, info = self.step(action)
-                observation = next_obs['observation']
-                itr += 1
-        obs['observation'] = observation
-        return obs
 
     def reset(self):
         # Attempt to reset the simulator. Since we randomize initial conditions, it
@@ -388,75 +376,10 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         self.initial_gripper_xpos = self.sim.data.get_site_xpos('robot0:grip').copy()
         self.height_offset = self.sim.data.get_site_xpos('object0')[2]
 
-    def is_valid(self, binary_goal):
-        possible_stacks = np.array([[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]])
-        actual_stacks = possible_stacks[np.where(np.array(binary_goal[-6:]) == 1.)]
-        possible_pairs = np.array([[0, 1], [0, 2], [1, 2]])
-        actual_close_pairs = possible_pairs[np.where(np.array(binary_goal[:3]) == 1.)]
-        actual_close_pairs = [set(cp) for cp in actual_close_pairs]
-        valid = True
-
-        # check stacks are asymmetric
-        for i, j in zip([3, 5, 7], [4, 6, 8]):
-            if binary_goal[i] == 1 and binary_goal[j] == 1:
-                valid = False
-                break
-
-        if actual_stacks.shape[0] == 1:
-            remain = list(set([0, 1, 2]) - set(actual_stacks[0]))[0]
-            stacked = actual_stacks[0][0]
-            base = actual_stacks[0][1]
-
-            # check that the stacked blocks are close
-            if set([stacked, base]) not in actual_close_pairs:
-                valid = False
-
-            # check that if there is a stack, the third cube is either close to the base or close to both
-            if set([stacked, remain]) in actual_close_pairs and set([base, remain]) not in actual_close_pairs:
-                valid = False
-        elif actual_stacks.shape[0] == 2:
-            stacked1 = actual_stacks[0][0]
-            base1 = actual_stacks[0][1]
-            stacked2 = actual_stacks[1][0]
-            base2 = actual_stacks[1][1]
-
-            if base1 == base2:
-                valid = False
-            else:
-                # check in stack that bottom and top are not close
-                if stacked1 != stacked2:
-                    if stacked1 == base2:
-                        if set([stacked2, base1]) in actual_close_pairs:
-                            valid = False
-                    elif stacked2 == base1:
-                        if set([stacked1, base2]) in actual_close_pairs:
-                            valid = False
-                    else:
-                        raise ValueError
-                else:
-                    # check in pyramid that bases are close
-                    if set([base1, base2]) not in actual_close_pairs:
-                        valid = False
-            # check that the stacked blocks are close
-            if set([stacked1, base1]) not in actual_close_pairs:
-                valid = False
-
-            # check that the stacked blocks are close
-            if set([stacked2, base2]) not in actual_close_pairs:
-                valid = False
-
-
-        elif actual_stacks.shape[0] > 2:
-            # cannot have more than two stacks
-            valid = False
-
-        return  valid
 
     def sample_continuous_goal_from_binary_goal(self, binary_goal):
 
-        valid_config = self.is_valid(binary_goal)
-
-
+        valid_config = str(binary_goal) in self.valid_str
 
         if valid_config:
             possible_stacks = np.array([[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]])
@@ -742,7 +665,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                             if counter_over > 100:
                                 valid_config = False
                                 break
-
+            assert str(self._get_configuration(positions.copy())) == str(binary_goal)
 
         if not valid_config:
             print('invalid config')
@@ -776,7 +699,6 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
 
         self.sim.set_state(self.initial_state)
 
-        # If evaluation mode, generate blocks on the table with no stacks
 
         p_coplanar = 0.7
         if biased_init and np.random.uniform() > p_coplanar:
@@ -788,24 +710,30 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                 stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
                 z_stack = [0.475, 0.425]
 
-            temp_rand = self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
+            pos_stack = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
             for i, obj_name in enumerate(self.object_names):
                 object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
                 assert object_qpos.shape == (7,)
                 if i in stack:
                     object_qpos[2] = z_stack[stack.index(i)]
-                    object_xpos = self.initial_gripper_xpos[:2] + temp_rand
-                    object_qpos[:2] = object_xpos
+                    object_qpos[:2] = pos_stack.copy()
 
                 else:
+                    # place third object at least 0.05 away from other cubes
                     object_qpos[2] = 0.425
-                    object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
-                                                                                         self.obj_range,
-                                                                                         size=2)
-                    object_qpos[:2] = object_xpos
+                    counter = 0
+                    while counter < 100:
+                        counter += 1
+                        object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
+                                                                                             self.obj_range,
+                                                                                             size=2)
+                        if np.linalg.norm(object_xpos - pos_stack) > (np.sqrt(2) * 0.05):
+                            break
+                    object_qpos[:2] = object_xpos.copy()
                 self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
 
         else:
+            stack = None
             # place cubes away from each other
             obj_placed = 0
             positions = []
@@ -824,7 +752,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                     object_qpos[:2] = object_xpos
                     to_place = True
                     for p in positions:
-                        if np.linalg.norm(object_xpos - p) < 0.05:
+                        if np.linalg.norm(object_xpos - p) < (np.sqrt(2) * 0.05):
                             to_place = False
                             break
                     if to_place:
@@ -835,11 +763,23 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                         # safety net to be sure we find positions
                         over = False
                         break
+        if biased_init and np.random.rand() < 0.5:
+            ids = list(range(self.num_blocks))
+            # do not grasp base of stack
+            if stack:
+                for s in stack[1:]:
+                    ids.remove(s)
+            idx_grasp = np.random.choice(ids)
+            self._grasp(idx_grasp)
 
         self.sim.forward()
         obs = self._get_obs()
-
-        if biased_init and np.random.uniform() < 0.5:
-            idx_grasp = np.random.choice([i for i in range(self.num_blocks)])
-            obs = self._grasp(obs, idx_grasp)
         return obs
+
+    def _grasp(self, i):
+        obj = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[i]))
+        obj[:3] = self.sim.data.get_site_xpos('robot0:grip')
+        self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), obj.copy())
+        self.sim.data.set_joint_qpos('robot0:r_gripper_finger_joint', 0.0240)
+        self.sim.data.set_joint_qpos('robot0:l_gripper_finger_joint', 0.0240)
+
