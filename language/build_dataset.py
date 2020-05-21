@@ -2,21 +2,7 @@ from language.get_data import get_data
 import numpy as np
 import env
 import gym
-
-def generate_all_goals_in_goal_space():
-    goals = []
-    for a in [0, 1]:
-        for b in [0, 1]:
-            for c in [0, 1]:
-                for d in [0, 1]:
-                    for e in [0, 1]:
-                        for f in [0, 1]:
-                            for g in [0, 1]:
-                                for h in [0, 1]:
-                                    for i in [0, 1]:
-                                        goals.append([a, b, c, d, e, f, g, h, i])
-
-    return np.array(goals)
+from utils import generate_goals, generate_all_goals_in_goal_space
 
 def get_dataset(binary=True):
     unique_reached_config_transitions, reached_config_transitions, predicates, \
@@ -24,11 +10,11 @@ def get_dataset(binary=True):
     env = gym.make('FetchManipulate3ObjectsContinuous-v0')
 
     # get synthetic valid goals
-    all_goals = generate_all_goals_in_goal_space()
     all_valid_goals = []
-    for g in all_goals:
-        if env.unwrapped.is_valid(g):
-            all_valid_goals.append(g)
+    buckets = generate_goals(nb_objects=3, sym=1, asym=1)
+    for b in buckets.values():
+        for g in b:
+            all_valid_goals.append(np.array(g))
     all_valid_str = [str(vg) for vg in all_valid_goals]
 
     # add to valid goals all goals that are reached in the dataset
