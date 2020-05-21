@@ -144,7 +144,6 @@ class GoalSampler:
                 for e in all_episode_list:
                     # if we're looking for pairs
                     id_ag_0 = self.g_str_to_oracle_id[str(e['ag'][0])]
-
                     id_ag_end = self.g_str_to_oracle_id[str(e['ag'][-1])]
 
                     if str(e['ag'][-1]) not in self.discovered_goals_str:
@@ -160,22 +159,6 @@ class GoalSampler:
                         if id_ag_0 != id_ag_end and [id_ag_0, id_ag_end] not in self.discovered_pairs_oracle_ids:
                             self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag_end])
 
-                    # for ag in e['ag']:
-                    #     # check if ag is a new goal
-                    #     if str(ag) not in self.discovered_goals_str:
-                    #         if str(ag) not in self.valid_goals_str:
-                    #             stop = 1
-                    #         # it is, update info
-                    #         else:
-                    #             self.discovered_goals.append(ag.copy())
-                    #             self.discovered_goals_str.append(str(ag))
-                    #             self.discovered_goals_oracle_id.append(self.g_str_to_oracle_id[str(ag)])
-                    #
-                    #     # update discovered pairs
-                    #     if self.use_pairs:
-                    #         id_ag = self.g_str_to_oracle_id[str(ag)]
-                    #         if id_ag_0 != id_ag and [id_ag_0, id_ag] not in self.discovered_pairs_oracle_ids:
-                    #             self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag])
 
                 # update buckets
                 if self.automatic_buckets and new_goal_found:
@@ -286,28 +269,30 @@ class GoalSampler:
 
     def build_batch(self, batch_size):
         # only consider buckets filled with discovered goals
-        LP = self.LP
-        # C = self.C
-        if LP.sum() == 0:
-            p = np.ones([self.num_buckets]) / self.num_buckets
-        else:
-            p = self.epsilon * np.ones([self.num_buckets]) / self.num_buckets + (1 - self.epsilon) * LP / LP.sum()
-            # p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
-        if p.sum() > 1:
-            p[np.argmax(self.p)] -= p.sum() - 1
-        elif p.sum() < 1:
-            p[-1] = 1 - p[:-1].sum()
-        buckets = np.random.choice(range(self.num_buckets), p=p, size=batch_size)
-        # buckets = np.random.choice(range(self.num_buckets), p=p) * np.ones(batch_size)
-        goal_ids = []
-        for b in buckets:
-            if len(self.buckets[b]) > 0:
-                if self.use_pairs:
-                    goal_ids.append(np.random.choice(np.array(self.buckets[b])[:, 1]))
-                else:
-                    goal_ids.append(np.random.choice(self.buckets[b]))
+        if self.curriculum_learning:
+            LP = self.LP
+            # C = self.C
+            if LP.sum() == 0:
+                p = np.ones([self.num_buckets]) / self.num_buckets
             else:
-                goal_ids.append(3000) # this will lead the buffer to sample a random episode
+                p = self.epsilon * np.ones([self.num_buckets]) / self.num_buckets + (1 - self.epsilon) * LP / LP.sum()
+                # p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
+            if p.sum() > 1:
+                p[np.argmax(self.p)] -= p.sum() - 1
+            elif p.sum() < 1:
+                p[-1] = 1 - p[:-1].sum()
+            buckets = np.random.choice(range(self.num_buckets), p=p, size=batch_size)
+            goal_ids = []
+            for b in buckets:
+                if len(self.buckets[b]) > 0:
+                    if self.use_pairs:
+                        goal_ids.append(np.random.choice(np.array(self.buckets[b])[:, 1]))
+                    else:
+                        goal_ids.append(np.random.choice(self.buckets[b]))
+                else:
+                    goal_ids.append(3000) # this will lead the buffer to sample a random episode
+        else:
+            goal_ids = np.random.choice(self.discovered_goals_oracle_id, size=batch_size)
         assert len(goal_ids) == batch_size
         return goal_ids
 
