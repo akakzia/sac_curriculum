@@ -665,7 +665,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                             if counter_over > 100:
                                 valid_config = False
                                 break
-            assert str(self._get_configuration(positions.copy())) == str(binary_goal)
+            # assert str(self._get_configuration(positions.copy())) == str(binary_goal)
 
         if not valid_config:
             print('invalid config')
