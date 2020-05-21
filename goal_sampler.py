@@ -287,12 +287,12 @@ class GoalSampler:
     def build_batch(self, batch_size):
         # only consider buckets filled with discovered goals
         LP = self.LP
-        C = self.C
+        # C = self.C
         if LP.sum() == 0:
             p = np.ones([self.num_buckets]) / self.num_buckets
         else:
-            # p = self.epsilon * np.ones([self.num_buckets]) / self.num_buckets + (1 - self.epsilon) * LP / LP.sum()
-            p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
+            p = self.epsilon * np.ones([self.num_buckets]) / self.num_buckets + (1 - self.epsilon) * LP / LP.sum()
+            # p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
         if p.sum() > 1:
             p[np.argmax(self.p)] -= p.sum() - 1
         elif p.sum() < 1:

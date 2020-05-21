@@ -20,7 +20,7 @@ def get_args():
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
     parser.add_argument('--automatic-buckets', type=bool, default=False, help='automatically generate buckets during training')
     parser.add_argument('--use-pairs', type=bool, default=False, help='use pairs of goals for buckets')
-    parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
+    parser.add_argument('--num-buckets', type=int, default=7, help='number of buckets for automatic generation')
     parser.add_argument('--n-exploration-episodes', type=int, default=0, help='episodes to fill buffer')
 
     parser.add_argument('--evaluations', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
