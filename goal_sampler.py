@@ -120,31 +120,31 @@ class GoalSampler:
                         # goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
                         # goals = np.array(self.discovered_goals)[goal_ids]
                         buckets = np.random.choice(range(self.num_buckets), size=n_goals)
-                        # goals = []
-                        # for i_b, b in enumerate(buckets):
-                        #     if self.use_pairs:
-                        #         ind = np.random.choice(range(len(self.buckets[b])))
-                        #         bucket = self.buckets[b][ind]
-                        #         inits[i_b] = self.all_goals[bucket[0]]
-                        #         goals.append(self.all_goals[bucket[1]])
-                        #     else:
-                        #         goals.append(self.all_goals[np.random.choice(self.buckets[b])])
-                        # goals = np.array(goals)
+                        goals = []
+                        for i_b, b in enumerate(buckets):
+                            if self.use_pairs:
+                                ind = np.random.choice(range(len(self.buckets[b])))
+                                bucket = self.buckets[b][ind]
+                                inits[i_b] = self.all_goals[bucket[0]]
+                                goals.append(self.all_goals[bucket[1]])
+                            else:
+                                goals.append(self.all_goals[np.random.choice(self.buckets[b])])
+                        goals = np.array(goals)
                     # if no self evaluation
                     else:
-                        # g_ids = np.random.choice(range(len(self.discovered_goals_oracle_id)), p=self.proba_goal_select, size=n_goals)
-                        # goals = np.array([self.discovered_goals[g_id] for g_id in g_ids])
-                        buckets = np.random.choice(range(self.num_buckets), p=self.p, size=n_goals)
-                    goals = []
-                    for i_b, b in enumerate(buckets):
-                        if self.use_pairs:
-                            ind = np.random.choice(range(len(self.buckets[b])))
-                            bucket = self.buckets[b][ind]
-                            inits[i_b] = self.all_goals[bucket[0]]
-                            goals.append(self.all_goals[bucket[1]])
-                        else:
-                            goals.append(self.all_goals[np.random.choice(self.buckets[b])])
-                    goals = np.array(goals)
+                        g_ids = np.random.choice(range(len(self.discovered_goals_oracle_id)), p=self.proba_goal_select, size=n_goals)
+                        goals = np.array([self.discovered_goals[g_id] for g_id in g_ids])
+                    #     buckets = np.random.choice(range(self.num_buckets), p=self.p, size=n_goals)
+                    # goals = []
+                    # for i_b, b in enumerate(buckets):
+                    #     if self.use_pairs:
+                    #         ind = np.random.choice(range(len(self.buckets[b])))
+                    #         bucket = self.buckets[b][ind]
+                    #         inits[i_b] = self.all_goals[bucket[0]]
+                    #         goals.append(self.all_goals[bucket[1]])
+                    #     else:
+                    #         goals.append(self.all_goals[np.random.choice(self.buckets[b])])
+                    # goals = np.array(goals)
         return inits, goals, self_eval
 
 
@@ -208,7 +208,7 @@ class GoalSampler:
                         else:
                             if oracle_id in self.discovered_goals_oracle_id:
                                 self.successes_and_failures.append([t, success, oracle_id])
-                # self.update_stats_goal_to_goal(all_episode_list)
+                self.update_stats_goal_to_goal(all_episode_list)
 
         self.sync()
         for e in episodes:
