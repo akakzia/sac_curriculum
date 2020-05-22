@@ -231,7 +231,7 @@ class GoalSampler:
             # compute C, LP per bucket
             for k in self.buckets.keys():
                 n_points = len(succ_fail_per_bucket[k])
-                if n_points > 100:
+                if n_points > 4:
                     sf = np.array(succ_fail_per_bucket[k])
                     self.C[k] = np.mean(sf[n_points // 2:, 1])
                     self.LP[k] = np.abs(np.sum(sf[n_points // 2:, 1]) - np.sum(sf[: n_points // 2, 1])) / n_points
@@ -244,9 +244,8 @@ class GoalSampler:
             if self.LP.sum() == 0:
                 self.p = np.ones([self.num_buckets]) / self.num_buckets
             else:
-                self.p = self.LP / self.LP.sum()
-                # self.p = (1 - self.C) * self.LP / np.sum((1 - self.C) * self.LP)
-                # self.p = self.epsilon * (1 - self.C) / (1 - self.C).sum() + (1 - self.epsilon) * self.LP / self.LP.sum()
+                # self.p = self.LP / self.LP.sum()
+                self.p = self.epsilon * (1 - self.C) / (1 - self.C).sum() + (1 - self.epsilon) * self.LP / self.LP.sum()
 
             if self.p.sum() > 1:
                 self.p[np.argmax(self.p)] -= self.p.sum() - 1
@@ -277,9 +276,9 @@ class GoalSampler:
             if LP.sum() == 0:
                 p = np.ones([self.num_buckets]) / self.num_buckets
             else:
-                p = self.epsilon * np.ones([self.num_buckets]) / self.num_buckets + (1 - self.epsilon) * LP / LP.sum()
+                # p = self.epsilon * np.ones([self.num_buckets]) / self.num_buckets + (1 - self.epsilon) * LP / LP.sum()
                 # p = (1 - C) * LP / np.sum((1 - C) * LP)
-                # p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
+                p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
             if p.sum() > 1:
                 p[np.argmax(self.p)] -= p.sum() - 1
             elif p.sum() < 1:
