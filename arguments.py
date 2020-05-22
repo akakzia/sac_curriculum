@@ -21,7 +21,8 @@ def get_args():
     parser.add_argument('--automatic-buckets', type=bool, default=False, help='automatically generate buckets during training')
     parser.add_argument('--use-pairs', type=bool, default=False, help='use pairs of goals for buckets')
     parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
-    parser.add_argument('--symmetry-trick', type=bool, default=False, help='experimental stuff from Cédric')
+    parser.add_argument('--symmetry-trick', type=bool, default=True, help='experimental stuff from Cédric')
+    parser.add_argument('--curriculum-learning', type=bool, default=True, help='Use LP-based curriculum learning')
 
     parser.add_argument('--evaluations', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
     parser.add_argument('--save-freq', type=int, default=10, help='the interval that save the trajectory')
@@ -49,7 +50,6 @@ def get_args():
     parser.add_argument('--polyak', type=float, default=0.95, help='the average coefficient')
 
     # Curriculum learning arguments
-    parser.add_argument('--curriculum-learning', type=bool, default=True, help='Use LP-based curriculum learning')
     parser.add_argument('--curriculum-eps', type=float, default=0.3, help='Prob of sampling random goal in curriculum')
     parser.add_argument('--curriculum-nu', type=float, default=0.6, help='Prob of sampling random goal in curriculum')
     parser.add_argument('--multihead-buffer', type=bool, default=True, help='use a multihead replay buffer in curriculum')
