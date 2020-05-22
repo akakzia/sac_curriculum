@@ -115,7 +115,7 @@ def launch(args):
 
             # train policy
             t_i = time.time()
-            if episode_count > args.n_exploration_episodes:
+            if episode_count > 0:
                 for _ in range(args.n_batches):
                     policy.train()
             time_dict['policy_train'] += time.time() - t_i
