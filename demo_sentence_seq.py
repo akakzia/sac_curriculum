@@ -148,7 +148,7 @@ def rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, env
     return counter
 
 if __name__ == '__main__':
-    num_eval = 10
+    num_eval = 20
     path = '/home/flowers/Downloads/test/'
     model_path = path + 'model_600.pt'
 
@@ -187,8 +187,7 @@ if __name__ == '__main__':
     inits = [None] * len(eval_goals)
     all_results = []
 
-    with open(path + 'vae_model.pkl', 'rb') as f:
-        vae = torch.load(f)
+
 
 
     with open(path + 'inst_to_one_hot.pkl', 'rb') as f:
@@ -200,16 +199,21 @@ if __name__ == '__main__':
     sentence_generator = get_corresponding_sentences
     all_goals = generate_all_goals_in_goal_space()
     dict_goals = dict(zip([str(g) for g in all_goals], all_goals))
-    scores = []
-    for i in range(num_eval):
-        print(i)
-        score = rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, env, policy, args.env_params, inits, eval_goals, self_eval=True, true_eval=True,
-                           animated=False)
-        scores.append(score)
-        # results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
-        # all_results.append(results)
+    vae_scores = []
+    for vae_id in range(5):
+        with open(path + 'vae_model{}.pkl'.format(id), 'rb') as f:
+            vae = torch.load(f)
+        scores = []
+        for i in range(num_eval):
+            print(i)
+            score = rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, env, policy, args.env_params, inits, eval_goals, self_eval=True, true_eval=True,
+                               animated=False)
+            scores.append(score)
+            # results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
+            # all_results.append(results)
+        vae_scores.append(scores)
 
-    results = np.array(scores)
+    results = np.array(vae_scores)
     np.savetxt('/home/flowers/Desktop/Scratch/sac_curriculum/results/sentence_seq.txt', results)
     print('Av len sequence: {}'.format(results.mean()))
 

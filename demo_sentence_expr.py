@@ -164,7 +164,7 @@ def rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, val
     return scores.copy()
 
 if __name__ == '__main__':
-    num_eval = 10
+    num_eval = 20
     path = '/home/flowers/Downloads/test/'
     model_path = path + 'model_600.pt'
 
@@ -222,17 +222,22 @@ if __name__ == '__main__':
         for g in b:
             all_valid_goals.append(np.array(g).astype(np.int))
     valid_goals = dict(zip([str(g) for g in all_valid_goals], all_valid_goals))
-    scores = []
-    for i in range(num_eval):
-        print(i)
-        score = rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, valid_goals, env, policy, args.env_params, inits, eval_goals, self_eval=True,
-                        true_eval=True,
-                           animated=False)
-        scores.append(score)
+    vae_scores = []
+    for vae_id in range(5):
+        with open(path + 'vae_model{}.pkl'.format(id), 'rb') as f:
+            vae = torch.load(f)
+        scores = []
+        for i in range(num_eval):
+            print(i)
+            score = rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, valid_goals, env, policy, args.env_params, inits, eval_goals, self_eval=True,
+                            true_eval=True,
+                               animated=False)
+            scores.append(score)
         # results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
         # all_results.append(results)
+        vae_scores.append(scores)
 
-    results = np.array(scores)
+    results = np.array(vae_scores)
     np.savetxt('/home/flowers/Desktop/Scratch/sac_curriculum/results/sentence_expr.txt', results)
 
     ratio_success = []
