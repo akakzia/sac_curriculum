@@ -58,12 +58,12 @@ class RolloutWorker:
             ep_ag.append(ag.copy())
             ep_ag_bin.append(ag_bin.copy())
 
-            episode = dict(obs=np.array(ep_obs),
-                           act=np.array(ep_actions),
-                           g=np.array(ep_g),
-                           ag=np.array(ep_ag),
+            episode = dict(obs=np.array(ep_obs).copy(),
+                           act=np.array(ep_actions).copy(),
+                           g=np.array(ep_g).copy(),
+                           ag=np.array(ep_ag).copy(),
                            g_binary=goals[i].copy(),
-                           ag_binary=np.array(ep_ag_bin),
+                           ag_binary=np.array(ep_ag_bin).copy(),
                            self_eval=self_eval)
             episodes.append(episode)
 

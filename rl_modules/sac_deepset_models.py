@@ -182,6 +182,12 @@ class DeepSetSAC:
         self.num_blocks = 3
         self.n_permutations = len([x for x in permutations(range(self.num_blocks), 2)])
 
+        self.symmetry_trick = args.symmetry_trick
+        if args.symmetry_trick:
+            self.first_inds = np.array([0, 1, 2, 3, 5, 7])
+            self.second_inds = np.array([0, 1, 2, 4, 6, 8])
+            self.dim_goal = 6
+
         # Whether to use attention networks or concatenate goal to input
         self.use_attention = use_attention
         # double_critic_attention = double_critic_attention
@@ -194,12 +200,6 @@ class DeepSetSAC:
         self.pi_tensor = None
         self.log_prob = None
 
-        self.symmetry_trick = args.symmetry_trick
-        if args.symmetry_trick:
-            self.first_inds = np.array([0, 1, 2, 3, 5, 7])
-            self.second_inds = np.array([0, 1, 2, 4, 6, 8])
-            self.dim_goal = 6
-
         # Define dimensions according to parameters use_attention
         # if attention not used, then concatenate [g, ag] in input ==> dimension = 2 * dim_goal
         dim_input_goals = self.dim_goal if use_attention else 2 * self.dim_goal
@@ -207,15 +207,20 @@ class DeepSetSAC:
         dim_input_objects = 2 * (self.num_blocks + self.dim_object)
 
         dim_phi_actor_input = dim_input_goals + self.dim_body + dim_input_objects
-        dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object))
-
-        dim_rho_actor_input = 3 * (self.dim_body + (self.num_blocks + self.dim_object))
+        if args.small_deepset:
+            dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object))
+        else:
+            dim_phi_actor_output = 6 * dim_phi_actor_input
+        dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
 
         dim_phi_critic_input = dim_input_goals + self.dim_body + dim_input_objects + self.dim_act
-        dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act)
+        if args.small_deepset:
+            dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act)
+        else:
+            dim_phi_critic_output = 6 * dim_phi_critic_input
 
-        dim_rho_critic_input = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act)
+        dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
 
         if use_attention:

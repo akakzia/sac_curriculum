@@ -33,8 +33,6 @@ class her_sampler:
         transitions['g'][her_indexes] = future_ag
         # to get the params to re-compute reward
         transitions['r'] = np.expand_dims(self.reward_func(transitions['ag_next'], transitions['g'], None), 1)
-        # transitions['r'] = np.expand_dims(np.array([self.reward_func(ag_next, g, None) for ag_next, g in zip(transitions['ag_next'],
-        #                                                                                 transitions['g'])]), 1)
 
         return transitions
 
