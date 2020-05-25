@@ -150,7 +150,7 @@ def rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, env
     return np.array(score)
 
 if __name__ == '__main__':
-    num_eval = 20
+    num_eval = 5
     path = '/home/flowers/Downloads/test/'
     model_path = path + 'model_600.pt'
 
@@ -204,7 +204,7 @@ if __name__ == '__main__':
     dict_goals = dict(zip([str(g) for g in all_goals], all_goals))
     vae_scores = []
     for vae_id in range(5):
-        with open(path + 'vae_model{}.pkl'.format(id), 'rb') as f:
+        with open(path + 'vae_model{}.pkl'.format(vae_id), 'rb') as f:
             vae = torch.load(f)
         scores = []
         for i in range(num_eval):
@@ -214,21 +214,21 @@ if __name__ == '__main__':
             scores.append(score)
         # results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
         # all_results.append(results)
-        vae_scores.append(scores)
 
+        ratio_success = []
+        av_not_0 = []
+        ratio_first_shot = []
+        for r in np.array(scores):
+            inds_not_0 = np.argwhere(r > 0).flatten()
+            ratio_success.append(inds_not_0.size / r.size)
+            ratio_first_shot.append(np.argwhere(r == 1).flatten().size / r.size)
+            av_not_0.append(r[inds_not_0].mean())
+        print('Success rate (5 attempts): ', np.mean(ratio_success))
+        print('Success rate (first_shot): ', np.mean(ratio_first_shot))
+        print('When success, average nb of attempts: ', np.mean(av_not_0))
+        vae_scores.append([np.mean(ratio_success), np.mean(ratio_first_shot)])
     results = np.array(vae_scores)
     np.savetxt('/home/flowers/Desktop/Scratch/sac_curriculum/results/sentence_test.txt', results)
 
-    ratio_success = []
-    av_not_0 = []
-    ratio_first_shot = []
-    for r in results:
-        inds_not_0 = np.argwhere(r > 0).flatten()
-        ratio_success.append(inds_not_0.size / r.size)
-        ratio_first_shot.append(np.argwhere(r == 1).flatten().size / r.size)
-        av_not_0.append(r[inds_not_0].mean())
-    print('Success rate (5 attempts): ', np.mean(ratio_success))
-    print('Success rate (first_shot): ', np.mean(ratio_first_shot))
-    print('When success, average nb of attempts: ', np.mean(av_not_0))
 
 

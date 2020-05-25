@@ -215,5 +215,5 @@ if __name__ == '__main__':
 
     results = np.array(vae_scores)
     np.savetxt('/home/flowers/Desktop/Scratch/sac_curriculum/results/sentence_seq.txt', results)
-    print('Av len sequence: {}'.format(results.mean()))
+    print('Av len sequence: {}'.format(results.mean(axis=1)))
 

@@ -149,6 +149,7 @@ if __name__ == '__main__':
 
     with open(path + 'config.json', 'r') as f:
         params = json.load(f)
+    params['symmetry_trick'] = False
     args = SimpleNamespace(**params)
 
     # Make the environment
@@ -194,10 +195,7 @@ if __name__ == '__main__':
     all_goals = generate_all_goals_in_goal_space()
     dict_goals = dict(zip([str(g) for g in all_goals], all_goals))
     for i in range(num_eval):
-        # uncomment here to run normal eval
-        # episodes = rollout_worker.generate_rollout(inits, eval_goals, self_eval=True, true_eval=True, animated=True)
         episodes = rollout(vae, sentences, inst_to_one_hot, dict_goals, env, policy, args.env_params, inits, eval_goals, self_eval=True, true_eval=True, animated=True)
-
         results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
         all_results.append(results)
 
