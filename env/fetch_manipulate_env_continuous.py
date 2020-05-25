@@ -62,7 +62,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         self.guide = False
         self.reward_type = reward_type
 
-        self.goal_size = 0
+        # self.goal_size = 0
 
         self.object_names = ['object{}'.format(i) for i in range(self.num_blocks)]
 
@@ -232,10 +232,10 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
 
         objects_positions = objects_positions.reshape(self.num_blocks, 3)
         self.objects_positions = objects_positions.copy()
-        object_combinations = itertools.combinations(objects_positions, 2)
-        object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
+        # object_combinations = itertools.combinations(objects_positions, 2)
+        # object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
 
-        self.goal_size = len(object_rel_distances)
+        # self.goal_size = len(object_rel_distances)
         
         achieved_goal_binary = self._get_configuration(objects_positions).flatten()
 
@@ -699,6 +699,82 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
 
         self.sim.set_state(self.initial_state)
 
+        # If evaluation mode, generate blocks on the table with no stacks
+        if not biased_init:
+            for i, obj_name in enumerate(self.object_names):
+                object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+                assert object_qpos.shape == (7,)
+                object_qpos[2] = 0.425
+                object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
+                                                                                     self.obj_range,
+                                                                                     size=2)
+                object_qpos[:2] = object_xpos
+
+                self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+
+            self.sim.forward()
+            obs = self._get_obs()
+
+            return obs
+
+        p_stack_two = 0.7
+        if np.random.uniform() > p_stack_two:
+            stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
+            z_stack = [0.525, 0.475, 0.425]
+        else:
+            stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
+            z_stack = [0.475, 0.425]
+
+        p_coplanar = 0.7
+        idx_grasp = np.random.choice([i for i in range(self.num_blocks)])
+        if np.random.uniform() < p_coplanar:
+            for i, obj_name in enumerate(self.object_names):
+                object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+                assert object_qpos.shape == (7,)
+                object_qpos[2] = 0.425
+                object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
+                                                                                     self.obj_range,
+                                                                                     size=2)
+                object_qpos[:2] = object_xpos
+
+                self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+        else:
+            temp_rand = self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
+            for i, obj_name in enumerate(self.object_names):
+                object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+                assert object_qpos.shape == (7,)
+                if i in stack:
+                    object_qpos[2] = z_stack[stack.index(i)]
+                    object_xpos = self.initial_gripper_xpos[:2] + temp_rand
+                    object_qpos[:2] = object_xpos
+
+                else:
+                    object_qpos[2] = 0.425
+                    object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
+                                                                                         self.obj_range,
+                                                                                         size=2)
+                    object_qpos[:2] = object_xpos
+
+                    # idx_grasp = i
+
+                self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+            # if len(stack) == self.num_blocks:
+            #     idx_grasp = stack[0]
+
+        self.sim.forward()
+        obs = self._get_obs()
+
+        if np.random.uniform() < 0.5:
+            obs = self._grasp(obs, idx_grasp)
+        return obs
+
+    def reset_goal2(self, goal, init=None, biased_init=False):
+        if init is not None:
+            return self.reset_init(init, goal)
+
+        self.target_goal = goal
+
+        self.sim.set_state(self.initial_state)
 
         p_coplanar = 0.7
         if biased_init and np.random.uniform() > p_coplanar:
@@ -770,16 +846,15 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                 for s in stack[1:]:
                     ids.remove(s)
             idx_grasp = np.random.choice(ids)
-            self._grasp(idx_grasp)
+            self.__grasp(idx_grasp)
 
         self.sim.forward()
         obs = self._get_obs()
         return obs
 
-    def _grasp(self, i):
+    def __grasp(self, i):
         obj = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[i]))
         obj[:3] = self.sim.data.get_site_xpos('robot0:grip')
         self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), obj.copy())
         self.sim.data.set_joint_qpos('robot0:r_gripper_finger_joint', 0.0240)
         self.sim.data.set_joint_qpos('robot0:l_gripper_finger_joint', 0.0240)
-

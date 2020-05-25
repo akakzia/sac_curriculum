@@ -27,8 +27,8 @@ class FetchManipulateEnv(robot_env.RobotEnv):
     """
 
     def __init__(
-        self, model_path, num_blocks, n_substeps, gripper_extra_height, block_gripper,
-        target_in_the_air, target_offset, obj_range, target_range, predicate_threshold,
+            self, model_path, num_blocks, n_substeps, gripper_extra_height, block_gripper,
+            target_in_the_air, target_offset, obj_range, target_range, predicate_threshold,
             initial_qpos, reward_type, predicates,
     ):
         """Initializes a new Fetch environment.
@@ -46,7 +46,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             initial_qpos (dict): a dictionary of joint names and values that define the initial configuration
             reward_type ('sparse' or 'dense'): the reward type, i.e. sparse or dense
         """
-        
+
         self.target_goal = None
         self.num_blocks = num_blocks
         self.gripper_extra_height = gripper_extra_height
@@ -94,8 +94,8 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
     def flush_location_record(self, create_new_empty_record=True):
         if self.location_record is not None and self.location_record_steps_recorded > 0:
-            write_file = os.path.join(self.location_record_write_dir,"{}_{}".format(self.location_record_prefix,
-                                                                           self.location_record_file_number))
+            write_file = os.path.join(self.location_record_write_dir, "{}_{}".format(self.location_record_prefix,
+                                                                                     self.location_record_file_number))
             np.save(write_file, self.location_record[:self.location_record_steps_recorded])
             self.location_record_file_number += 1
             self.location_record_steps_recorded = 0
@@ -151,7 +151,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         # Apply action to simulation.
         utils.ctrl_set_action(self.sim, action)
         utils.mocap_set_action(self.sim, action)
-    
+
     def _get_configuration(self, positions):
         close_config = np.array([])
         above_config = np.array([])
@@ -169,7 +169,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
                 raise NotImplementedError
 
             above_config = np.array([int(above(obj[0], obj[1])) for obj in object_permutations]).astype(np.float32)
-        
+
         res = np.concatenate([close_config, above_config])
         return res
 
@@ -193,7 +193,6 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         objects_positions = []
 
         for i in range(self.num_blocks):
-
             object_i_pos = self.sim.data.get_site_xpos(self.object_names[i])
             # rotations
             object_i_rot = rotations.mat2euler(self.sim.data.get_site_xmat(self.object_names[i]))
@@ -222,7 +221,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
 
         self.goal_size = len(object_rel_distances)
-        
+
         achieved_goal = self._get_configuration(objects_positions)
 
         achieved_goal = np.squeeze(achieved_goal)
@@ -248,10 +247,10 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         # Visualize target.
         sites_offset = (self.sim.data.site_xpos - self.sim.model.site_pos).copy()
         # print("sites offset: {}".format(sites_offset[0]))
-        #for i in range(self.num_blocks):
+        # for i in range(self.num_blocks):
 
-            #site_id = self.sim.model.site_name2id('target{}'.format(i))
-            #self.sim.model.site_pos[site_id] = self.goal[i*3:(i+1)*3] - sites_offset[i]
+        # site_id = self.sim.model.site_name2id('target{}'.format(i))
+        # self.sim.model.site_pos[site_id] = self.goal[i*3:(i+1)*3] - sites_offset[i]
 
         self.sim.forward()
 
@@ -290,7 +289,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.target_goal = self._sample_goal()
 
         self.sim.set_state(self.initial_state)
-        
+
         # Guide learning by generating a stack in initialization
         if "above" in self.predicates or "right_close" in self.predicates:
             self.guide = True
@@ -333,7 +332,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
                         object_qpos[:2] = object_xpos
 
                     self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
-                
+
         else:
             for i, obj_name in enumerate(self.object_names):
                 object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
@@ -356,7 +355,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
     def _sample_goal(self):
         # self.target_goal = self._generate_valid_goal()
         self.target_goal = np.random.randint(2, size=9).astype(np.float32)
-        
+
         return self.target_goal
 
     def set_goal(self, goal):
@@ -392,16 +391,46 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
         self.sim.set_state(self.initial_state)
 
-        p_coplanar = 0.7
-        if biased_init and np.random.uniform() > p_coplanar:
-            p_stack_two = 0.7
-            if np.random.uniform() > p_stack_two:
-                stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
-                z_stack = [0.525, 0.475, 0.425]
-            else:
-                stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
-                z_stack = [0.475, 0.425]
+        # If evaluation mode, generate blocks on the table with no stacks
+        if not biased_init:
+            for i, obj_name in enumerate(self.object_names):
+                object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+                assert object_qpos.shape == (7,)
+                object_qpos[2] = 0.425
+                object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
+                                                                                     self.obj_range,
+                                                                                     size=2)
+                object_qpos[:2] = object_xpos
 
+                self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+
+            self.sim.forward()
+            obs = self._get_obs()
+
+            return obs
+
+        p_stack_two = 0.7
+        if np.random.uniform() > p_stack_two:
+            stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
+            z_stack = [0.525, 0.475, 0.425]
+        else:
+            stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
+            z_stack = [0.475, 0.425]
+
+        p_coplanar = 0.7
+        idx_grasp = np.random.choice([i for i in range(self.num_blocks)])
+        if np.random.uniform() < p_coplanar:
+            for i, obj_name in enumerate(self.object_names):
+                object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+                assert object_qpos.shape == (7,)
+                object_qpos[2] = 0.425
+                object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
+                                                                                     self.obj_range,
+                                                                                     size=2)
+                object_qpos[:2] = object_xpos
+
+                self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+        else:
             temp_rand = self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
             for i, obj_name in enumerate(self.object_names):
                 object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
@@ -417,9 +446,62 @@ class FetchManipulateEnv(robot_env.RobotEnv):
                                                                                          self.obj_range,
                                                                                          size=2)
                     object_qpos[:2] = object_xpos
+
+                    # idx_grasp = i
+
+                self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+            # if len(stack) == self.num_blocks:
+            #     idx_grasp = stack[0]
+
+        self.sim.forward()
+        obs = self._get_obs()
+
+        if np.random.uniform() < 0.5:
+            obs = self._grasp(obs, idx_grasp)
+        return obs
+
+    def reset_goal2(self, goal, init=None, biased_init=False):
+        if init is not None:
+            return self.reset_init(init, goal)
+
+        self.target_goal = goal
+
+        self.sim.set_state(self.initial_state)
+
+        p_coplanar = 0.7
+        if biased_init and np.random.uniform() > p_coplanar:
+            p_stack_two = 0.7
+            if np.random.uniform() > p_stack_two:
+                stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
+                z_stack = [0.525, 0.475, 0.425]
+            else:
+                stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
+                z_stack = [0.475, 0.425]
+
+            pos_stack = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
+            for i, obj_name in enumerate(self.object_names):
+                object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+                assert object_qpos.shape == (7,)
+                if i in stack:
+                    object_qpos[2] = z_stack[stack.index(i)]
+                    object_qpos[:2] = pos_stack.copy()
+
+                else:
+                    # place third object at least 0.05 away from other cubes
+                    object_qpos[2] = 0.425
+                    counter = 0
+                    while counter < 100:
+                        counter += 1
+                        object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range,
+                                                                                             self.obj_range,
+                                                                                             size=2)
+                        if np.linalg.norm(object_xpos - pos_stack) > (np.sqrt(2) * 0.05):
+                            break
+                    object_qpos[:2] = object_xpos.copy()
                 self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
 
         else:
+            stack = None
             # place cubes away from each other
             obj_placed = 0
             positions = []
@@ -438,7 +520,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
                     object_qpos[:2] = object_xpos
                     to_place = True
                     for p in positions:
-                        if np.linalg.norm(object_xpos - p) < 0.05:
+                        if np.linalg.norm(object_xpos - p) < (np.sqrt(2) * 0.05):
                             to_place = False
                             break
                     if to_place:
@@ -449,12 +531,23 @@ class FetchManipulateEnv(robot_env.RobotEnv):
                         # safety net to be sure we find positions
                         over = False
                         break
+        if biased_init and np.random.rand() < 0.5:
+            ids = list(range(self.num_blocks))
+            # do not grasp base of stack
+            if stack:
+                for s in stack[1:]:
+                    ids.remove(s)
+            idx_grasp = np.random.choice(ids)
+            self.__grasp(idx_grasp)
 
         self.sim.forward()
         obs = self._get_obs()
-
-        if biased_init and np.random.uniform() < 0.5:
-            idx_grasp = np.random.choice([i for i in range(self.num_blocks)])
-            obs = self._grasp(obs, idx_grasp)
         return obs
+
+    def __grasp(self, i):
+        obj = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[i]))
+        obj[:3] = self.sim.data.get_site_xpos('robot0:grip')
+        self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), obj.copy())
+        self.sim.data.set_joint_qpos('robot0:r_gripper_finger_joint', 0.0240)
+        self.sim.data.set_joint_qpos('robot0:l_gripper_finger_joint', 0.0240)
 
