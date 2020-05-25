@@ -144,6 +144,7 @@ def launch(args):
             time_dict['eval'] += time.time() - t_i
 
             if rank == 0:
+                assert len(all_results) == args.num_workers
                 av_res = np.array(all_results).mean(axis=0)
                 global_sr = np.mean(av_res)
                 log_and_save(logdir, goal_sampler, epoch, episode_count, av_res, global_sr, time_dict)
