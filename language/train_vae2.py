@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from collections import defaultdict
 from language.utils import analyze_inst, Vocab, OneHotEncoder, ConfigLanguageDataset
 from language.vae import ContextVAE
-from language.build_dataset import get_dataset
+from language.build_dataset_alternative import get_dataset
 import numpy as np
 import pickle
 
@@ -52,7 +52,9 @@ def main(args):
 
     ts = time.time()
 
+    np.random.seed(943930)
     configs, sentences, _, all_possible_configs, all_possible_sentences = get_dataset()
+
 
     set_sentences = set(sentences)
     split_instructions, max_seq_length, word_set = analyze_inst(set_sentences)
@@ -66,25 +68,24 @@ def main(args):
     with open(SAVE_PATH + 'inst_to_one_hot.pkl', 'wb') as f:
         pickle.dump(inst_to_one_hot, f)
 
-    all_str = ['start' + str(c[0]) + s + str(c[1]) + 'end' for c, s in zip(configs, sentences)]
+    all_str = ['start' + str(c[0]) + s + str(c[1]) for c, s in zip(configs, sentences)]
     all_possible_configs_str = [str(c[0]) + s for c, s in zip(all_possible_configs, all_possible_sentences)]
 
     # test particular combinations of init, sentence, final
     # this tests the extrapolation to different final states than the ones in train set
-    remove1 = [[[0, 0, 1, 0, 0, 0, 0, 0, 0], 'Get blue and red far_from each_other', [0, 1, 0, 0, 0, 0, 0, 0, 0]],
-               [[0, 0, 1, 0, 0, 0, 0, 0, 0], 'Put blue above green', [1, 0, 0, 0, 1, 0, 0, 0, 0]],
-               [[0, 0, 0, 0, 0, 0, 0, 0, 0], 'Get blue close_to red', [0, 0, 1, 0, 0, 0, 0, 0, 0]],
-               [[0, 0, 0, 0, 0, 0, 0, 0, 0], 'Bring red and green together', [1, 1, 0, 0, 0, 0, 0, 0, 0]],
-               [[0, 0, 1, 0, 0, 0, 0, 0, 0], 'Put green on_top_of blue', [1, 0, 0, 1, 0, 0, 0, 0, 0]]]
+    remove1 = [[[0, 0, 1, 0, 0, 0, 0, 0, 0], 'Put red close_to green', [1, 1, 0, 0, 1, 0, 0, 0, 0]],
+               [[0, 0, 1, 0, 0, 0, 0, 0, 0], 'Put blue above red', [0, 1, 0, 0, 0, 0, 1, 0, 0]],
+               [[0, 0, 0, 0, 0, 0, 0, 0, 0], 'Get blue and green close_from each_other', [0, 1, 1, 0, 0, 0, 1, 1, 0]],
+               [[0, 0, 0, 0, 0, 0, 0, 0, 0], 'Put blue on_top_of green', [0, 0, 1, 0, 0, 0, 0, 0, 1]],
+               [[0, 1, 1, 0, 0, 0, 0, 0, 0], 'Get green and blue far_from each_other', [0, 1, 0, 0, 0, 0, 0, 0, 0]]]
     remove1_str = ['start' + str(np.array(r[0])) + r[1] + str(np.array(r[2])) for r in remove1]
 
-    remove2 = [[[0, 1, 0, 0, 0, 0, 0, 0, 0], 'Get blue close_to red'],
-               [[1, 0, 0, 0, 0, 0, 0, 0, 0], 'Put green above red']]
+    remove2 = [[[0, 1, 0, 0, 0, 0, 0, 0, 0], 'Put blue close_to green'],
+               [[1, 0, 0, 0, 0, 0, 0, 0, 0], 'Put green under blue']]
     remove2_str = ['start' +  str(np.array(r[0])) + r[1] for r in remove2]
 
-    remove3 = [[1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 1, 1, 0, 0, 0, 0, 0, 0]]
+    remove3 = [[1, 1, 1, 0, 0, 0, 0, 0, 0], [1, 1, 0, 1, 0, 0, 0, 0, 0]]
     remove3_str = ['start' + str(np.array(r)) for r in remove3]
-
     remove4 = ['Put green on_top_of red', 'Put blue under green', 'Bring red and blue apart']
     remove4_str = remove4.copy()
 
@@ -165,13 +166,13 @@ def main(args):
         # BCE = x * torch.log(recon_x) + (1 - x) * torch.log(1 - recon_x)
         # BCE = - torch.sum(BCE)
         KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
-        return (BCE + KLD) / x.size(0)
+        return (BCE + 0.9 * KLD) / x.size(0)
 
     return vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, set_inds, sentences, all_possible_configs, str_to_index
 
 
 def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, set_inds, sentences,
-          layers, embedding_size, latent_size, learning_rate,  all_possible_configs, str_to_index, args):
+          layers, embedding_size, latent_size, learning_rate,  all_possible_configs, str_to_index, args, vae_id):
     vae = ContextVAE(vocab.size, inner_sizes=layers, state_size=configs.shape[2], embedding_size=embedding_size, latent_size=latent_size).to(device)
 
     optimizer = torch.optim.Adam(vae.parameters(), lr=learning_rate)
@@ -179,7 +180,6 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
     logs = defaultdict(list)
 
     for epoch in range(args.epochs):
-
         for iteration, (init_state, sentence, state) in enumerate(data_loader):
             # init_state = torch.FloatTensor(np.ones(init_state.shape) * 0.7)
             # state = torch.FloatTensor(np.ones(init_state.shape) * 0.2)
@@ -197,7 +197,7 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
 
             logs['loss'].append(loss.item())
 
-        if iteration % args.print_every == 0 or iteration == len(data_loader)-1:
+        if epoch % args.print_every == 0 or iteration == len(data_loader)-1:
             print("Epoch {:02d}/{:02d} Batch {:04d}/{:d}, Loss {:9.4f}".format(
                 epoch, args.epochs, iteration, len(data_loader)-1, loss.item()))
 
@@ -221,14 +221,14 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
                     score_dataset += 1
             print('Score train set: possible : {}, dataset : {}'.format(score / len(train_test_data[0]), score_dataset / len(train_test_data[0])))
 
-    stop = 1
-
-    with open(SAVE_PATH + 'vae_model.pkl', 'wb') as f:
+        stop = 1
+    #
+    with open(SAVE_PATH + 'vae_model{}.pkl'.format(vae_id), 'wb') as f:
         torch.save(vae, f)
-
-    with open(SAVE_PATH + 'vae_model.pkl', 'rb') as f:
-        vae = torch.load(f)
-
+    #
+    # with open(SAVE_PATH + 'vae_model.pkl', 'rb') as f:
+    #     vae = torch.load(f)
+    #     if (epoch + 1 )% 20 == 0:
     results = np.zeros([len(set_inds), 2])
     # test train statistics
     factor = 50
@@ -283,6 +283,8 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
         results[i_gen, 0] = np.mean(scores)
         results[i_gen, 1] = np.mean(false_preds)
 
+    with open(SAVE_PATH + 'res{}.pkl'.format(vae_id), 'wb') as f:
+        pickle.dump(results, f)
     return results
 
 
@@ -290,10 +292,10 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--epochs", type=int, default=60)
+    parser.add_argument("--seed", type=int, default=np.random.randint(1e6))
+    parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--learning_rate", type=float, default=0.0005)
+    parser.add_argument("--learning_rate", type=float, default=0.005)
     parser.add_argument("--encoder_layer_sizes", type=list, default=[784, 256])
     parser.add_argument("--decoder_layer_sizes", type=list, default=[256, 784])
     parser.add_argument("--latent_size", type=int, default=2)
@@ -304,17 +306,24 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # good ones
+    # embedding_size = 100
+    # layers = [128, 128]
+    # learning_rate = 0.005
+    # latent_size = 18
+
     embedding_size = 100
     layers = [128, 128]
     learning_rate = 0.005
     latent_size = 18
+    VAE_ID = 1
 
     vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, set_inds, sentences, \
     all_possible_configs, str_to_index = main(args)
 
-    train(vocab, configs, device, data_loader, loss_fn,
-          inst_to_one_hot, train_test_data, set_inds, sentences,
-          layers, embedding_size, latent_size, learning_rate,  all_possible_configs, str_to_index, args)
+    for VAE_ID in range(5):
+        train(vocab, configs, device, data_loader, loss_fn,
+              inst_to_one_hot, train_test_data, set_inds, sentences,
+              layers, embedding_size, latent_size, learning_rate,  all_possible_configs, str_to_index, args, VAE_ID)
 
     # import time
     # results = np.zeros([4, 3, 3, 3, 6, 2])
