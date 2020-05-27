@@ -264,14 +264,6 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
             self.sim.model.site_pos[site_id] = pos.copy()
         self.sim.forward()
 
-        # print("sites offset: {}".format(sites_offset[0]))
-        #for i in range(self.num_blocks):
-
-            #site_id = self.sim.model.site_name2id('target{}'.format(i))
-            #self.sim.model.site_pos[site_id] = self.goal[i*3:(i+1)*3] - sites_offset[i]
-
-        self.sim.forward()
-
     def reset(self):
         # Attempt to reset the simulator. Since we randomize initial conditions, it
         # is possible to get into a state with numerical issues (e.g. due to penetration or
@@ -689,10 +681,35 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         #     self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
         return np.array(positions).flatten()
 
+    def _grasp(self, obs, target_idx):
+        success = False
+        itr = 0
+        observation = obs['observation']
+        # Make sure to get high enough not to hit objects
+        # for _ in range(10):
+        #     next_obs, r, d, info = self.step([0, 0, 1, 1])
+        #     observation = next_obs['observation']
+        # Reach object and grasp it
+        while not success and itr < 30:
+            action = np.concatenate((7 * (-observation[:3] + observation[10 + 15 * target_idx:13 + 15 * target_idx]), np.ones(1)))
+            if np.linalg.norm(-observation[:3] + observation[10 + 15 * target_idx:13 + 15 * target_idx]) < 0.005:
+                for _ in range(15):
+                    action = [0., 0., 0.4, -1]
+                    next_obs, r, d, info = self.step(action)
+                    observation = next_obs['observation']
+                    itr += 1
+                success = True
+            else:
+                next_obs, r, d, info = self.step(action)
+                observation = next_obs['observation']
+                itr += 1
+        obs['observation'] = observation
+        return obs
 
     def reset_goal(self, goal, init=None, biased_init=False):
         if init is not None:
             return self.reset_init(init, goal)
+
 
         self.binary_goal = goal.copy()
         self.target_goal = self.sample_continuous_goal_from_binary_goal(goal.copy())
@@ -711,6 +728,11 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                 object_qpos[:2] = object_xpos
 
                 self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+
+            # for i, obj_name in enumerate(self.object_names):
+            #     object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
+            #     object_qpos[:3] = self.target_goal[i * 3: (i + 1) * 3]
+            #     self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
 
             self.sim.forward()
             obs = self._get_obs()

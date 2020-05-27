@@ -149,16 +149,16 @@ class GoalSampler:
                 new_goal_found = False
                 for e in all_episode_list:
                     # if we're looking for pairs
-                    id_ag_0 = self.g_str_to_oracle_id[str(e['ag'][0])]
-                    id_ag_end = self.g_str_to_oracle_id[str(e['ag'][-1])]
+                    id_ag_0 = self.g_str_to_oracle_id[str(e['ag_binary'][0])]
+                    id_ag_end = self.g_str_to_oracle_id[str(e['ag_binary'][-1])]
 
-                    if str(e['ag'][-1]) not in self.discovered_goals_str:
-                        if str(e['ag'][-1]) not in self.valid_goals_str:
+                    if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
+                        if str(e['ag_binary'][-1]) not in self.valid_goals_str:
                             stop = 1
                         else:
                             new_goal_found = True
-                            self.discovered_goals.append(e['ag'][-1].copy())
-                            self.discovered_goals_str.append(str(e['ag'][-1]))
+                            self.discovered_goals.append(e['ag_binary'][-1].copy())
+                            self.discovered_goals_str.append(str(e['ag_binary'][-1]))
                             self.discovered_goals_oracle_id.append(id_ag_end)
 
                     if self.use_pairs:
