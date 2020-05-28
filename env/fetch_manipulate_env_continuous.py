@@ -505,9 +505,9 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                             object_xpos = self.initial_gripper_xpos[:2] + offset_on_table
                             blocks_set[i] = True
                             positions[i] = np.array([object_xpos[0], object_xpos[1], z_stack[stack.index(i)]])
-                        if len(actual_close_pairs) < 3:
-                            positions[stack[0]][0] += 0.02
-                            positions[stack[0]][1] += 0.02
+                        # if len(actual_close_pairs) < 3:
+                        #     positions[stack[0]][0] += 0.02
+                        #     positions[stack[0]][1] += 0.02
                 else:
                     raise ValueError('should not happen')
 
@@ -728,7 +728,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                 object_qpos[:2] = object_xpos
 
                 self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
-
+            #
             # for i, obj_name in enumerate(self.object_names):
             #     object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
             #     object_qpos[:3] = self.target_goal[i * 3: (i + 1) * 3]

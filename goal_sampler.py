@@ -140,7 +140,7 @@ class GoalSampler:
 
             for e in all_episode_list:
                 reached_oracle_id = self.g_str_to_oracle_id[str(e['ag_binary'][-1])]
-                target_oracle_id = self.g_str_to_oracle_id[str(e['g_binary'])]
+                target_oracle_id = self.g_str_to_oracle_id[str(e['g_binary'][0])]
                 self.rew_counters[reached_oracle_id] += 1
                 self.target_counters[target_oracle_id] += 1
             # find out if new goals were discovered
@@ -176,8 +176,8 @@ class GoalSampler:
                 for e in all_episode_list:
                     if e['self_eval']:
                         oracle_id_init = self.g_str_to_oracle_id[str(e['ag_binary'][0])]
-                        oracle_id = self.g_str_to_oracle_id[str(e['g_binary'])]
-                        if str(e['g_binary']) == str(e['ag_binary'][-1]):
+                        oracle_id = self.g_str_to_oracle_id[str(e['g_binary'][0])]
+                        if str(e['g_binary'][0]) == str(e['ag_binary'][-1]):
                             success = 1
                         else:
                             success = 0

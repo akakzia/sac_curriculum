@@ -42,8 +42,8 @@ class MultiBuffer:
             for i, e in enumerate(episode_batch):
                 # store the informations
                 self.buffer['obs'][idxs[i]] = e['obs']
-                self.buffer['ag'][idxs[i]] = e['ag']
-                self.buffer['g'][idxs[i]] = e['g']
+                self.buffer['ag'][idxs[i]] = e['ag_binary']
+                self.buffer['g'][idxs[i]] = e['g_binary']
                 self.buffer['actions'][idxs[i]] = e['act']
                 self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
 

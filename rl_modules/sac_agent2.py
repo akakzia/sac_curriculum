@@ -132,12 +132,11 @@ class SACAgent:
         with torch.no_grad():
             # normalize policy inputs 
             obs_norm = self.o_norm.normalize(obs)
-            g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
             ag_norm = torch.tensor(self.g_norm.normalize(ag), dtype=torch.float32).unsqueeze(0)
 
             if self.architecture == 'deepsets':
                 obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
-                self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
+                self.model.policy_forward_pass(obs_tensor, ag_norm, g, no_noise=no_noise)
                 action = self.model.pi_tensor.numpy()[0]
                 
             elif self.architecture == 'disentangled':
@@ -188,8 +187,8 @@ class SACAgent:
     def _update_normalizer(self, episode):
 
         mb_obs = episode['obs']
-        mb_ag = episode['ag']
-        mb_g = episode['g']
+        mb_ag = episode['ag_binary']
+        mb_g = episode['g_binary']
         mb_actions = episode['act']
         mb_obs_next = mb_obs[1:, :]
         mb_ag_next = mb_ag[1:, :]
@@ -241,7 +240,7 @@ class SACAgent:
 
         # apply normalization
         obs_norm = self.o_norm.normalize(transitions['obs'])
-        g_norm = self.g_norm.normalize(transitions['g'])
+        g_norm = transitions['g']
         ag_norm = self.g_norm.normalize(transitions['ag'])
         obs_next_norm = self.o_norm.normalize(transitions['obs_next'])
         ag_next_norm = self.g_norm.normalize(transitions['ag_next'])

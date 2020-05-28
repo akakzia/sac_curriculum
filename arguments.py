@@ -24,7 +24,7 @@ def get_args():
     parser.add_argument('--n-exploration-episodes', type=int, default=0, help='episodes to fill buffer')
     parser.add_argument('--symmetry-trick', type=bool, default=True, help='experimental stuff from Cédric')
     parser.add_argument('--small_deepset', type=bool, default=True, help='')
-    parser.add_argument('--normalize_goal', type=bool, default=True, help='')
+    parser.add_argument('--normalize_goal', type=bool, default=False, help='')
 
     parser.add_argument('--evaluations', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
     parser.add_argument('--save-freq', type=int, default=10, help='the interval that save the trajectory')

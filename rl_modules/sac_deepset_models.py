@@ -4,7 +4,8 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 from itertools import permutations
 import numpy as np
-
+from utils import get_instruction
+from language.utils import OneHotEncoder, analyze_inst, Vocab
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
 epsilon = 1e-6
@@ -182,12 +183,6 @@ class DeepSetSAC:
         self.num_blocks = 3
         self.n_permutations = len([x for x in permutations(range(self.num_blocks), 2)])
 
-        self.symmetry_trick = args.symmetry_trick
-        if args.symmetry_trick:
-            self.first_inds = np.array([0, 1, 2, 3, 5, 7])
-            self.second_inds = np.array([0, 1, 2, 4, 6, 8])
-            self.dim_goal = 6
-
         # Whether to use attention networks or concatenate goal to input
         self.use_attention = use_attention
         # double_critic_attention = double_critic_attention
@@ -202,7 +197,7 @@ class DeepSetSAC:
 
         # Define dimensions according to parameters use_attention
         # if attention not used, then concatenate [g, ag] in input ==> dimension = 2 * dim_goal
-        dim_input_goals = self.dim_goal if use_attention else 2 * self.dim_goal
+        dim_input_goals = 100
 
         dim_input_objects = 2 * (self.num_blocks + self.dim_object)
 
@@ -223,13 +218,28 @@ class DeepSetSAC:
         dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
 
-        if use_attention:
-            self.attention_actor = AttentionNetwork(self.dim_goal, 256, self.dim_body + self.dim_object + self.num_blocks)
-            self.attention_critic_1 = AttentionNetwork(self.dim_goal, 256, self.dim_body + self.dim_object + self.num_blocks)
-            # if self.double_critic_attention:
-            #    self.attention_critic_2 = AttentionNetwork(self.dim_goal, 256, self.dim_body + self.dim_object + self.num_blocks)
-            self.attention_critic_2 = AttentionNetwork(self.dim_goal, 256, self.dim_body + self.dim_object + self.num_blocks)
+        self.instruction_dict, self.g_str_to_inst = get_instruction()
+        sentences = list(self.instruction_dict.values())
 
+        set_sentences = set(sentences)
+        split_instructions, max_seq_length, word_set = analyze_inst(set_sentences)
+        vocab = Vocab(word_set)
+        self.one_hot_encoder = OneHotEncoder(vocab, max_seq_length)
+        self.one_hot_language = dict(zip(self.g_str_to_inst.keys(), [self.one_hot_encoder.encode(s) for s in split_instructions]))
+
+        self.policy_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
+                                              hidden_size=100,
+                                              num_layers=1,
+                                              nonlinearity='tanh',
+                                              bias=True,
+                                              batch_first=True)
+
+        self.critic_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
+                                              hidden_size=100,
+                                              num_layers=1,
+                                              nonlinearity='tanh',
+                                              bias=True,
+                                              batch_first=True)
         self.single_phi_actor = SinglePhiActor(dim_phi_actor_input, 256, dim_phi_actor_output)
         self.rho_actor = RhoActor(dim_rho_actor_input, dim_rho_actor_output)
 
@@ -241,51 +251,22 @@ class DeepSetSAC:
 
     def policy_forward_pass(self, obs, ag, g, no_noise=False):
         self.observation = obs
-        self.ag = ag
-        self.g = g
 
+        encodings = np.array(self.one_hot_language[str(g)])
+        encodings = torch.tensor(encodings, dtype=torch.float32).unsqueeze(0)
+        goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
         obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
         obs_objects = [torch.cat((torch.cat(obs_body.shape[0] * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
                                   self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)),
                                  dim=-1) for i in range(self.num_blocks)]
 
-        if self.symmetry_trick:
-            all_inputs = []
-            for i in range(self.num_blocks):
-                for j in range(self.num_blocks):
-                    if i < j:
-                        all_inputs.append(torch.cat([ag[:, self.first_inds], obs_body, self.g[:, self.first_inds], obs_objects[i], obs_objects[j]], dim=1))
-                        # print('First', i, j)
-                    elif j < i:
-                        all_inputs.append(torch.cat([ag[:, self.second_inds], obs_body, self.g[:, self.second_inds], obs_objects[i], obs_objects[j]], dim=1))
-                        # print('Second', i, j)
 
-            input_actor = torch.stack(all_inputs)
+        body_input_actor = torch.cat([goal_embeddings, obs_body], dim=1)
+        obj_input_actor = [obs_objects[i] for i in range(self.num_blocks)]
 
-        else:
-            if self.use_attention:
-                # Pass through the attention network
-                output_attention_actor = self.attention_actor(self.g)
-                # body_attention_actor
-                body_input_actor = obs_body * output_attention_actor[:, :self.dim_body]
-                # object attention actor
-                obj_input_actor = [obs_objects[i] * output_attention_actor[:, self.dim_body:] for i in range(self.num_blocks)]
-                """if not self.double_critic_attention:
-                    output_attention_critic = self.attention_critic_1(self.g)
-                    # body attention critic ( same inputs for both critics)
-                    body_input_critic_1 = obs_body * output_attention_critic[:, :self.dim_body]
-                    body_input_critic_2 = obs_body * output_attention_critic[:, :self.dim_body]
-                    # object attention critic
-                    obj_input_critic_1 = [obs_objects[i] * output_attention_critic[:, self.dim_body:] for i in range(self.num_blocks)]
-                    obj_input_critic_2 = [obs_objects[i] * output_attention_critic[:, self.dim_body:] for i in range(self.num_blocks)]"""
-
-            else:
-                body_input_actor = torch.cat([self.g, obs_body], dim=1)
-                obj_input_actor = [obs_objects[i] for i in range(self.num_blocks)]
-
-            # Parallelization by stacking input tensors
-            input_actor = torch.stack([torch.cat([ag, body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
-            # input_actor = torch.stack([torch.cat([ag, body_input_actor, x[0], x[1]], dim=1) for x in combinations(obj_input_actor, 2)])
+        # Parallelization by stacking input tensors
+        input_actor = torch.stack([torch.cat([body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
+        # input_actor = torch.stack([torch.cat([ag, body_input_actor, x[0], x[1]], dim=1) for x in combinations(obj_input_actor, 2)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
         # self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
@@ -297,59 +278,22 @@ class DeepSetSAC:
     def forward_pass(self, obs, ag, g, eval=False, actions=None):
         batch_size = obs.shape[0]
         self.observation = obs
-        self.ag = ag
-        self.g = g
+
+        encodings = np.array([self.one_hot_language[str(sg)] for sg in g])
+        encodings = torch.tensor(encodings, dtype=torch.float32)
+        goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
+
         obs_body = self.observation[:, :self.dim_body]
         obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
                                obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
                               for i in range(self.num_blocks)]
 
+        body_input = torch.cat([goal_embeddings, obs_body], dim=1)
+        obj_input = [obs_objects[i] for i in range(self.num_blocks)]
 
-        if self.symmetry_trick:
-            all_inputs = []
-            for i in range(self.num_blocks):
-                for j in range(self.num_blocks):
-                    if i < j:
-                        all_inputs.append(torch.cat([ag[:, self.first_inds], obs_body, self.g[:, self.first_inds], obs_objects[i], obs_objects[j]], dim=1))
-                        # print('First', i, j)
-                    elif j < i:
-                        all_inputs.append(torch.cat([ag[:, self.second_inds], obs_body, self.g[:, self.second_inds], obs_objects[i], obs_objects[j]], dim=1))
-                        # print('Second', i, j)
-
-            input_actor = torch.stack(all_inputs)
-
-        else:
-            if self.use_attention:
-                # Pass through the attention network
-                output_attention_actor = self.attention_actor(self.g)
-                # body_attention_actor
-                body_input_actor = obs_body * output_attention_actor[:, :self.dim_body]
-                # object attention actor
-                obj_input_actor = [obs_objects[i] * output_attention_actor[:, self.dim_body:] for i in range(self.num_blocks)]
-                """if not self.double_critic_attention:
-                    output_attention_critic = self.attention_critic_1(self.g)
-                    # body attention critic ( same inputs for both critics)
-                    body_input_critic_1 = obs_body * output_attention_critic[:, :self.dim_body]
-                    body_input_critic_2 = obs_body * output_attention_critic[:, :self.dim_body]
-                    # object attention critic
-                    obj_input_critic_1 = [obs_objects[i] * output_attention_critic[:, self.dim_body:] for i in range(self.num_blocks)]
-                    obj_input_critic_2 = [obs_objects[i] * output_attention_critic[:, self.dim_body:] for i in range(self.num_blocks)]"""
-
-                output_attention_critic_1 = self.attention_critic_1(self.g)
-                output_attention_critic_2 = self.attention_critic_2(self.g)
-                # body attention critic for each critic
-                body_input_critic_1 = obs_body * output_attention_critic_1[:, :self.dim_body]
-                body_input_critic_2 = obs_body * output_attention_critic_2[:, :self.dim_body]
-                # object attention critic for each critic
-                obj_input_critic_1 = [obs_objects[i] * output_attention_critic_1[:, self.dim_body:] for i in range(self.num_blocks)]
-                obj_input_critic_2 = [obs_objects[i] * output_attention_critic_2[:, self.dim_body:] for i in range(self.num_blocks)]
-            else:
-                body_input = torch.cat([self.g, obs_body], dim=1)
-                obj_input = [obs_objects[i] for i in range(self.num_blocks)]
-
-            # Parallelization by stacking input tensors
-            input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
-            #input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in combinations(obj_input, 2)])
+        # Parallelization by stacking input tensors
+        input_actor = torch.stack([torch.cat([body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
+        #input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in combinations(obj_input, 2)])
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
         # self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
         if not eval:
@@ -358,8 +302,11 @@ class DeepSetSAC:
             _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
 
         # The critic part
+        goal_embeddings_critic = self.critic_sentence_encoder.forward(encodings)[0][:, -1, :]
+        body_input_critic = torch.cat([goal_embeddings_critic, obs_body], dim=1)
+        input_critic = torch.stack([torch.cat([body_input_critic, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
         repeat_pol_actions = self.pi_tensor.repeat(self.n_permutations, 1, 1)
-        input_critic = torch.cat([input_actor, repeat_pol_actions], dim=-1)
+        input_critic = torch.cat([input_critic, repeat_pol_actions], dim=-1)
         if actions is not None:
             repeat_actions = actions.repeat(self.n_permutations, 1, 1)
             input_critic_with_act = torch.cat([input_actor, repeat_actions], dim=-1)

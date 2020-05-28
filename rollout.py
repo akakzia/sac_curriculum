@@ -13,20 +13,22 @@ class RolloutWorker:
 
         episodes = []
         for i in range(goals.shape[0]):
+
             observation = self.env.unwrapped.reset_goal(np.array(goals[i]), init=inits[i], biased_init=biased_init)
+
             obs = observation['observation']
             ag = observation['achieved_goal']
             ag_bin = observation['achieved_goal_binary']
             g = observation['desired_goal']
-
-            ep_obs, ep_ag, ep_ag_bin, ep_g, ep_actions, ep_success = [], [], [], [], [], []
+            g_bin = observation['desired_goal_binary']
+            ep_obs, ep_ag, ep_ag_bin, ep_g_bin, ep_g, ep_actions, ep_success = [], [], [], [], [], [], []
 
             # start to collect samples
             for t in range(self.env_params['max_timesteps']):
 
                 # run policy
                 no_noise = self_eval or true_eval
-                action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
+                action = self.policy.act(obs.copy(), ag.copy(), g_bin.copy(), no_noise)
 
                 # feed the actions into the environment
                 if animated:
@@ -47,6 +49,7 @@ class RolloutWorker:
                 ep_ag.append(ag.copy())
                 ep_ag_bin.append(ag_bin.copy())
                 ep_g.append(g.copy())
+                ep_g_bin.append(g_bin.copy())
                 ep_actions.append(action.copy())
 
                 # re-assign the observation
@@ -62,7 +65,7 @@ class RolloutWorker:
                            act=np.array(ep_actions).copy(),
                            g=np.array(ep_g).copy(),
                            ag=np.array(ep_ag).copy(),
-                           g_binary=goals[i].copy(),
+                           g_binary=np.array(ep_g_bin).copy(),
                            ag_binary=np.array(ep_ag_bin).copy(),
                            self_eval=self_eval)
             episodes.append(episode)

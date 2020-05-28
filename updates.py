@@ -164,7 +164,7 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
 
     obs_norm_tensor = torch.tensor(obs_norm, dtype=torch.float32)
     obs_next_norm_tensor = torch.tensor(obs_next_norm, dtype=torch.float32)
-    g_norm_tensor = torch.tensor(g_norm, dtype=torch.float32)
+    g_norm_tensor = g_norm#torch.tensor(g_norm, dtype=torch.float32)
     ag_norm_tensor = torch.tensor(ag_norm, dtype=torch.float32)
     ag_next_norm_tensor = torch.tensor(ag_next_norm, dtype=torch.float32)
     actions_tensor = torch.tensor(actions, dtype=torch.float32)
