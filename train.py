@@ -139,7 +139,7 @@ def launch(args):
                                                        true_eval=True,
                                                        biased_init=False)
 
-            results = np.array([str(e['g_binary']) == str(e['ag_binary'][-1]) for e in episodes]).astype(np.int)
+            results = np.array([str(e['g_binary'][-1]) == str(e['ag_binary'][-1]) for e in episodes]).astype(np.int)
             all_results = MPI.COMM_WORLD.gather(results, root=0)
             time_dict['eval'] += time.time() - t_i
 
