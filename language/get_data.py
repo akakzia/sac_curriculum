@@ -31,13 +31,13 @@ def get_data(binary=True):
     # plt.xlabel('Magnitude of config differences')
     # plt.ylabel('Counts')
     # if not binary:
-    reached_config_transitions = reached_config_transitions[:5000]
+    reached_config_transitions = reached_config_transitions[:6000]
 
-    if binary:
-        _, inds = np.unique(reached_config_transitions[:, :2, :].astype(np.int), axis=0, return_index=True)
-        unique_reached_config_transitions = reached_config_transitions[inds]
-    else:
-        unique_reached_config_transitions = np.unique(reached_config_transitions, axis=0)
+    # if binary:
+    #     _, inds = np.unique(reached_config_transitions[:, :2, :].astype(np.int), axis=0, return_index=True)
+    #     unique_reached_config_transitions = reached_config_transitions[inds]
+    # else:
+    #     unique_reached_config_transitions = np.unique(reached_config_transitions, axis=0)
     # all_reached_delta_configs = unique_reached_config_transitions[:,1,:] - unique_reached_config_transitions[:,0,:]
     # unique_reached_delta_configs = np.unique(all_reached_delta_configs, axis=0)
     # reached_delta_magnitudes = np.sum(np.abs(unique_reached_delta_configs), axis=1)
@@ -61,4 +61,4 @@ def get_data(binary=True):
 
     colors = {'0':'red', '1':'green', '2':'blue'}
 
-    return unique_reached_config_transitions, reached_config_transitions, predicates, predicate_to_id, id_to_predicate, colors
+    return reached_config_transitions,  predicates, predicate_to_id, id_to_predicate, colors

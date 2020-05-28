@@ -56,6 +56,7 @@ if __name__ == '__main__':
     with open(path + 'config.json', 'r') as f:
         params = json.load(f)
     params['symmetry_trick'] = False
+    params['small_deepset'] = True
     args = SimpleNamespace(**params)
 
     # Make the environment
@@ -97,7 +98,7 @@ if __name__ == '__main__':
         for i_eg, eg in enumerate(eval_goals):
             success = False
             while not success:
-                episodes = rollout_worker.generate_rollout(inits, eg.reshape(1, -1), self_eval=True, true_eval=True, animated=False)
+                episodes = rollout_worker.generate_rollout(inits, eg.reshape(1, -1), self_eval=True, true_eval=True, animated=True)
                 if str(episodes[0]['g'][0]) == str(episodes[0]['ag'][-1]):
                     success = True
             o_init = episodes[0]['obs'][0]

@@ -35,9 +35,11 @@ def get_test_sets(configs, sentences, set_inds, all_possible_configs, str_to_ind
             if str(c) not in final_str:
                 print(str(c))
                 stop = 1
-        train_finals_possible.append(final_str)
+        if len(list(set(final_str))) > 35:
+            stop = 1
+        train_finals_possible.append(list(set(final_str)))
         c_f_dataset = [str(c) for c in configs[idx_finals, 1]]
-        train_finals_dataset.append(c_f_dataset)
+        train_finals_dataset.append(list(set(c_f_dataset)))
 
     return train_inits, train_sents, train_finals_dataset, train_finals_possible
 
@@ -73,69 +75,69 @@ def main(args):
 
     # test particular combinations of init, sentence, final
     # this tests the extrapolation to different final states than the ones in train set
-    remove1 = [[[0, 0, 1, 0, 0, 0, 0, 0, 0], 'Put red close_to green', [1, 1, 0, 0, 1, 0, 0, 0, 0]],
-               [[0, 0, 1, 0, 0, 0, 0, 0, 0], 'Put blue above red', [0, 1, 0, 0, 0, 0, 1, 0, 0]],
-               [[0, 0, 0, 0, 0, 0, 0, 0, 0], 'Get blue and green close_from each_other', [0, 1, 1, 0, 0, 0, 1, 1, 0]],
-               [[0, 0, 0, 0, 0, 0, 0, 0, 0], 'Put blue on_top_of green', [0, 0, 1, 0, 0, 0, 0, 0, 1]],
-               [[0, 1, 1, 0, 0, 0, 0, 0, 0], 'Get green and blue far_from each_other', [0, 1, 0, 0, 0, 0, 0, 0, 0]]]
-    remove1_str = ['start' + str(np.array(r[0])) + r[1] + str(np.array(r[2])) for r in remove1]
+    # remove1 = [[[0, 0, 1, 0, 0, 0, 0, 0, 0], 'Put red close_to green', [1, 1, 0, 0, 1, 0, 0, 0, 0]],
+    #            [[0, 0, 1, 0, 0, 0, 0, 0, 0], 'Put blue above red', [0, 1, 0, 0, 0, 0, 1, 0, 0]],
+    #            [[0, 0, 0, 0, 0, 0, 0, 0, 0], 'Get blue and green close_from each_other', [0, 1, 1, 0, 0, 0, 1, 1, 0]],
+    #            [[0, 0, 0, 0, 0, 0, 0, 0, 0], 'Put blue on_top_of green', [0, 0, 1, 0, 0, 0, 0, 0, 1]],
+    #            [[0, 1, 1, 0, 0, 0, 0, 0, 0], 'Get green and blue far_from each_other', [0, 1, 0, 0, 0, 0, 0, 0, 0]]]
+    # remove1_str = ['start' + str(np.array(r[0])) + r[1] + str(np.array(r[2])) for r in remove1]
 
-    remove2 = [[[0, 1, 0, 0, 0, 0, 0, 0, 0], 'Put blue close_to green'],
-               [[1, 0, 0, 0, 0, 0, 0, 0, 0], 'Put green under blue']]
-    remove2_str = ['start' +  str(np.array(r[0])) + r[1] for r in remove2]
+    remove1 = [[[0, 1, 0, 0, 0, 0, 0, 0, 0], 'Put blue close_to green'],
+               [[0, 0, 1, 0, 0, 0, 0, 0, 0], 'Put green below red']]
+    remove1_str = ['start' +  str(np.array(r[0])) + r[1] for r in remove1]
 
-    remove3 = [[1, 1, 1, 0, 0, 0, 0, 0, 0], [1, 1, 0, 1, 0, 0, 0, 0, 0]]
-    remove3_str = ['start' + str(np.array(r)) for r in remove3]
-    remove4 = ['Put green on_top_of red', 'Put blue under green', 'Bring red and blue apart']
-    remove4_str = remove4.copy()
+    remove2 = [[1, 1, 0, 0, 0, 0, 0, 0, 0]]
+    remove2_str = ['start' + str(np.array(r)) for r in remove2]
+    remove3 = ['Put green on_top_of red', 'Put blue far_from red']
+    remove3_str = remove3.copy()
 
     # what about removing all of one final state, or combinations of sentence and final state, or init and final ?
 
-    set_inds = [[] for _ in range(6)]
+    set_inds = [[] for _ in range(5)]
     for i, s in enumerate(all_str):
 
         to_remove = False
 
         used = False
-        for s1 in remove1_str:
-            if s1 in s:
-                set_inds[1].append(i)
-                used = True
-                break
+        # for s1 in remove1_str:
+        #     if s1 in s:
+        #         set_inds[1].append(i)
+        #         used = True
+        #         break
+
+        if not used:
+            for s1 in remove1_str:
+                if s1 in s:
+                    set_inds[1].append(i)
+                    used = True
+                    break
 
         if not used:
             for s2 in remove2_str:
                 if s2 in s:
-                    set_inds[2].append(i)
+                    does_s_also_contains_s_from_r3 = False
+                    for s3 in remove3_str:
+                        if s2 + s3 in s:
+                            does_s_also_contains_s_from_r3 = True
                     used = True
+                    if not does_s_also_contains_s_from_r3:
+                        set_inds[2].append(i)
+                    else:
+                        set_inds[4].append(i)
                     break
 
         if not used:
             for s3 in remove3_str:
                 if s3 in s:
-                    does_s_also_contains_s_from_r4 = False
-                    for s4 in remove4_str:
-                        if s3 + s4 in s:
-                            does_s_also_contains_s_from_r4 = True
+                    does_s_also_contains_s_from_r2 = False
+                    for s2 in remove2_str:
+                        if s2 + s3 in s:
+                            does_s_also_contains_s_from_r2 = True
                     used = True
-                    if not does_s_also_contains_s_from_r4:
+                    if not does_s_also_contains_s_from_r2:
                         set_inds[3].append(i)
                     else:
-                        set_inds[5].append(i)
-                    break
-
-        if not used:
-            for s4 in remove4_str:
-                if s4 in s:
-                    does_s_also_contains_s_from_r3 = False
-                    for s3 in remove3_str:
-                        if s3 + s4 in s:
-                            does_s_also_contains_s_from_r3 = True
-                    used = True
-                    if not does_s_also_contains_s_from_r3:
                         set_inds[4].append(i)
-                    else:
-                        set_inds[5].append(i)
                     break
 
         if not used and not to_remove:
@@ -159,27 +161,29 @@ def main(args):
     dataset = ConfigLanguageDataset(configs[valid_inds], np.array(sentences)[valid_inds].tolist(), None, inst_to_one_hot, binary=False)
     data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True)
 
+
+    return vocab, configs, device, data_loader, inst_to_one_hot, train_test_data, set_inds, sentences, all_possible_configs, str_to_index
+
+
+def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data, set_inds, sentences,
+          layers, embedding_size, latent_size, learning_rate, k_param, all_possible_configs, str_to_index, args, vae_id):
+
     def loss_fn(recon_x, x, mean, log_var):
         BCE = torch.nn.functional.binary_cross_entropy(recon_x, x, reduction='sum')
-        # recon_x = torch.clamp(recon_x, min=1e-4, max=1 - 1e-4)
-        #
-        # BCE = x * torch.log(recon_x) + (1 - x) * torch.log(1 - recon_x)
-        # BCE = - torch.sum(BCE)
         KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
-        return (BCE + 0.9 * KLD) / x.size(0)
-
-    return vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, set_inds, sentences, all_possible_configs, str_to_index
+        return (BCE + k_param * KLD) / x.size(0)
 
 
-def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, set_inds, sentences,
-          layers, embedding_size, latent_size, learning_rate,  all_possible_configs, str_to_index, args, vae_id):
     vae = ContextVAE(vocab.size, inner_sizes=layers, state_size=configs.shape[2], embedding_size=embedding_size, latent_size=latent_size).to(device)
 
     optimizer = torch.optim.Adam(vae.parameters(), lr=learning_rate)
 
     logs = defaultdict(list)
 
-    for epoch in range(args.epochs):
+    # stops = [50, 75, 100, 125, 150]
+    results = np.zeros([len(set_inds), 8])
+
+    for epoch in range(args.epochs + 1):
         for iteration, (init_state, sentence, state) in enumerate(data_loader):
             # init_state = torch.FloatTensor(np.ones(init_state.shape) * 0.7)
             # state = torch.FloatTensor(np.ones(init_state.shape) * 0.2)
@@ -197,95 +201,110 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
 
             logs['loss'].append(loss.item())
 
-        if epoch % args.print_every == 0 or iteration == len(data_loader)-1:
-            print("Epoch {:02d}/{:02d} Batch {:04d}/{:d}, Loss {:9.4f}".format(
-                epoch, args.epochs, iteration, len(data_loader)-1, loss.item()))
+        # if epoch % args.print_every == 0:
+        #     print("Epoch {:02d}/{:02d} Batch {:04d}/{:d}, Loss {:9.4f}".format(
+        #         epoch, args.epochs, iteration, len(data_loader)-1, loss.item()))
+        #
+        #
+        #     score = 0
+        #     score_dataset = 0
+        #     for c_i, s, c_f_dataset, c_f_possible in zip(*train_test_data):
+        #         one_hot = np.expand_dims(np.array(inst_to_one_hot[s.lower()]), 0)
+        #         c_i = np.expand_dims(c_i, 0)
+        #         c_i, s = torch.Tensor(c_i).to(device), torch.Tensor(one_hot).to(device)
+        #         x = (vae.inference(c_i, s, n=1).detach().numpy().flatten()>0.5).astype(np.int)
+        #         # x = vae.inference(c_i, s, n=1).detach().numpy().flatten() * 2 - 1
+        #         # x[np.argwhere(x > 0.33).flatten()] = 1
+        #         # x[np.argwhere(x < -0.33).flatten()] = -1
+        #         # x[np.argwhere(np.logical_and(x > -0.33, x < 0.33)).flatten()] = 0
+        #         # x = x + c_i.numpy().flatten()
+        #         # x = x.astype(np.int)
+        #         if str(x) in c_f_possible:
+        #             score += 1
+        #         if str(x) in c_f_dataset:
+        #             score_dataset += 1
+        #     print('Score train set: possible : {}, dataset : {}'.format(score / len(train_test_data[0]), score_dataset / len(train_test_data[0])))
 
-
-            score = 0
-            score_dataset = 0
-            for c_i, s, c_f_dataset, c_f_possible in zip(*train_test_data):
-                one_hot = np.expand_dims(np.array(inst_to_one_hot[s.lower()]), 0)
-                c_i = np.expand_dims(c_i, 0)
-                c_i, s = torch.Tensor(c_i).to(device), torch.Tensor(one_hot).to(device)
-                x = (vae.inference(c_i, s, n=1).detach().numpy().flatten()>0.5).astype(np.int)
-                # x = vae.inference(c_i, s, n=1).detach().numpy().flatten() * 2 - 1
-                # x[np.argwhere(x > 0.33).flatten()] = 1
-                # x[np.argwhere(x < -0.33).flatten()] = -1
-                # x[np.argwhere(np.logical_and(x > -0.33, x < 0.33)).flatten()] = 0
-                # x = x + c_i.numpy().flatten()
-                # x = x.astype(np.int)
-                if str(x) in c_f_possible:
-                    score += 1
-                if str(x) in c_f_dataset:
-                    score_dataset += 1
-            print('Score train set: possible : {}, dataset : {}'.format(score / len(train_test_data[0]), score_dataset / len(train_test_data[0])))
-
-        stop = 1
-    #
+        #
     with open(SAVE_PATH + 'vae_model{}.pkl'.format(vae_id), 'wb') as f:
         torch.save(vae, f)
-    #
-    # with open(SAVE_PATH + 'vae_model.pkl', 'rb') as f:
-    #     vae = torch.load(f)
-    #     if (epoch + 1 )% 20 == 0:
-    results = np.zeros([len(set_inds), 2])
-    # test train statistics
-    factor = 50
+
+        # test train statistics
+    factor = 100
     for i_gen in range(len(set_inds)):
         if i_gen == 0:
             set_name = 'Train'
         else:
             set_name = 'Test ' + str(i_gen)
 
-        scores = []
+        coverage_dataset = []
+        coverage_possible = []
+        count = 0
         at_least_1 = []
         false_preds = []
         variabilities = []
         nb_cf_possible = []
         nb_cf_dataset = []
+        found_beyond_dataset = []
+        valid_goals = []
         data_set = get_test_sets(configs, sentences, set_inds[i_gen], all_possible_configs, str_to_index)
         for c_i, s, c_f_dataset, c_f_possible in zip(*data_set):
+            c_f_possible = set(c_f_possible)
+            c_f_dataset = set(c_f_dataset)
+            count += 1
             one_hot = np.expand_dims(np.array(inst_to_one_hot[s.lower()]), 0)
-            c_i = np.expand_dims(c_i, 0)
+            c_ii = np.expand_dims(c_i, 0)
             one_hot = np.repeat(one_hot, factor, axis=0)
-            c_i = np.repeat(c_i, factor, axis=0)
-            c_i, s = torch.Tensor(c_i).to(device), torch.Tensor(one_hot).to(device)
+            c_ii = np.repeat(c_ii, factor, axis=0)
+            c_ii, s_one_hot = torch.Tensor(c_ii).to(device), torch.Tensor(one_hot).to(device)
 
-            x = (vae.inference(c_i, s, n=factor).detach().numpy() > 0.5).astype(np.int)
+            x = (vae.inference(c_ii, s_one_hot, n=factor).detach().numpy() > 0.5).astype(np.int)
 
             x_strs = [str(xi) for xi in x]
             variabilities.append(len(set(x_strs)))
-            count_found = 0
-            at_least_1_true = False
-            false_preds.append(0)
+            count_found_dataset = 0
+            count_found_possible = 0
+            count_found_not_dataset = 0
+            count_false_pred = 0
             # count coverage of final configs in dataset
             for x_str in set(x_strs):
-                if x_str in c_f_dataset:
-                    count_found += 1
+                if x_str in c_f_possible:
+                    count_found_possible += 1
+                    if x_str in c_f_dataset:
+                        count_found_dataset += 1
+                    else:
+                        count_found_not_dataset += 1
             # count false positives, final configs that are not compatible
             for x_str in x_strs:
                 if x_str not in c_f_possible:
-                    false_preds[-1] += 1
-                else:
-                    at_least_1_true = True
-            scores.append(count_found / len(c_f_dataset))
-            at_least_1.append(at_least_1_true)
-            false_preds[-1] /= factor#len(set(x_strs))
+                    count_false_pred += 1
+                    # print(c_i, s, x_str)
+
+            coverage_dataset.append(count_found_dataset / len(c_f_dataset))
+            coverage_possible.append(count_found_possible / len(c_f_possible))
+            found_beyond_dataset.append(count_found_not_dataset)
+            valid_goals.append(count_found_possible)
+            false_preds.append(count_false_pred / factor)
             nb_cf_possible.append(len(c_f_possible))
             nb_cf_dataset.append(len(c_f_dataset))
-        print('\n{}: Average of percentage of final states found: {}'.format(set_name, np.mean(scores)))
-        print('{}: At least one found: {}'.format(set_name, np.mean(at_least_1)))
-        print('{}: Average variability: {}'.format(set_name, np.mean(variabilities)))
-        print('{}: Average percentage of false preds: {}'.format(set_name, np.mean(false_preds)))
-        print('{}: Average number of possible final configs: {}'.format(set_name, np.mean(nb_cf_possible)))
-        print('{}: Average number of final configs in dataset: {}'.format(set_name, np.mean(nb_cf_dataset)))
-        results[i_gen, 0] = np.mean(scores)
-        results[i_gen, 1] = np.mean(false_preds)
-
+        print('\n{}: Probability that a sampled goal is valid {}'.format(set_name, 1 - np.mean(false_preds)))
+        print('{}: Number of different valid sampled goals: {}'.format(set_name, np.mean(valid_goals)))
+        print('{}: Number of valid sampled goals not in dataset: {}'.format(set_name, np.mean(found_beyond_dataset)))
+        print('{}: Number of valid goals (oracle): {}'.format(set_name, np.mean(nb_cf_possible)))
+        print('{}: Number of valid goals found in dataset: {}'.format(set_name, np.mean(nb_cf_dataset)))
+        print('{}: Coverage of all valid goals: {}'.format(set_name, np.mean(coverage_possible)))
+        print('{}: Coverage of all valid goals from dataset: {}'.format(set_name, np.mean(coverage_dataset)))
+        results[i_gen, 0] = count
+        results[i_gen, 1] = 1 - np.mean(false_preds)
+        results[i_gen, 2] = np.mean(valid_goals)
+        results[i_gen, 3] = np.mean(found_beyond_dataset)
+        results[i_gen, 4] = np.mean(nb_cf_possible)
+        results[i_gen, 5] = np.mean(nb_cf_dataset)
+        results[i_gen, 6] = np.mean(coverage_dataset)
+        results[i_gen, 7] = np.mean(coverage_possible)
     with open(SAVE_PATH + 'res{}.pkl'.format(vae_id), 'wb') as f:
         pickle.dump(results, f)
-    return results
+    return results.copy()
 
 
 
@@ -293,13 +312,13 @@ def train(vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_t
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=np.random.randint(1e6))
-    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--epochs", type=int, default=150)
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--learning_rate", type=float, default=0.005)
     parser.add_argument("--encoder_layer_sizes", type=list, default=[784, 256])
     parser.add_argument("--decoder_layer_sizes", type=list, default=[256, 784])
     parser.add_argument("--latent_size", type=int, default=2)
-    parser.add_argument("--print_every", type=int, default=100)
+    parser.add_argument("--print_every", type=int, default=50)
     parser.add_argument("--fig_root", type=str, default='figs')
     parser.add_argument("--conditional", action='store_true')
 
@@ -314,34 +333,35 @@ if __name__ == '__main__':
     embedding_size = 100
     layers = [128, 128]
     learning_rate = 0.005
-    latent_size = 18
-    VAE_ID = 1
+    latent_size = 27
+    k_param = 0.6
 
-    vocab, configs, device, data_loader, loss_fn, inst_to_one_hot, train_test_data, set_inds, sentences, \
+    vocab, configs, device, data_loader, inst_to_one_hot, train_test_data, set_inds, sentences, \
     all_possible_configs, str_to_index = main(args)
 
-    for VAE_ID in range(5):
-        train(vocab, configs, device, data_loader, loss_fn,
+    for VAE_ID in range(10):
+        train(vocab, configs, device, data_loader,
               inst_to_one_hot, train_test_data, set_inds, sentences,
-              layers, embedding_size, latent_size, learning_rate,  all_possible_configs, str_to_index, args, VAE_ID)
+              layers, embedding_size, latent_size, learning_rate,  k_param, all_possible_configs, str_to_index, args, VAE_ID)
 
+    #
     # import time
-    # results = np.zeros([4, 3, 3, 3, 6, 2])
-    # count = results.size / 12
+    # results = np.zeros([6, 5, 5, 8])
+    # total = 6 * 5
     # counter = 0
     # path = '/home/flowers/Desktop/Scratch/sac_curriculum/language/data/'
-    # for i, embedding_size in enumerate([10, 20, 50, 100]):
-    #     for j, layers in enumerate([[64], [64, 64], [128, 128]]):
-    #         for k, learning_rate in enumerate([0.001, 0.005, 0.01]):
-    #             for l, latent_size in enumerate([9, 18, 27]):
-    #                 t_i = time.time()
-    #                 print('\n', embedding_size, layers, learning_rate, latent_size)
-    #                 results[i, j, k, l, :, :] = train(vocab, configs, device, data_loader, loss_fn,
-    #                                                   inst_to_one_hot, train_test_data, set_inds, sentences,
-    #                                                   layers, embedding_size, latent_size, learning_rate, args)
-    #                 with open(path + 'results.pk', 'wb') as f:
-    #                     pickle.dump(results, f)
-    #                 counter += 1
-    #                 print(counter / count , '%', time.time() - t_i)
+    # t_i = time.time()
+    # # for i, layers in enumerate([[128, 128], [256, 256]]):
+    #     # for j, latent_size in enumerate([18, 27]):
+    # for k, k_param in enumerate([0.5, 0.6, 0.7, 0.8, 0.9, 1]):
+    #     for s in range(5):
+    #         print('\n', layers, latent_size, k_param)
+    #         results[k, s, :, :] = train(vocab, configs, device, data_loader,
+    #                                           inst_to_one_hot, train_test_data, set_inds, sentences,
+    #                                           layers, embedding_size, latent_size, learning_rate,  k_param, all_possible_configs, str_to_index, args, 0)
+    #         with open(path + 'results_k_study.pk', 'wb') as f:
+    #             pickle.dump(results, f)
+    #         counter += 1
+    #         print(counter / total * 100 , '%. Remaining time:', (time.time() - t_i) / counter / 60 * (total - counter))
 
 
