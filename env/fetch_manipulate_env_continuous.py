@@ -5,6 +5,7 @@ import itertools
 from env import rotations, robot_env, utils
 from utils import generate_goals
 
+
 def objects_distance(x, y):
     """
     A function that returns the euclidean distance between two objects x and y
@@ -27,8 +28,8 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
     """
 
     def __init__(
-        self, model_path, num_blocks, n_substeps, gripper_extra_height, block_gripper,
-        target_in_the_air, target_offset, obj_range, target_range, predicate_threshold,
+            self, model_path, num_blocks, n_substeps, gripper_extra_height, block_gripper,
+            target_in_the_air, target_offset, obj_range, target_range, predicate_threshold,
             initial_qpos, reward_type, predicates,
     ):
         """Initializes a new Fetch environment.
@@ -46,7 +47,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
             initial_qpos (dict): a dictionary of joint names and values that define the initial configuration
             reward_type ('sparse' or 'dense'): the reward type, i.e. sparse or dense
         """
-        
+
         self.target_goal = None
         self.binary_goal = None
         self.num_blocks = num_blocks
@@ -81,7 +82,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         self.valid_str = [str(vg) for vg in self.valid_goals]
 
         # temporary values
-        self.min_max_x = (1.19,1.49)
+        self.min_max_x = (1.19, 1.49)
         self.min_max_y = (0.59, 0.89)
         super(FetchManipulateEnvContinuous, self).__init__(
             model_path=model_path, n_substeps=n_substeps, n_actions=4,
@@ -89,7 +90,6 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
 
         self.min_max_x = (self.initial_gripper_xpos[0] - self.obj_range, self.initial_gripper_xpos[0] + self.obj_range)
         self.min_max_y = (self.initial_gripper_xpos[1] - self.obj_range, self.initial_gripper_xpos[1] + self.obj_range)
-
 
     # Heatmap Generation
     # ----------------------------
@@ -109,8 +109,8 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
 
     def flush_location_record(self, create_new_empty_record=True):
         if self.location_record is not None and self.location_record_steps_recorded > 0:
-            write_file = os.path.join(self.location_record_write_dir,"{}_{}".format(self.location_record_prefix,
-                                                                           self.location_record_file_number))
+            write_file = os.path.join(self.location_record_write_dir, "{}_{}".format(self.location_record_prefix,
+                                                                                     self.location_record_file_number))
             np.save(write_file, self.location_record[:self.location_record_steps_recorded])
             self.location_record_file_number += 1
             self.location_record_steps_recorded = 0
@@ -166,7 +166,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         # Apply action to simulation.
         utils.ctrl_set_action(self.sim, action)
         utils.mocap_set_action(self.sim, action)
-    
+
     def _get_configuration(self, positions):
         close_config = np.array([])
         above_config = np.array([])
@@ -184,7 +184,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                 raise NotImplementedError
 
             above_config = np.array([int(above(obj[0], obj[1])) for obj in object_permutations]).astype(np.float32)
-        
+
         res = np.concatenate([close_config, above_config])
         return res
 
@@ -208,7 +208,6 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         objects_positions = []
 
         for i in range(self.num_blocks):
-
             object_i_pos = self.sim.data.get_site_xpos(self.object_names[i])
             # rotations
             object_i_rot = rotations.mat2euler(self.sim.data.get_site_xmat(self.object_names[i]))
@@ -236,7 +235,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         # object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
 
         # self.goal_size = len(object_rel_distances)
-        
+
         achieved_goal_binary = self._get_configuration(objects_positions).flatten()
 
         return {'observation': obs.copy(),
@@ -274,7 +273,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         self._sample_goal()
 
         self.sim.set_state(self.initial_state)
-        
+
         # Guide learning by generating a stack in initialization
         if "above" in self.predicates or "right_close" in self.predicates:
             self.guide = True
@@ -317,7 +316,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                         object_qpos[:2] = object_xpos
 
                     self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
-                
+
         else:
             for i, obj_name in enumerate(self.object_names):
                 object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
@@ -368,7 +367,6 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         self.initial_gripper_xpos = self.sim.data.get_site_xpos('robot0:grip').copy()
         self.height_offset = self.sim.data.get_site_xpos('object0')[2]
 
-
     def sample_continuous_goal_from_binary_goal(self, binary_goal):
 
         valid_config = str(binary_goal) in self.valid_str
@@ -396,7 +394,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                         for i in stack:
                             object_xpos = self.initial_gripper_xpos[:2] + offset_on_table
                             blocks_set[i] = True
-                            positions[i] = np.array([object_xpos[0], object_xpos[1],  z_stack[np.where(stack == i)[0][0]]])
+                            positions[i] = np.array([object_xpos[0], object_xpos[1], z_stack[np.where(stack == i)[0][0]]])
 
                         # Getting remaining blocks which were not placed
                         remain_block = [i for i, x in enumerate(blocks_set) if not x]
@@ -413,7 +411,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                                     position = self.initial_gripper_xpos.copy()
                                     position[:2] += np.random.uniform(-self.obj_range, self.obj_range, 2)
                                     position[2] = 0.425
-                                    cond1 =  np.linalg.norm(position - positions[base_block_id]) > self.predicate_threshold
+                                    cond1 = np.linalg.norm(position - positions[base_block_id]) > self.predicate_threshold
                                     cond3 = position[0] < self.min_max_x[1] and position[0] > self.min_max_x[0]
                                     cond4 = position[1] < self.min_max_y[1] and position[1] > self.min_max_y[0]
                                     if cond1 and cond3 and cond4:
@@ -505,9 +503,9 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                             object_xpos = self.initial_gripper_xpos[:2] + offset_on_table
                             blocks_set[i] = True
                             positions[i] = np.array([object_xpos[0], object_xpos[1], z_stack[stack.index(i)]])
-                        if len(actual_close_pairs) < 3:
-                            positions[stack[0]][0] += 0.02
-                            positions[stack[0]][1] += 0.02
+                        # if len(actual_close_pairs) < 3:
+                        #     positions[stack[0]][0] += 0.02
+                        #     positions[stack[0]][1] += 0.02
                 else:
                     raise ValueError('should not happen')
 
@@ -585,7 +583,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                             pivot = list(set(actual_close_pairs[0]) & set(actual_close_pairs[1]))[0]
                             pos = self.initial_gripper_xpos.copy()
                             pos[2] = 0.425
-                            pos[:2] += self.np_random.uniform(-self.obj_range/2, self.obj_range/2, size=2)
+                            pos[:2] += self.np_random.uniform(-self.obj_range / 2, self.obj_range / 2, size=2)
                             positions.append(pos)
                             for _ in range(2):
                                 ok = False
@@ -601,7 +599,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                                             ok = True
                                     if len(positions) == 2:
                                         cond1 = np.linalg.norm(pos - positions[0]) > np.sqrt(2) * 0.05 and np.linalg.norm(pos - positions[0]) < self.predicate_threshold
-                                        cond2 =  np.linalg.norm(pos - positions[1]) > self.predicate_threshold
+                                        cond2 = np.linalg.norm(pos - positions[1]) > self.predicate_threshold
                                         if cond1 and cond2:
                                             ok = True
                                     if counter > 100:
@@ -710,7 +708,6 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         if init is not None:
             return self.reset_init(init, goal)
 
-
         self.binary_goal = goal.copy()
         self.target_goal = self.sample_continuous_goal_from_binary_goal(goal.copy())
 
@@ -728,7 +725,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                 object_qpos[:2] = object_xpos
 
                 self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
-
+            #
             # for i, obj_name in enumerate(self.object_names):
             #     object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
             #     object_qpos[:3] = self.target_goal[i * 3: (i + 1) * 3]
