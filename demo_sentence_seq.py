@@ -149,12 +149,10 @@ def rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, env
 
 if __name__ == '__main__':
     num_eval = 20
-    path = '/home/flowers/Downloads/test/'
-    model_path = path + 'model_600.pt'
+    path = '/home/flowers/Desktop/Scratch/sac_curriculum/results/DECSTR/DECSTR/fucking_models/'
 
     with open(path + 'config.json', 'r') as f:
         params = json.load(f)
-    params['symmetry_trick'] = False
     args = SimpleNamespace(**params)
 
     # Make the environment
@@ -173,15 +171,6 @@ if __name__ == '__main__':
 
     goal_sampler = GoalSampler(args)
 
-    # create the sac agent to interact with the environment
-    if args.agent == "SAC":
-        policy = SACAgent(args, env.compute_reward, goal_sampler)
-        policy.load(model_path, args)
-    else:
-        raise NotImplementedError
-
-    # def rollout worker
-    rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
 
     eval_goals = goal_sampler.valid_goals
     inits = [None] * len(eval_goals)
@@ -199,21 +188,34 @@ if __name__ == '__main__':
     sentence_generator = get_corresponding_sentences
     all_goals = generate_all_goals_in_goal_space()
     dict_goals = dict(zip([str(g) for g in all_goals], all_goals))
-    vae_scores = []
-    for vae_id in range(5):
-        with open(path + 'vae_model{}.pkl'.format(id), 'rb') as f:
+
+    policy_scores = []
+    for vae_id in range(10):
+        model_path = path + '/policy_models/model{}.pt'.format(vae_id + 1)
+
+        # create the sac agent to interact with the environment
+        if args.agent == "SAC":
+            policy = SACAgent(args, env.compute_reward, goal_sampler)
+            policy.load(model_path, args)
+        else:
+            raise NotImplementedError
+
+        # def rollout worker
+        rollout_worker = RolloutWorker(env, policy, goal_sampler, args)
+
+
+        with open(path + 'vae_models/vae_model{}.pkl'.format(vae_id), 'rb') as f:
             vae = torch.load(f)
+
         scores = []
         for i in range(num_eval):
             print(i)
             score = rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, env, policy, args.env_params, inits, eval_goals, self_eval=True, true_eval=True,
                                animated=False)
             scores.append(score)
-            # results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
-            # all_results.append(results)
-        vae_scores.append(scores)
+        policy_scores.append(scores)
 
-    results = np.array(vae_scores)
-    np.savetxt('/home/flowers/Desktop/Scratch/sac_curriculum/results/sentence_seq.txt', results)
+        results = np.array(policy_scores)
+        np.savetxt(path + 'sentence_seq.txt', results)
     print('Av len sequence: {}'.format(results.mean(axis=1)))
 

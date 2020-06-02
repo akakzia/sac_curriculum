@@ -48,6 +48,8 @@ def compute_dist(o1, o2):
     dists = [np.linalg.norm(o1[i] - o2[i]) for i in range(3)]
     return np.sum(dists)
 
+def get_obj_pos(state):
+    return [state[10 + 15 * s: 10 + 3 + 15 * s].copy() for s in range(3)].copy()
 if __name__ == '__main__':
     num_eval = 50
     path = '/home/flowers/Downloads/test/'
@@ -92,20 +94,30 @@ if __name__ == '__main__':
     cont_env = gym.make('FetchManipulate3ObjectsContinuous-v0')
     continuous_sample = cont_env.unwrapped.sample_continuous_goal_from_binary_goal
     all_pos = np.zeros([num_eval, len(eval_goals), 3 * 3, 3])
-    dists = np.zeros([num_eval, len(eval_goals), 2])
+    dists = np.zeros([num_eval, len(eval_goals), 3])
     for i in range(num_eval):
         print(i)
         for i_eg, eg in enumerate(eval_goals):
             success = False
             while not success:
-                episodes = rollout_worker.generate_rollout(inits, eg.reshape(1, -1), self_eval=True, true_eval=True, animated=True)
+                episodes = rollout_worker.generate_rollout(inits, eg.reshape(1, -1), self_eval=True, true_eval=True, animated=False)
                 if str(episodes[0]['g'][0]) == str(episodes[0]['ag'][-1]):
                     success = True
             o_init = episodes[0]['obs'][0]
-            obj_init = [o_init[10 + 15 * i: 10 + 3 + 15 * i] for i in range(3)]
+            obj_init = get_obj_pos(o_init)
             o_final = episodes[0]['obs'][-1]
-            obj_final = [o_final[10 + 15 * i: 10 + 3 + 15 * i] for i in range(3)]
-            obj_lanier = [continuous_sample(eg)[i * 3: 3 * (i+ 1)] for i in range(3)]
+            obj_final = get_obj_pos(o_final)
+            pos_lanier = continuous_sample(eg)
+            obj_lanier = get_obj_pos(pos_lanier)
+
+            distrib_lanier = [continuous_sample(eg) for _ in range(100)]
+            min_dist = np.inf
+            for pos_lanier in distrib_lanier:
+                obj_i = get_obj_pos(pos_lanier)
+                d_i = compute_dist(obj_init, obj_i)
+                if d_i < min_dist:
+                    min_dist = d_i
+
             dist_our = compute_dist(obj_init, obj_final)
             dist_lanier = compute_dist(obj_init, obj_lanier)
             all_pos[i, i_eg, :, 0] = np.array(obj_init).flatten()
@@ -113,6 +125,7 @@ if __name__ == '__main__':
             all_pos[i, i_eg, :, 2] = np.array(obj_lanier).flatten()
             dists[i, i_eg, 0] = dist_our
             dists[i, i_eg, 1] = dist_lanier
+            dists[i, i_eg, 2] = min_dist
 
         #
         # results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
