@@ -9,6 +9,8 @@ from language.vae import ContextVAE
 from language.build_dataset_alternative import get_dataset
 import numpy as np
 import pickle
+import env
+import gym
 
 SAVE_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/language/data/'
 def get_test_sets(configs, sentences, set_inds, all_possible_configs, str_to_index):
@@ -31,12 +33,6 @@ def get_test_sets(configs, sentences, set_inds, all_possible_configs, str_to_ind
         init_sent_str = config_init_and_sentence[i_array]
         final_confs = all_possible_configs[str_to_index[init_sent_str], 1]
         final_str = [str(c) for c in final_confs]
-        for c in configs[idx_finals, 1]:
-            if str(c) not in final_str:
-                print(str(c))
-                stop = 1
-        if len(list(set(final_str))) > 35:
-            stop = 1
         train_finals_possible.append(list(set(final_str)))
         c_f_dataset = [str(c) for c in configs[idx_finals, 1]]
         train_finals_dataset.append(list(set(c_f_dataset)))
@@ -67,10 +63,10 @@ def main(args):
         inst_to_one_hot[' '.join(s_instr)] = one_hot_encoder.encode(s_instr)
 
 
-    with open(SAVE_PATH + 'inst_to_one_hot.pkl', 'wb') as f:
-        pickle.dump(inst_to_one_hot, f)
+    # with open(SAVE_PATH + 'inst_to_one_hot.pkl', 'wb') as f:
+    #     pickle.dump(inst_to_one_hot, f)
 
-    all_str = ['start' + str(c[0]) + s + str(c[1]) for c, s in zip(configs, sentences)]
+    all_str = ['start' + str(c[0]) + s + str(c[1]) +'end' for c, s in zip(configs, sentences)]
     all_possible_configs_str = [str(c[0]) + s for c, s in zip(all_possible_configs, all_possible_sentences)]
 
     # test particular combinations of init, sentence, final
@@ -94,6 +90,7 @@ def main(args):
     # what about removing all of one final state, or combinations of sentence and final state, or init and final ?
 
     set_inds = [[] for _ in range(5)]
+    inds_final = []
     for i, s in enumerate(all_str):
 
         to_remove = False
@@ -104,7 +101,9 @@ def main(args):
         #         set_inds[1].append(i)
         #         used = True
         #         break
-
+        if '[1 0 1 1 0 0 0 1 0]end' in s:
+            used = True
+            inds_final.append(i)
         if not used:
             for s1 in remove1_str:
                 if s1 in s:
@@ -143,7 +142,10 @@ def main(args):
         if not used and not to_remove:
             set_inds[0].append(i)
 
-    assert np.sum([len(ind) for ind in set_inds]) == len(all_str)
+    assert np.sum([len(ind) for ind in set_inds]) + len(inds_final) == len(all_str)
+
+    for i, s in enumerate(set_inds):
+        print('Set ', i, ': ', len(s))
 
     # dictionary translating string of init config and sentence to all possible final config (id in all_possible_configs)
     # including the ones in the dataset, but also other synthetic ones. This is used for evaluation
@@ -158,7 +160,11 @@ def main(args):
 
     train_test_data = get_test_sets(configs, sentences, set_inds[0], all_possible_configs, str_to_index)
     valid_inds = np.array(set_inds[0])
-    dataset = ConfigLanguageDataset(configs[valid_inds], np.array(sentences)[valid_inds].tolist(), None, inst_to_one_hot, binary=False)
+    dataset = ConfigLanguageDataset(configs[valid_inds],
+                                    np.array(sentences)[valid_inds].tolist(),
+                                    None,
+                                    inst_to_one_hot,
+                                    binary=False)
     data_loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True)
 
 
@@ -240,13 +246,14 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
         coverage_dataset = []
         coverage_possible = []
         count = 0
-        at_least_1 = []
         false_preds = []
         variabilities = []
         nb_cf_possible = []
         nb_cf_dataset = []
         found_beyond_dataset = []
         valid_goals = []
+        total_missing_final = 0
+        total_found_final = 0
         data_set = get_test_sets(configs, sentences, set_inds[i_gen], all_possible_configs, str_to_index)
         for c_i, s, c_f_dataset, c_f_possible in zip(*data_set):
             c_f_possible = set(c_f_possible)
@@ -260,6 +267,7 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
 
             x = (vae.inference(c_ii, s_one_hot, n=factor).detach().numpy() > 0.5).astype(np.int)
 
+
             x_strs = [str(xi) for xi in x]
             variabilities.append(len(set(x_strs)))
             count_found_dataset = 0
@@ -267,6 +275,13 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
             count_found_not_dataset = 0
             count_false_pred = 0
             # count coverage of final configs in dataset
+            if '[1 0 1 1 0 0 0 1 0]' in c_f_possible:
+                total_missing_final += 1
+                if '[1 0 1 1 0 0 0 1 0]' in set(x_strs):
+                    total_found_final += 1
+                if '[1 0 1 1 0 0 0 1 0]' in c_f_dataset:
+                    stop = 1
+
             for x_str in set(x_strs):
                 if x_str in c_f_possible:
                     count_found_possible += 1
@@ -274,6 +289,7 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
                         count_found_dataset += 1
                     else:
                         count_found_not_dataset += 1
+
             # count false positives, final configs that are not compatible
             for x_str in x_strs:
                 if x_str not in c_f_possible:
@@ -294,6 +310,8 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
         print('{}: Number of valid goals found in dataset: {}'.format(set_name, np.mean(nb_cf_dataset)))
         print('{}: Coverage of all valid goals: {}'.format(set_name, np.mean(coverage_possible)))
         print('{}: Coverage of all valid goals from dataset: {}'.format(set_name, np.mean(coverage_dataset)))
+        print('{}: Number of pairs with missing final: {}'.format(set_name, total_missing_final))
+        print('{}: Ratio of found missing final: {}'.format(set_name, total_found_final / total_missing_final))
         results[i_gen, 0] = count
         results[i_gen, 1] = 1 - np.mean(false_preds)
         results[i_gen, 2] = np.mean(valid_goals)
@@ -312,7 +330,7 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=np.random.randint(1e6))
-    parser.add_argument("--epochs", type=int, default=150)
+    parser.add_argument("--epochs", type=int, default=60)
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--learning_rate", type=float, default=0.005)
     parser.add_argument("--encoder_layer_sizes", type=list, default=[784, 256])
@@ -325,11 +343,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # good ones
-    # embedding_size = 100
-    # layers = [128, 128]
-    # learning_rate = 0.005
-    # latent_size = 18
-
     embedding_size = 100
     layers = [128, 128]
     learning_rate = 0.005
