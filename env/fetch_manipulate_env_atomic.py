@@ -227,7 +227,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
 
         goal_description = np.concatenate([goal_description, np.expand_dims(self.target_goal, axis=1)], axis=1)
 
-        achieved_goal = goal_description[:, -1]
+        achieved_goal = goal_description[:, -2]
 
         self.goal_size = achieved_goal.shape[0]
 

@@ -25,6 +25,8 @@ class MultiBuffer:
         self.buffer = {'obs': np.empty([self.size, self.T + 1, self.env_params['obs']]),
                        'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
                        'g': np.empty([self.size, self.T, self.env_params['goal']]),
+                       'g_desc': np.empty([self.size, self.T + 1, self.env_params['g_description'][0],
+                                           self.env_params['g_description'][1]]),
                        'actions': np.empty([self.size, self.T, self.env_params['action']]),
                        }
         self.goal_ids = np.zeros([self.size])  # contains id of achieved goal (discovery rank)
@@ -44,6 +46,7 @@ class MultiBuffer:
                 self.buffer['obs'][idxs[i]] = e['obs']
                 self.buffer['ag'][idxs[i]] = e['ag']
                 self.buffer['g'][idxs[i]] = e['g']
+                self.buffer['g_desc'][idxs[i]] = e['g_desc']
                 self.buffer['actions'][idxs[i]] = e['act']
                 self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
 

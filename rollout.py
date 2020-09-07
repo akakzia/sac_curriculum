@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class RolloutWorker:
     def __init__(self, env, policy, goal_sampler, args):
 
@@ -13,19 +14,20 @@ class RolloutWorker:
 
         episodes = []
         for i in range(goals.shape[0]):
-            observation = self.env.unwrapped.reset_goal(np.array(goals[i]), init=inits[i], biased_init=biased_init)
+            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), init=inits[i], biased_init=biased_init)
             obs = observation['observation']
             ag = observation['achieved_goal']
             g = observation['desired_goal']
+            g_desc = observation['goal_description']
 
-            ep_obs, ep_ag, ep_g, ep_actions, ep_success = [], [], [], [], []
+            ep_obs, ep_ag, ep_g, ep_g_desc, ep_actions, ep_success = [], [], [], [], [], []
 
-            # start to collect samples
+            # Start to collect samples
             for t in range(self.env_params['max_timesteps']):
-
-                # run policy
-                no_noise = self_eval or true_eval
-                action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
+              # Run policy for one step
+                no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
+                # action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
+                action = self.policy.act(obs.copy(), g_desc.copy(), no_noise)
 
                 # feed the actions into the environment
                 if animated:
@@ -34,6 +36,7 @@ class RolloutWorker:
                 observation_new, _, _, info = self.env.step(action)
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
+                g_desc_new = observation['goal_description']
 
                 # USE THIS FOR DEBUG
                 # if str(ag_new) not in self.goal_sampler.valid_goals_str:
@@ -44,22 +47,26 @@ class RolloutWorker:
                 ep_obs.append(obs.copy())
                 ep_ag.append(ag.copy())
                 ep_g.append(g.copy())
+                ep_g_desc.append(g_desc.copy())
                 ep_actions.append(action.copy())
 
                 # re-assign the observation
                 obs = obs_new
                 ag = ag_new
+                g_desc = g_desc_new
 
             ep_obs.append(obs.copy())
             ep_ag.append(ag.copy())
+            ep_g_desc.append(g_desc.copy())
 
-            episode = dict(obs=np.array(ep_obs),
-                           act=np.array(ep_actions),
-                           g=np.array(ep_g),
-                           ag=np.array(ep_ag),
+            # Gather everything
+            episode = dict(obs=np.array(ep_obs).copy(),
+                           act=np.array(ep_actions).copy(),
+                           g=np.array(ep_g).copy(),
+                           ag=np.array(ep_ag).copy(),
+                           g_desc=np.array(ep_g_desc),
                            self_eval=self_eval)
             episodes.append(episode)
-
 
         return episodes
 
