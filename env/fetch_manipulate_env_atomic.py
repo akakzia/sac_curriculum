@@ -119,7 +119,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
 
     def compute_reward(self, achieved_goal, goal, info):
         assert self.reward_type == 'sparse', "only sparse reward type is implemented."
-        reward = (achieved_goal[:, -1] == goal[:, -1]).all().astype(np.float32)
+        reward = (achieved_goal == goal).all().astype(np.float32)
         return reward
 
     # RobotEnv methods
@@ -221,11 +221,15 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         object_combinations = itertools.combinations(objects_positions, 2)
         object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
 
-        self.goal_size = len(object_rel_distances)
+        # self.goal_size = len(object_rel_distances)
 
-        achieved_goal = self._get_configuration(objects_positions, color_blocks)
+        goal_description = self._get_configuration(objects_positions, color_blocks)
 
-        achieved_goal = np.squeeze(achieved_goal)
+        goal_description = np.concatenate([goal_description, np.expand_dims(self.target_goal, axis=1)], axis=1)
+
+        achieved_goal = goal_description[:, -1]
+
+        self.goal_size = achieved_goal.shape[0]
 
         # obs = np.concatenate([obs, achieved_goal])
 
@@ -234,7 +238,9 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
             'achieved_goal': achieved_goal.copy(),
             'desired_goal': self.target_goal.copy(),
             'achieved_goal_binary': achieved_goal.copy(),
-            'desired_goal_binary': self.target_goal.copy()}
+            'desired_goal_binary': self.target_goal.copy(),
+            'goal_description': goal_description.copy()
+        }
 
     def _viewer_setup(self):
         body_id = self.sim.model.body_name2id('robot0:gripper_link')
@@ -252,18 +258,18 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
 
     def reset(self):
         # Usual reset overriden by reset_goal, that specifies a goal
-        num_sites = self.sim.model.site_rgba.shape[0]
-        color_blocks = [self.sim.model.site_rgba[i] for i in range(num_sites - self.num_blocks, num_sites)]
-        color_permutations = itertools.permutations(color_blocks, 2)
-        color_combinations = itertools.combinations(color_blocks, 2)
-        # Sample zeros for each predicate
-        close_config = [np.concatenate([np.array([0., 1.]), colors[0], colors[1], np.array([0.])])
-                        for colors in color_combinations]
-
-        above_config = [np.concatenate([np.array([1., 0.]), colors[0], colors[1], np.array([0.])])
-                        for colors in color_permutations]
-        goal = np.array(close_config+above_config)
-        return self.reset_goal(goal, False)
+        # num_sites = self.sim.model.site_rgba.shape[0]
+        # color_blocks = [self.sim.model.site_rgba[i] for i in range(num_sites - self.num_blocks, num_sites)]
+        # color_permutations = itertools.permutations(color_blocks, 2)
+        # color_combinations = itertools.combinations(color_blocks, 2)
+        # # Sample zeros for each predicate
+        # close_config = [np.concatenate([np.array([0., 1.]), colors[0], colors[1], np.array([0.])])
+        #                 for colors in color_combinations]
+        #
+        # above_config = [np.concatenate([np.array([1., 0.]), colors[0], colors[1], np.array([0.])])
+        #                 for colors in color_permutations]
+        # goal = np.array(close_config+above_config)
+        return self.reset_goal(np.zeros(self.goal_size), False)
 
     def _generate_valid_goal(self):
         raise NotImplementedError
@@ -274,7 +280,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         return self.target_goal
 
     def _is_success(self, achieved_goal, desired_goal):
-        return (achieved_goal[:, -1] == desired_goal[:, -1]).all()
+        return (achieved_goal == desired_goal).all()
 
     def _env_setup(self, initial_qpos):
         for name, value in initial_qpos.items():
