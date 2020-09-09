@@ -46,7 +46,6 @@ def launch(args):
 
     args.env_params = get_env_params(env)
 
-    logger.info(vars(args))
     # def goal sampler:
     goal_sampler = GoalSampler(args)
 
@@ -85,10 +84,9 @@ def launch(args):
 
             # collect episodes
             t_i = time.time()
-            # Add condition on number of discovered goals to make sure no stacks are discovered at early stage
-            # 12 is chosen heuristically, being greater than 8 (to allow discovering close configs first, and
-            # some random above configs
-            if epoch < 100:# and args.automatic_buckets:
+
+            # Control biased initializations
+            if epoch < args.start_biased_init:
                 biased_init = False
             else:
                 biased_init = args.biased_init

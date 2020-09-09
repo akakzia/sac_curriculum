@@ -19,10 +19,9 @@ def get_args():
     parser.add_argument('--n-batches', type=int, default=30, help='the times to update the network')
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
     parser.add_argument('--automatic-buckets', type=bool, default=False, help='automatically generate buckets during training')
-    parser.add_argument('--use-pairs', type=bool, default=False, help='use pairs of goals for buckets')
     parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
     parser.add_argument('--symmetry-trick', type=bool, default=True, help='experimental stuff from Cédric')
-    parser.add_argument('--small_deepset', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
+    parser.add_argument('--start-biased-init', type=int, default=100, help='number of epochs before bias initialization')
     parser.add_argument('--normalize_goal', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
 
     parser.add_argument('--evaluations', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
@@ -53,10 +52,8 @@ def get_args():
     # Curriculum learning arguments
     parser.add_argument('--curriculum-learning', type=bool, default=True, help='Use LP-based curriculum learning')
     parser.add_argument('--curriculum-eps', type=float, default=0.3, help='Prob of sampling random goal in curriculum')
-    parser.add_argument('--curriculum-nu', type=float, default=1., help='Hyperparameter for p formula')
-    parser.add_argument('--curriculum-beta', type=float, default=1., help='Hyperparameter for p formula')
     parser.add_argument('--multihead-buffer', type=bool, default=True, help='use a multihead replay buffer in curriculum')
-    parser.add_argument('--queue-length', type=int, default=900, help='The window size when computing competence')
+    parser.add_argument('--queue-length', type=int, default=1800, help='The window size when computing competence')
 
     # Deep sets arguments
     parser.add_argument('--architecture', type=str, default='deepsets', help='The architecture of the networks')

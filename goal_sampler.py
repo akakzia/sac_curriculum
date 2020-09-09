@@ -14,9 +14,9 @@ class GoalSampler:
         self.curriculum_learning = args.curriculum_learning
         self.automatic_buckets = args.automatic_buckets
         self.num_buckets = args.num_buckets
-        self.queue_length = 2 * args.queue_length
+        self.queue_length = args.queue_length
+        self.num_rollouts_per_mpi = args.num_rollouts_per_mpi
         self.rank = MPI.COMM_WORLD.Get_rank()
-        self.use_pairs = args.use_pairs
 
         self.epsilon = args.curriculum_eps
 
@@ -47,8 +47,6 @@ class GoalSampler:
         self.target_counters = dict(zip(range(len(self.all_goals)), [0 for _ in range(len(self.all_goals))]))
 
         if self.curriculum_learning:
-            self.beta = args.curriculum_beta
-            self.nu = args.curriculum_nu
             # initialize deques of successes and failures for all goals
             self.successes_and_failures = []
             # fifth bucket contains not discovered goals
@@ -59,7 +57,6 @@ class GoalSampler:
                 self.discovered_goals = []
                 self.discovered_goals_str = []
                 self.discovered_goals_oracle_id = []
-                self.discovered_pairs_oracle_ids = []
 
                 # initialize empty buckets, the last one contains all
                 self.buckets = dict(zip(range(self.num_buckets), [[] for _ in range(self.num_buckets)]))
@@ -72,31 +69,27 @@ class GoalSampler:
                     self.discovered_goals_oracle_id += self.buckets[k]
                 self.discovered_goals = self.all_goals[np.array(self.discovered_goals_oracle_id)].tolist()
                 self.discovered_goals_str = [str(np.array(g)) for g in self.discovered_goals]
-                self.discovered_pairs_oracle_ids = []
 
         else:
             self.discovered_goals = []
             self.discovered_goals_str = []
             self.discovered_goals_oracle_id = []
-            self.discovered_pairs_oracle_ids = []
 
         self.init_stats()
 
     def sample_goal(self, n_goals, evaluation):
-
+        """
+        Sample n_goals goals to be targeted during rollouts
+        evaluation controls whether or not to sample the goal uniformly or according to curriculum
+        """
         inits = [None] * n_goals
         if evaluation:
-            goals = np.random.choice(self.valid_goals, size=2)
+            goals = np.random.choice(self.valid_goals, size=self.num_rollouts_per_mpi)
             self_eval = False
         else:
             # if no goal has been discovered or if not all buckets are filled in the case of automatic buckets
             cond1 = (self.curriculum_learning and self.automatic_buckets and len(self.discovered_goals) < self.num_buckets)
-            cond2 = (self.curriculum_learning and self.automatic_buckets and len(self.discovered_pairs_oracle_ids) < self.num_buckets)
-            if self.use_pairs:
-                cond = cond2
-            else:
-                cond = cond1
-            if len(self.discovered_goals) == 0 or cond:
+            if len(self.discovered_goals) == 0 or cond1:
                 # sample randomly in the goal space
                 goals = np.random.randint(0, 2, size=(n_goals, self.goal_dim)).astype(np.float32)
                 self_eval = False
@@ -120,16 +113,9 @@ class GoalSampler:
                         buckets = np.random.choice(range(self.num_buckets), p=self.p, size=n_goals)
                     goals = []
                     for i_b, b in enumerate(buckets):
-                        if self.use_pairs:
-                            ind = np.random.choice(range(len(self.buckets[b])))
-                            bucket = self.buckets[b][ind]
-                            inits[i_b] = self.all_goals[bucket[0]]
-                            goals.append(self.all_goals[bucket[1]])
-                        else:
-                            goals.append(self.all_goals[np.random.choice(self.buckets[b])])
+                        goals.append(self.all_goals[np.random.choice(self.buckets[b])])
                     goals = np.array(goals)
         return inits, goals, self_eval
-
 
     def update(self, episodes, t):
         all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
@@ -150,8 +136,6 @@ class GoalSampler:
                 new_goal_found = False
                 for e in all_episode_list:
 
-                    # if we're looking for pairs
-                    id_ag_0 = self.g_str_to_oracle_id[str(e['ag'][0])]
                     id_ag_end = self.g_str_to_oracle_id[str(e['ag'][-1])]
 
                     if str(e['ag'][-1]) not in self.discovered_goals_str:
@@ -162,10 +146,6 @@ class GoalSampler:
                             self.discovered_goals.append(e['ag'][-1].copy())
                             self.discovered_goals_str.append(str(e['ag'][-1]))
                             self.discovered_goals_oracle_id.append(id_ag_end)
-
-                    if self.use_pairs:
-                        if id_ag_0 != id_ag_end and [id_ag_0, id_ag_end] not in self.discovered_pairs_oracle_ids:
-                            self.discovered_pairs_oracle_ids.append([id_ag_0, id_ag_end])
 
                 # update buckets
                 if self.automatic_buckets and new_goal_found:
@@ -182,12 +162,8 @@ class GoalSampler:
                             success = 1
                         else:
                             success = 0
-                        if self.use_pairs:
-                            if [oracle_id_init, oracle_id] in self.discovered_pairs_oracle_ids:
-                                self.successes_and_failures.append([t, success, oracle_id_init, oracle_id])
-                        else:
-                            if oracle_id in self.discovered_goals_oracle_id:
-                                self.successes_and_failures.append([t, success, oracle_id])
+                        if oracle_id in self.discovered_goals_oracle_id:
+                            self.successes_and_failures.append([t, success, oracle_id])
         self.sync()
         for e in episodes:
             last_ag = e['ag'][-1]
@@ -197,13 +173,9 @@ class GoalSampler:
         return episodes
 
     def update_buckets(self):
+        discovered = np.array(self.discovered_goals_oracle_id).copy()
 
-        if self.use_pairs:
-            discovered = np.array(self.discovered_pairs_oracle_ids).copy()
-        else:
-            discovered = np.array(self.discovered_goals_oracle_id).copy()
-
-        # Dispatch the discovered goals (or pairs) in the buckets chronologically
+        # Dispatch the discovered goals in the buckets chronologically
         j = 0
         portion_length = len(discovered) // self.num_buckets
         k = len(discovered) %  self.num_buckets
@@ -223,10 +195,7 @@ class GoalSampler:
             succ_fail_per_bucket = [[] for _ in range(self.num_buckets)]
             for k in self.buckets.keys():
                 for sf in np.flip(self.successes_and_failures, axis=0):
-                    if self.use_pairs:
-                        end = sf[2:].tolist()
-                    else:
-                        end = sf[-1]
+                    end = sf[-1]
                     if end in self.buckets[k]:
                         succ_fail_per_bucket[k].append(sf[:2])
                         if len(succ_fail_per_bucket[k]) == self.queue_length:
@@ -272,8 +241,6 @@ class GoalSampler:
         if self.curriculum_learning:
             LP = self.LP
             C = self.C
-            beta = self.beta
-            nu = self.nu
             if np.sum((1 - C) * LP) == 0:
                 p = np.ones([self.num_buckets]) / self.num_buckets
             else:
@@ -290,10 +257,7 @@ class GoalSampler:
             goal_ids = []
             for b in buckets:
                 if len(self.buckets[b]) > 0:
-                    if self.use_pairs:
-                        goal_ids.append(np.random.choice(np.array(self.buckets[b])[:, 1]))
-                    else:
-                        goal_ids.append(np.random.choice(self.buckets[b]))
+                    goal_ids.append(np.random.choice(self.buckets[b]))
                 else:
                     goal_ids.append(3000) # this will lead the buffer to sample a random episode
             assert len(goal_ids) == batch_size
