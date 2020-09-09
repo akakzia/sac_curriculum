@@ -229,3 +229,60 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
     alpha_loss, alpha_tlogs = update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
 
     return qf1_loss.item(), qf2_loss.item(), policy_loss.item(), alpha_loss.item(), alpha_tlogs.item()
+
+
+def update_deepsets_td3(model, language, policy_optim, critic_optim, obs_norm, ag_norm, g_norm, obs_next_norm, ag_next_norm, actions, rewards, args,
+                        total_it, policy_freq):
+    # Tensorize
+    obs_norm_tensor = torch.tensor(obs_norm, dtype=torch.float32)
+    obs_next_norm_tensor = torch.tensor(obs_next_norm, dtype=torch.float32)
+    if language:
+        g_norm_tensor = g_norm
+    else:
+        g_norm_tensor = torch.tensor(g_norm, dtype=torch.float32)
+    ag_norm_tensor = torch.tensor(ag_norm, dtype=torch.float32)
+    ag_next_norm_tensor = torch.tensor(ag_next_norm, dtype=torch.float32)
+    actions_tensor = torch.tensor(actions, dtype=torch.float32)
+    r_tensor = torch.tensor(rewards, dtype=torch.float32).reshape(rewards.shape[0], 1)
+
+    if args.cuda:
+        obs_norm_tensor = obs_norm_tensor.cuda()
+        obs_next_norm_tensor = obs_next_norm_tensor.cuda()
+        g_norm_tensor = g_norm_tensor.cuda()
+        ag_norm_tensor = ag_norm_tensor.cuda()
+        ag_next_norm_tensor = ag_next_norm_tensor.cuda()
+        actions_tensor = actions_tensor.cuda()
+        r_tensor = r_tensor.cuda()
+
+    with torch.no_grad():
+        model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor)
+        actions_next = model.pi_tensor
+        model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor, actions=actions_next)
+        qf1_next_target, qf2_next_target = model.target_q1_pi_tensor, model.target_q2_pi_tensor
+        min_qf_next_target = torch.min(qf1_next_target, qf2_next_target)
+        next_q_value = r_tensor + args.gamma * min_qf_next_target
+
+    # the q loss
+    qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, actions=actions_tensor)
+    q_loss = F.mse_loss(qf1, next_q_value) + F.mse_loss(qf2, next_q_value)
+
+    # update the critic_network
+    critic_optim.zero_grad()
+    q_loss.backward(retain_graph=True)
+    sync_grads(model.single_phi_critic)
+    sync_grads(model.rho_critic)
+    critic_optim.step()
+
+    # Delayed policy update
+    if total_it % policy_freq == 0:
+        qf1_pi, qf2_pi = model.q1_pi_tensor, model.q2_pi_tensor
+        min_qf_pi = torch.min(qf1_pi, qf2_pi)
+        policy_loss = (- min_qf_pi).mean()
+
+        # start to update the network
+        policy_optim.zero_grad()
+        policy_loss.backward(retain_graph=True)
+        sync_grads(model.single_phi_actor)
+        sync_grads(model.rho_actor)
+        policy_optim.step()
+
