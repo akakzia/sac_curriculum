@@ -4,8 +4,6 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 from itertools import combinations
 import numpy as np
-from language.utils import OneHotEncoder, analyze_inst, Vocab
-from utils import get_instruction
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20

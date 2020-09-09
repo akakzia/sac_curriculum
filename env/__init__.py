@@ -18,11 +18,6 @@ register(id='FetchManipulate3Objects-v0',
          kwargs=kwargs,
          max_episode_steps=100,)
 
-register(id='FetchManipulate3ObjectsContinuous-v0',
-         entry_point='env.envs:FetchManipulateEnvContinuous',
-         kwargs=kwargs,
-         max_episode_steps=100,)
-
 register(id='FetchManipulate3ObjectsAtomic-v0',
          entry_point='env.envs:FetchManipulateEnvAtomic',
          kwargs=kwargs,

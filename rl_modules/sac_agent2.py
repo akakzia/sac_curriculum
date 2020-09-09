@@ -6,7 +6,8 @@ from rl_modules.sac_models import QNetworkFlat, GaussianPolicyFlat, ConfigNetwor
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from rl_modules.sac_deepset_models import DeepSetSAC
-from updates import update_flat, update_disentangled, update_deepsets
+from rl_modules.context_deepset_models import DeepSetContext
+from updates import update_flat, update_disentangled, update_deepsets, up_deep_context
 
 
 
@@ -60,12 +61,15 @@ class SACAgent:
             self.policy_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
             self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
         elif self.architecture == 'deepsets':
-            self.model = DeepSetSAC(self.env_params, self.args.deepsets_attention, self.args.double_critic_attention, args)
+            # self.model = DeepSetSAC(self.env_params, self.args.deepsets_attention, self.args.double_critic_attention, args)
+            self.model = DeepSetContext(self.env_params, args)
             # sync the networks across the CPUs
             sync_networks(self.model.rho_actor)
             sync_networks(self.model.rho_critic)
             sync_networks(self.model.single_phi_actor)
             sync_networks(self.model.single_phi_critic)
+            sync_networks(self.model.single_phi_encoder)
+            sync_networks(self.model.rho_encoder)
             if self.args.deepsets_attention:
                 sync_networks(self.model.attention_actor)
                 sync_networks(self.model.attention_critic_1)
@@ -90,7 +94,9 @@ class SACAgent:
 
             else:
                 self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
-                                                     list(self.model.rho_actor.parameters()),
+                                                     list(self.model.rho_actor.parameters()) +
+                                                     list(self.model.single_phi_encoder.parameters()) +
+                                                     list(self.model.rho_encoder.parameters()),
                                                      lr=self.args.lr_actor)
                 self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
                                                      list(self.model.rho_critic.parameters()),
@@ -149,6 +155,35 @@ class SACAgent:
                 input_tensor = self._preproc_inputs(obs, g)  # PROCESSING TO CHECK
                 action = self._select_actions(input_tensor, no_noise=no_noise)
                 
+        return action.copy()
+
+    def act_context(self, obs, g_desc, no_noise):
+        ag = g_desc[:, -2]
+        g = g_desc[:, -1]
+        with torch.no_grad():
+            # normalize policy inputs
+            obs_norm = self.o_norm.normalize(obs)
+            g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
+            ag_norm = torch.tensor(self.g_norm.normalize(ag), dtype=torch.float32).unsqueeze(0)
+
+            if self.architecture == 'deepsets':
+                obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
+                g_desc_norm = g_desc.copy()
+                g_desc_norm[:, -1] = g_norm
+                g_desc_norm[:, -2] = ag_norm
+                g_desc_tensor = torch.tensor(g_desc_norm, dtype=torch.float32).unsqueeze(0)
+                self.model.policy_forward_pass(obs_tensor, g_desc_tensor, no_noise=no_noise)
+                action = self.model.pi_tensor.numpy()[0]
+
+            elif self.architecture == 'disentangled':
+                z_ag = self.configuration_network(ag_norm)[0]
+                z_g = self.configuration_network(g_norm)[0]
+                input_tensor = torch.tensor(np.concatenate([obs_norm, z_ag, z_g]), dtype=torch.float32).unsqueeze(0)
+                action = self._select_actions(input_tensor, no_noise=no_noise)
+            else:
+                input_tensor = self._preproc_inputs(obs, g)  # PROCESSING TO CHECK
+                action = self._select_actions(input_tensor, no_noise=no_noise)
+
         return action.copy()
         
     
@@ -233,8 +268,8 @@ class SACAgent:
         transitions = self.buffer.sample(self.args.batch_size)
 
         # pre-process the observation and goal
-        o, o_next, g, ag, ag_next, actions, rewards = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['ag'], \
-                                                      transitions['ag_next'], transitions['actions'], transitions['r']
+        o, o_next, g, ag, g_desc, ag_next, actions, rewards = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['ag'], \
+                                                      transitions['g_desc'], transitions['ag_next'], transitions['actions'], transitions['r']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
         transitions['obs_next'], transitions['g_next'] = self._preproc_og(o_next, g)
         _, transitions['ag'] = self._preproc_og(o, ag)
@@ -247,6 +282,15 @@ class SACAgent:
         obs_next_norm = self.o_norm.normalize(transitions['obs_next'])
         ag_next_norm = self.g_norm.normalize(transitions['ag_next'])
         g_next_norm = self.g_norm.normalize(transitions['g_next'])
+
+        g_desc_norm = g_desc.copy()
+        g_desc_norm_next = g_desc.copy()
+
+        g_desc_norm[:, :, -1] = g_norm
+        g_desc_norm[:, :, -2] = ag_norm
+
+        g_desc_norm_next[:, :, -1] = g_norm
+        g_desc_norm_next[:, :, -2] = ag_next_norm
 
         if self.architecture == 'flat':
             critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_flat(self.actor_network, self.critic_network, self.critic_target_network,
@@ -261,10 +305,16 @@ class SACAgent:
                                                                                    obs_norm, ag_norm, g_norm, obs_next_norm, ag_next_norm, g_next_norm,
                                                                                    actions, rewards, self.args)
         elif self.architecture == 'deepsets':
-            critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_deepsets(self.model, self.policy_optim, self.critic_optim,
-                                                                               self.alpha, self.log_alpha, self.target_entropy,
-                                                                               self.alpha_optim, obs_norm, ag_norm, g_norm, obs_next_norm,
-                                                                               ag_next_norm, actions, rewards, self.args)
+            # critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_deepsets(self.model, self.policy_optim, self.critic_optim,
+            #                                                                    self.alpha, self.log_alpha, self.target_entropy,
+            #                                                                    self.alpha_optim, obs_norm, ag_norm, g_norm, obs_next_norm,
+            #                                                                    ag_next_norm, actions, rewards, self.args)
+            critic_1_loss, critic_2_loss, actor_loss, self.alpha, alpha_loss, alpha_tlogs = up_deep_context(self.model, self.policy_optim,
+                                                                                                            self.critic_optim, self.alpha, self.log_alpha,
+                                                                                                            self.target_entropy, self.alpha_optim,
+                                                                                                            obs_norm, g_desc_norm, obs_next_norm,
+                                                                                                            g_desc_norm_next, actions, rewards,
+                                                                                                            self.args)
         else:
             raise NotImplementedError
 

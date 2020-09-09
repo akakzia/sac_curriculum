@@ -14,7 +14,7 @@ class RolloutWorker:
 
         episodes = []
         for i in range(goals.shape[0]):
-            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), init=inits[i], biased_init=biased_init)
+            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), biased_init=biased_init)
             obs = observation['observation']
             ag = observation['achieved_goal']
             g = observation['desired_goal']
@@ -27,7 +27,7 @@ class RolloutWorker:
               # Run policy for one step
                 no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
                 # action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
-                action = self.policy.act(obs.copy(), g_desc.copy(), no_noise)
+                action = self.policy.act_context(obs.copy(), g_desc.copy(), no_noise)
 
                 # feed the actions into the environment
                 if animated:
