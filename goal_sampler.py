@@ -118,6 +118,11 @@ class GoalSampler:
         return inits, goals, self_eval
 
     def update(self, episodes, t):
+        """
+        Update discovered goals list from episodes
+        Update list of successes and failures for LP curriculum
+        Label each episode with the last ag (for buffer storage)
+        """
         all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
 
         if self.rank == 0:
@@ -156,7 +161,6 @@ class GoalSampler:
                 # update list of successes and failures
                 for e in all_episode_list:
                     if e['self_eval']:
-                        oracle_id_init = self.g_str_to_oracle_id[str(e['ag'][0])]
                         oracle_id = self.g_str_to_oracle_id[str(e['g'][0])]
                         if str(e['g'][0]) == str(e['ag'][-1]):
                             success = 1
@@ -173,9 +177,11 @@ class GoalSampler:
         return episodes
 
     def update_buckets(self):
+        """
+        Dispatch the discovered goals in the buckets chronologically
+        """
         discovered = np.array(self.discovered_goals_oracle_id).copy()
 
-        # Dispatch the discovered goals in the buckets chronologically
         j = 0
         portion_length = len(discovered) // self.num_buckets
         k = len(discovered) %  self.num_buckets
@@ -218,7 +224,6 @@ class GoalSampler:
             else:
                 self.p = (1 - self.C) * self.LP / np.sum((1 - self.C) * self.LP)
                 # self.p = self.LP / self.LP.sum()
-                # self.p = (1 - np.power(self.C, self.beta)) * np.power(self.LP, self.nu) / np.sum((1 - np.power(self.C, self.beta)) * np.power(self.LP, self.nu))
                 # self.p = self.epsilon * (1 - self.C) / (1 - self.C).sum() + (1 - self.epsilon) * self.LP / self.LP.sum()
 
             if self.p.sum() > 1:
