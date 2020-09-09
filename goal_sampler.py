@@ -296,12 +296,11 @@ class GoalSampler:
         for g_id, oracle_id in enumerate(self.valid_goals_oracle_ids):
             if self.curriculum_learning:
                 found = False
-                if not self.use_pairs:
-                    for k in self.buckets.keys():
-                        if oracle_id in self.buckets[k]:
-                            self.stats['{}_in_bucket'.format(g_id)].append(k)
-                            found = True
-                            break
+                for k in self.buckets.keys():
+                    if oracle_id in self.buckets[k]:
+                        self.stats['{}_in_bucket'.format(g_id)].append(k)
+                        found = True
+                        break
                 if not found:
                     self.stats['{}_in_bucket'.format(g_id)].append(np.nan)
             else:

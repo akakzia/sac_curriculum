@@ -208,19 +208,14 @@ class DeepSetSAC:
 
         dim_phi_actor_input = dim_input_goals + self.dim_body + dim_input_objects
 
-        if args.small_deepset:
-            dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object))
-        else:
-            dim_phi_actor_output = 6 * dim_phi_actor_input
+        dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object))
+
         dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
 
         dim_phi_critic_input = dim_input_goals + self.dim_body + dim_input_objects + self.dim_act
 
-        if args.small_deepset:
-            dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act)
-        else:
-            dim_phi_critic_output = 6 * dim_phi_critic_input
+        dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act)
 
         dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
