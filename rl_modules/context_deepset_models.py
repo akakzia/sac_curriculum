@@ -26,8 +26,8 @@ class SinglePhiContext(nn.Module):
         self.apply(weights_init_)
 
     def forward(self, inp):
-        x = self.linear1(inp)
-        x = self.linear2(x)
+        x = F.relu(self.linear1(inp))
+        x = F.relu(self.linear2(x))
 
         return x
 
@@ -35,12 +35,14 @@ class SinglePhiContext(nn.Module):
 class RhoEncoder(nn.Module):
     def __init__(self, inp, out):
         super(RhoEncoder, self).__init__()
-        self.linear1 = nn.Linear(inp, out)
+        self.linear1 = nn.Linear(inp, 256)
+        self.linear2 = nn.Linear(256, out)
 
         self.apply(weights_init_)
 
     def forward(self, inp):
-        x = self.linear1(inp)
+        x = F.relu(self.linear1(inp))
+        x = self.linear2(x)
 
         return x
 
@@ -147,7 +149,7 @@ class DeepSetContext:
         self.ag = None
         self.g = None
         self.g_desc = None
-        self.latent = 10
+        self.latent = args.latent_dim
         self.dim_body = 10
         self.dim_object = 15
         # self.dim_goal = env_params['goal']
@@ -235,7 +237,7 @@ class DeepSetContext:
         dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
 
-        self.single_phi_encoder = SinglePhiContext(dim_phi_encoder_input, 128, dim_phi_encoder_output)
+        self.single_phi_encoder = SinglePhiContext(dim_phi_encoder_input, 256, dim_phi_encoder_output)
         self.rho_encoder = RhoEncoder(dim_rho_encoder_input, dim_rho_encoder_output)
 
         self.single_phi_actor = SinglePhiActor(dim_phi_actor_input, 256, dim_phi_actor_output)

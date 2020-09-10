@@ -178,8 +178,9 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         grip_velp = self.sim.data.get_site_xvelp('robot0:grip') * dt
         robot_qpos, robot_qvel = utils.robot_get_obs(self.sim)
 
-        num_sites = self.sim.model.site_rgba.shape[0]
-        color_blocks = [self.sim.model.site_rgba[i] for i in range(num_sites - self.num_blocks, num_sites)]
+        # num_sites = self.sim.model.site_rgba.shape[0]
+        # color_blocks = [self.sim.model.site_rgba[i] for i in range(num_sites - self.num_blocks, num_sites)]
+        color_blocks = [np.array([1., 0., 0.]), np.array([0., 1., 0.]), np.array([0., 0., 1.])]
 
         gripper_state = robot_qpos[-2:]
         gripper_vel = robot_qvel[-2:] * dt  # change to a scalar if the gripper is made symmetric

@@ -49,6 +49,8 @@ def get_args():
     parser.add_argument('--lr-entropy', type=float, default=0.001, help='the learning rate of the entropy')
     parser.add_argument('--polyak', type=float, default=0.95, help='the average coefficient')
 
+    parser.add_argument('--latent-dim', type=int, default=5, help='Dimension of latent for goal encoder')
+
     # Curriculum learning arguments
     parser.add_argument('--curriculum-learning', type=bool, default=True, help='Use LP-based curriculum learning')
     parser.add_argument('--curriculum-eps', type=float, default=0.3, help='Prob of sampling random goal in curriculum')
