@@ -114,10 +114,6 @@ def init_storage(args):
     # path to save the model
     if args.curriculum_learning:
         logdir = os.path.join(args.save_dir, '{}_curriculum_{}'.format(datetime.now(), args.architecture))
-        if args.deepsets_attention:
-            logdir += '_attention'
-        if args.double_critic_attention:
-            logdir += '_double'
     else:
         logdir = os.path.join(args.save_dir, '{}_no_curriculum_{}'.format(datetime.now(), args.architecture))
     if args.symmetry_trick:

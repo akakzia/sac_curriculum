@@ -202,8 +202,6 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
     # start to update the network
     policy_optim.zero_grad()
     policy_loss.backward(retain_graph=True)
-    if args.deepsets_attention:
-        sync_grads(model.attention_actor)
     sync_grads(model.single_phi_actor)
     sync_grads(model.rho_actor)
     policy_optim.step()
@@ -212,16 +210,12 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
     # attention_optim.zero_grad()
     critic_optim.zero_grad()
     qf1_loss.backward(retain_graph=True)
-    if args.deepsets_attention:
-        sync_grads(model.attention_critic_1)
     sync_grads(model.single_phi_critic)
     sync_grads(model.rho_critic)
     critic_optim.step()
 
     critic_optim.zero_grad()
     qf2_loss.backward()
-    if args.deepsets_attention:
-        sync_grads(model.attention_critic_2)
     sync_grads(model.single_phi_critic)
     sync_grads(model.rho_critic)
     critic_optim.step()
@@ -353,6 +347,4 @@ def up_deep_context(model, policy_optim, critic_optim, alpha, log_alpha, target_
     critic_optim.step()
 
     alpha_loss, alpha_tlogs = update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
-
-    return qf1_loss.item(), qf2_loss.item(), policy_loss.item(), alpha, alpha_loss.item(), alpha_tlogs.item()
 

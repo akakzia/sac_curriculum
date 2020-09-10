@@ -10,7 +10,7 @@ class RolloutWorker:
         self.biased_init = args.biased_init
         self.goal_sampler = goal_sampler
 
-    def generate_rollout(self, inits, goals, self_eval, true_eval, biased_init=False, animated=False):
+    def generate_rollout(self, inits, goals, self_eval, true_eval, biased_init=False, animated=True):
 
         episodes = []
         for i in range(goals.shape[0]):
@@ -27,7 +27,7 @@ class RolloutWorker:
                 # Run policy for one step
                 no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
                 # action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
-                action = self.policy.act_context(obs.copy(), g_desc.copy(), no_noise)
+                action = self.policy.act(obs.copy(), g_desc.copy(), no_noise)
 
                 # feed the actions into the environment
                 if animated:
@@ -40,7 +40,7 @@ class RolloutWorker:
 
                 # USE THIS FOR DEBUG
                 # if str(ag_new) not in self.goal_sampler.valid_goals_str:
-                #     # animated = True
+                #     animated = True
                 #     stop = 1
 
                 # append rollouts

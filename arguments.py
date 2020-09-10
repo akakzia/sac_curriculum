@@ -59,8 +59,7 @@ def get_args():
 
     # Deep sets arguments
     parser.add_argument('--architecture', type=str, default='deepsets', help='The architecture of the networks')
-    parser.add_argument('--deepsets-attention', type=bool, default=False, help='Use attention in deepsets')
-    parser.add_argument('--double-critic-attention', type=bool, default=False, help='Use a different critic attention network for each critic')
+    parser.add_argument('--mode', type=str, default='normal', help='Possible values: normal, atomic. If atomic, encode goal context using deep sets')
 
     parser.add_argument('--n-test-rollouts', type=int, default=1, help='the number of tests')
     parser.add_argument('--clip-range', type=float, default=5, help='the clip range')

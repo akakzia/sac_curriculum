@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from mpi_utils.mpi_utils import sync_networks
 from rl_modules.replay_buffer import MultiBuffer
-from rl_modules.sac_models import QNetworkFlat, GaussianPolicyFlat, ConfigNetwork, QNetworkDisentangled, GaussianPolicyDisentangled
+from rl_modules.sac_models import QNetworkFlat, GaussianPolicyFlat
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from rl_modules.sac_deepset_models import DeepSetSAC
@@ -30,24 +30,27 @@ class SACAgent:
 
         # create the network
         self.architecture = self.args.architecture
-        if self.architecture == 'disentangled':
-            self.actor_network = GaussianPolicyDisentangled(self.env_params)
-            self.critic_network = QNetworkDisentangled(self.env_params)
-            self.configuration_network = ConfigNetwork(self.env_params)
-            # sync the networks across the CPUs
-            sync_networks(self.actor_network)
-            sync_networks(self.critic_network)
-            sync_networks(self.configuration_network)
-            # build up the target network
-            self.critic_target_network = QNetworkDisentangled(self.env_params)
-            hard_update(self.critic_target_network, self.critic_network)
-            sync_networks(self.critic_target_network)
-            # create the optimizer
-            self.policy_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
-            self.critic_optim = torch.optim.Adam(list(self.critic_network.parameters()) + list(self.configuration_network.parameters())
-                                                 , lr=self.args.lr_critic)
-            # self.configuration_optim = torch.optim.Adam(self.configuration_network.parameters(), lr=self.args.lr_critic)
-        elif self.architecture == 'flat':
+
+        self.mode = self.args.mode
+
+        # if self.architecture == 'disentangled':
+        #     self.actor_network = GaussianPolicyDisentangled(self.env_params)
+        #     self.critic_network = QNetworkDisentangled(self.env_params)
+        #     self.configuration_network = ConfigNetwork(self.env_params)
+        #     # sync the networks across the CPUs
+        #     sync_networks(self.actor_network)
+        #     sync_networks(self.critic_network)
+        #     sync_networks(self.configuration_network)
+        #     # build up the target network
+        #     self.critic_target_network = QNetworkDisentangled(self.env_params)
+        #     hard_update(self.critic_target_network, self.critic_network)
+        #     sync_networks(self.critic_target_network)
+        #     # create the optimizer
+        #     self.policy_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
+        #     self.critic_optim = torch.optim.Adam(list(self.critic_network.parameters()) + list(self.configuration_network.parameters())
+        #                                          , lr=self.args.lr_critic)
+        #     # self.configuration_optim = torch.optim.Adam(self.configuration_network.parameters(), lr=self.args.lr_critic)
+        if self.architecture == 'flat':
             self.actor_network = GaussianPolicyFlat(self.env_params)
             self.critic_network = QNetworkFlat(self.env_params)
             # sync the networks across the CPUs
@@ -61,45 +64,37 @@ class SACAgent:
             self.policy_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
             self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
         elif self.architecture == 'deepsets':
-            # self.model = DeepSetSAC(self.env_params, self.args.deepsets_attention, self.args.double_critic_attention, args)
-            self.model = DeepSetContext(self.env_params, args)
+            if self.mode == 'normal':
+                self.model = DeepSetSAC(self.env_params, args)
+            else:
+                self.model = DeepSetContext(self.env_params, args)
+                # sync the encoder networks across the CPUs
+                sync_networks(self.model.single_phi_encoder)
+                sync_networks(self.model.rho_encoder)
+
             # sync the networks across the CPUs
             sync_networks(self.model.rho_actor)
             sync_networks(self.model.rho_critic)
             sync_networks(self.model.single_phi_actor)
             sync_networks(self.model.single_phi_critic)
-            sync_networks(self.model.single_phi_encoder)
-            sync_networks(self.model.rho_encoder)
-            if self.args.deepsets_attention:
-                sync_networks(self.model.attention_actor)
-                sync_networks(self.model.attention_critic_1)
-                sync_networks(self.model.attention_critic_2)
 
             hard_update(self.model.single_phi_target_critic, self.model.single_phi_critic)
             hard_update(self.model.rho_target_critic, self.model.rho_critic)
             sync_networks(self.model.single_phi_target_critic)
             sync_networks(self.model.rho_target_critic)
             # create the optimizer
-            if self.args.deepsets_attention:
-                self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
-                                                     list(self.model.rho_actor.parameters()) +
-                                                     list(self.model.attention_actor.parameters()),
-                                                     lr=self.args.lr_actor)
-
-                self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
-                                                     list(self.model.rho_critic.parameters()) +
-                                                     list(self.model.attention_critic_1.parameters()) +
-                                                     list(self.model.attention_critic_2.parameters()),
-                                                     lr=self.args.lr_critic)
-
-            else:
-                self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
-                                                     list(self.model.rho_actor.parameters()) +
-                                                     list(self.model.single_phi_encoder.parameters()) +
-                                                     list(self.model.rho_encoder.parameters()),
-                                                     lr=self.args.lr_actor)
+            self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
+                                                 list(self.model.rho_actor.parameters()) ,
+                                                 lr=self.args.lr_actor)
+            if self.mode == 'normal':
                 self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
                                                      list(self.model.rho_critic.parameters()),
+                                                     lr=self.args.lr_critic)
+            else:
+                self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
+                                                     list(self.model.rho_critic.parameters()) +
+                                                     list(self.model.single_phi_encoder.parameters()) +
+                                                     list(self.model.rho_encoder.parameters()),
                                                      lr=self.args.lr_critic)
 
         else:
@@ -116,7 +111,7 @@ class SACAgent:
             self.critic_target_network.cuda()
 
         # Target Entropy
-        if self.args.automatic_entropy_tuning:
+        if self.args.agent == 'SAC' and self.args.automatic_entropy_tuning:
             self.target_entropy = -torch.prod(torch.Tensor(self.env_params['action'])).item()
             self.log_alpha = torch.zeros(1, requires_grad=True)
             self.alpha_optim = torch.optim.Adam([self.log_alpha], lr=self.args.lr_entropy)
@@ -132,9 +127,9 @@ class SACAgent:
                                   goal_sampler=self.goal_sampler
                                   )
 
-
-
-    def act(self, obs, ag, g, no_noise):
+    def act(self, obs, g_desc, no_noise):
+        ag = g_desc[:, -2]
+        g = g_desc[:, -1]
         with torch.no_grad():
             # normalize policy inputs 
             obs_norm = self.o_norm.normalize(obs)
@@ -143,49 +138,26 @@ class SACAgent:
 
             if self.architecture == 'deepsets':
                 obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
-                self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
+                if self.mode == 'normal':
+                    self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
+                else:
+                    g_desc_norm = g_desc.copy()
+                    g_desc_norm[:, -1] = g_norm
+                    g_desc_norm[:, -2] = ag_norm
+                    g_desc_tensor = torch.tensor(g_desc_norm, dtype=torch.float32).unsqueeze(0)
+                    self.model.policy_forward_pass(obs_tensor, g_desc_tensor, no_noise=no_noise)
                 action = self.model.pi_tensor.numpy()[0]
                 
-            elif self.architecture == 'disentangled':
-                z_ag = self.configuration_network(ag_norm)[0]
-                z_g = self.configuration_network(g_norm)[0]
-                input_tensor = torch.tensor(np.concatenate([obs_norm, z_ag, z_g]), dtype=torch.float32).unsqueeze(0)
-                action = self._select_actions(input_tensor, no_noise=no_noise)
+            # elif self.architecture == 'disentangled':
+            #     z_ag = self.configuration_network(ag_norm)[0]
+            #     z_g = self.configuration_network(g_norm)[0]
+            #     input_tensor = torch.tensor(np.concatenate([obs_norm, z_ag, z_g]), dtype=torch.float32).unsqueeze(0)
+            #     action = self._select_actions(input_tensor, no_noise=no_noise)
             else:
                 input_tensor = self._preproc_inputs(obs, g)  # PROCESSING TO CHECK
                 action = self._select_actions(input_tensor, no_noise=no_noise)
                 
         return action.copy()
-
-    def act_context(self, obs, g_desc, no_noise):
-        ag = g_desc[:, -2]
-        g = g_desc[:, -1]
-        with torch.no_grad():
-            # normalize policy inputs
-            obs_norm = self.o_norm.normalize(obs)
-            g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
-            ag_norm = torch.tensor(self.g_norm.normalize(ag), dtype=torch.float32).unsqueeze(0)
-
-            if self.architecture == 'deepsets':
-                obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
-                g_desc_norm = g_desc.copy()
-                g_desc_norm[:, -1] = g_norm
-                g_desc_norm[:, -2] = ag_norm
-                g_desc_tensor = torch.tensor(g_desc_norm, dtype=torch.float32).unsqueeze(0)
-                self.model.policy_forward_pass(obs_tensor, g_desc_tensor, no_noise=no_noise)
-                action = self.model.pi_tensor.numpy()[0]
-
-            elif self.architecture == 'disentangled':
-                z_ag = self.configuration_network(ag_norm)[0]
-                z_g = self.configuration_network(g_norm)[0]
-                input_tensor = torch.tensor(np.concatenate([obs_norm, z_ag, z_g]), dtype=torch.float32).unsqueeze(0)
-                action = self._select_actions(input_tensor, no_noise=no_noise)
-            else:
-                input_tensor = self._preproc_inputs(obs, g)  # PROCESSING TO CHECK
-                action = self._select_actions(input_tensor, no_noise=no_noise)
-
-        return action.copy()
-        
     
     def store(self, episodes):
         self.buffer.store_episode(episode_batch=episodes)
@@ -203,7 +175,7 @@ class SACAgent:
 
     def train(self):
         # train the network
-        critic_1_loss, critic_2_loss, policy_loss, ent_loss, alpha = self._update_network()
+        self._update_network()
 
         # soft update
         if self.architecture == 'deepsets':
@@ -305,21 +277,16 @@ class SACAgent:
                                                                                    obs_norm, ag_norm, g_norm, obs_next_norm, ag_next_norm, g_next_norm,
                                                                                    actions, rewards, self.args)
         elif self.architecture == 'deepsets':
-            # critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_deepsets(self.model, self.policy_optim, self.critic_optim,
-            #                                                                    self.alpha, self.log_alpha, self.target_entropy,
-            #                                                                    self.alpha_optim, obs_norm, ag_norm, g_norm, obs_next_norm,
-            #                                                                    ag_next_norm, actions, rewards, self.args)
-            critic_1_loss, critic_2_loss, actor_loss, self.alpha, alpha_loss, alpha_tlogs = up_deep_context(self.model, self.policy_optim,
-                                                                                                            self.critic_optim, self.alpha, self.log_alpha,
-                                                                                                            self.target_entropy, self.alpha_optim,
-                                                                                                            obs_norm, g_desc_norm, obs_next_norm,
-                                                                                                            g_desc_norm_next, actions, rewards,
-                                                                                                            self.args)
+            if self.mode == 'normal':
+                critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_deepsets(self.model, self.policy_optim, self.critic_optim,
+                                                                                   self.alpha, self.log_alpha, self.target_entropy,
+                                                                                   self.alpha_optim, obs_norm, ag_norm, g_norm, obs_next_norm,
+                                                                                   ag_next_norm, actions, rewards, self.args)
+            else:
+                up_deep_context(self.model, self.policy_optim,self.critic_optim, self.alpha, self.log_alpha, self.target_entropy, self.alpha_optim,
+                                obs_norm, g_desc_norm, obs_next_norm, g_desc_norm_next, actions, rewards, self.args)
         else:
             raise NotImplementedError
-
-        return critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs
-
 
     def save(self, model_path, epoch):
         # Store model
