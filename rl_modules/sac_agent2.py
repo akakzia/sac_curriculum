@@ -300,27 +300,19 @@ class SACAgent:
                         self.configuration_network.state_dict()],
                        model_path + '/model_{}.pt'.format(epoch))
         elif self.args.architecture == 'deepsets':
-            if self.args.deepsets_attention and not self.args.double_critic_attention:
-                torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
-                            self.model.single_phi_actor.state_dict(), self.model.single_phi_critic.state_dict(),
-                            self.model.rho_actor.state_dict(), self.model.rho_critic.state_dict(),
-                            self.model.attention_actor.state_dict(), self.model.attention_critic_1.state_dict()],
-                           model_path + '/model_{}.pt'.format(epoch))
-            elif self.args.deepsets_attention and self.args.double_critic_attention:
-                torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
-                            self.model.single_phi_actor.state_dict(), self.model.single_phi_critic.state_dict(),
-                            self.model.rho_actor.state_dict(), self.model.rho_critic.state_dict(),
-                            self.model.attention_actor.state_dict(), self.model.attention_critic_1.state_dict(),
-                            self.model.attention_critic_2.state_dict()],
-                           model_path + '/model_{}.pt'.format(epoch))
-            else:
+            if self.mode == 'normal':
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
                             self.model.single_phi_actor.state_dict(), self.model.single_phi_critic.state_dict(),
                             self.model.rho_actor.state_dict(), self.model.rho_critic.state_dict()],
                            model_path + '/model_{}.pt'.format(epoch))
+            else:
+                torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
+                            self.model.single_phi_encoder.state_dict(), self.model.single_phi_actor.state_dict(),
+                            self.model.single_phi_critic.state_dict(), self.model.rho_encoder.state_dict(),
+                            self.model.rho_actor.state_dict(), self.model.rho_critic.state_dict()],
+                           model_path + '/model_{}.pt'.format(epoch))
         else:
             raise NotImplementedError
-
 
     def load(self, model_path, args):
 
