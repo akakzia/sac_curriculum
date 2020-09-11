@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal
-from itertools import combinations
+from itertools import permutations
 import numpy as np
 
 LOG_SIG_MAX = 2
@@ -20,14 +20,14 @@ def weights_init_(m):
 class SinglePhiContext(nn.Module):
     def __init__(self, inp, out):
         super(SinglePhiContext, self).__init__()
-        self.linear1 = nn.Linear(inp, out)
-        # self.linear2 = nn.Linear(hid, out)
+        self.linear1 = nn.Linear(inp, 256)
+        self.linear2 = nn.Linear(256, out)
 
         self.apply(weights_init_)
 
     def forward(self, inp):
         x = F.relu(self.linear1(inp))
-        # x = torch.tanh(self.linear2(x))
+        x = self.linear2(x)
 
         return x
 
@@ -156,7 +156,7 @@ class DeepSetContext:
         self.dim_description = env_params['g_description']
         self.dim_act = env_params['action']
         self.num_blocks = env_params['num_blocks']
-        self.n_combinations = len([x for x in combinations(range(self.num_blocks), 2)])
+        self.n_permutations = len([x for x in permutations(range(self.num_blocks), 2)])
 
         # if args.algo == 'continuous' or args.algo == 'language':
         #     self.symmetry_trick = False
@@ -293,7 +293,7 @@ class DeepSetContext:
         #     else:
         #         input_actor = torch.stack([torch.cat([ag, body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
 
-        input_actor = torch.stack([torch.cat([self.context_tensor, obs_body, x[0], x[1]], dim=1) for x in combinations(obs_objects, 2)])
+        input_actor = torch.stack([torch.cat([self.context_tensor, obs_body, x[0], x[1]], dim=1) for x in permutations(obs_objects, 2)])
 
         self.save_values = self.single_phi_actor(input_actor).numpy()[:, 0, :]
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
@@ -343,9 +343,9 @@ class DeepSetContext:
         #     if not self.include_ag:
         #         input_actor = torch.stack([torch.cat([body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
         #     else:
-        #         input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])            #input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in combinations(obj_input, 2)])
+        #         input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])            #input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
 
-        input_actor = torch.stack([torch.cat([self.context_tensor, obs_body, x[0], x[1]], dim=1) for x in combinations(obs_objects, 2)])
+        input_actor = torch.stack([torch.cat([self.context_tensor, obs_body, x[0], x[1]], dim=1) for x in permutations(obs_objects, 2)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
         if not eval:
@@ -354,25 +354,25 @@ class DeepSetContext:
             _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
 
         # The critic part
-        repeat_pol_actions = self.pi_tensor.repeat(self.n_combinations, 1, 1)
+        repeat_pol_actions = self.pi_tensor.repeat(self.n_permutations, 1, 1)
         input_critic = torch.cat([input_actor, repeat_pol_actions], dim=-1)
         if actions is not None:
-            repeat_actions = actions.repeat(self.n_combinations, 1, 1)
+            repeat_actions = actions.repeat(self.n_permutations, 1, 1)
             input_critic_with_act = torch.cat([input_actor, repeat_actions], dim=-1)
             input_critic = torch.cat([input_critic, input_critic_with_act], dim=0)
 
         with torch.no_grad():
-            output_phi_target_critic_1, output_phi_target_critic_2 = self.single_phi_target_critic(input_critic[:self.n_combinations])
+            output_phi_target_critic_1, output_phi_target_critic_2 = self.single_phi_target_critic(input_critic[:self.n_permutations])
             output_phi_target_critic_1 = output_phi_target_critic_1.sum(dim=0)
             output_phi_target_critic_2 = output_phi_target_critic_2.sum(dim=0)
             self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.rho_target_critic(output_phi_target_critic_1, output_phi_target_critic_2)
 
         output_phi_critic_1, output_phi_critic_2 = self.single_phi_critic(input_critic)
         if actions is not None:
-            output_phi_critic_1 = torch.stack([output_phi_critic_1[:self.n_combinations].sum(dim=0),
-                                               output_phi_critic_1[self.n_combinations:].sum(dim=0)])
-            output_phi_critic_2 = torch.stack([output_phi_critic_2[:self.n_combinations].sum(dim=0),
-                                               output_phi_critic_2[self.n_combinations:].sum(dim=0)])
+            output_phi_critic_1 = torch.stack([output_phi_critic_1[:self.n_permutations].sum(dim=0),
+                                               output_phi_critic_1[self.n_permutations:].sum(dim=0)])
+            output_phi_critic_2 = torch.stack([output_phi_critic_2[:self.n_permutations].sum(dim=0),
+                                               output_phi_critic_2[self.n_permutations:].sum(dim=0)])
             q1_pi_tensor, q2_pi_tensor = self.rho_critic(output_phi_critic_1, output_phi_critic_2)
             self.q1_pi_tensor, self.q2_pi_tensor = q1_pi_tensor[0], q2_pi_tensor[0]
             return q1_pi_tensor[1], q2_pi_tensor[1]
