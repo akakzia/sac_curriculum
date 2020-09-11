@@ -28,6 +28,11 @@ class SACAgent:
 
         self.goal_sampler = goal_sampler
 
+        self.total_iter = 0
+
+        # update target networks every freq steps
+        self.freq_target_update = 1
+
         # create the network
         self.architecture = self.args.architecture
 
@@ -175,12 +180,14 @@ class SACAgent:
 
     def train(self):
         # train the network
+        self.total_iter += 1
         self._update_network()
 
         # soft update
         if self.architecture == 'deepsets':
-            self._soft_update_target_network(self.model.single_phi_target_critic, self.model.single_phi_critic)
-            self._soft_update_target_network(self.model.rho_target_critic, self.model.rho_critic)
+            if self.total_iter % self.freq_target_update == 0:
+                self._soft_update_target_network(self.model.single_phi_target_critic, self.model.single_phi_critic)
+                self._soft_update_target_network(self.model.rho_target_critic, self.model.rho_critic)
         else:
             self._soft_update_target_network(self.critic_target_network, self.critic_network)
 
