@@ -4,7 +4,7 @@ from gym import utils
 PREDICATE_THRESHOLD = 0.09  # The minimal threshold to consider two blocks close to each other
 PROBA_COPLANAR = 0.7  # The probability of initializing all blocks without stacks
 PROBA_STACK_TWO = 0.7  # The probability of having exactly one stack of two given that there is at least one stack
-PROBA_GRASP = 0.  # The probability of having a block grasped at initialization
+PROBA_GRASP = 0.5  # The probability of having a block grasped at initialization
 
 class FetchManipulateEnv(fetch_manipulate_env.FetchManipulateEnv, utils.EzPickle):
     def __init__(self, reward_type='sparse'):
