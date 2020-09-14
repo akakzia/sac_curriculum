@@ -21,6 +21,7 @@ def get_args():
     parser.add_argument('--automatic-buckets', type=bool, default=True, help='automatically generate buckets during training')
     parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
     parser.add_argument('--symmetry-trick', type=bool, default=True, help='experimental stuff from Cédric')
+    parser.add_argument('--combinations-trick', type=bool, default=False, help='test Thomas trick')
     parser.add_argument('--start-biased-init', type=int, default=100, help='number of epochs before bias initialization')
     parser.add_argument('--normalize_goal', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
 
@@ -49,6 +50,8 @@ def get_args():
     parser.add_argument('--lr-entropy', type=float, default=0.001, help='the learning rate of the entropy')
     parser.add_argument('--polyak', type=float, default=0.95, help='the average coefficient')
 
+    parser.add_argument('--freq-target_update', type=int, default=1, help='the frequency of updating the target networks')
+
     parser.add_argument('--latent-dim', type=int, default=20, help='Dimension of latent for goal encoder')
 
     # Curriculum learning arguments
@@ -59,7 +62,7 @@ def get_args():
 
     # Deep sets arguments
     parser.add_argument('--architecture', type=str, default='deepsets', help='The architecture of the networks')
-    parser.add_argument('--mode', type=str, default='atomic', help='Possible values: normal, atomic. If atomic, encode goal context using deep sets')
+    parser.add_argument('--mode', type=str, default='normal', help='Possible values: normal, atomic. If atomic, encode goal context using deep sets')
 
     parser.add_argument('--n-test-rollouts', type=int, default=1, help='the number of tests')
     parser.add_argument('--clip-range', type=float, default=5, help='the clip range')
