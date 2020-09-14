@@ -1,5 +1,5 @@
 import torch
-from rl_modules.sac_agent2 import SACAgent
+from rl_modules.sac_agent import SACAgent
 from arguments import get_args
 import env
 import gym

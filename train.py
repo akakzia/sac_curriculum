@@ -4,7 +4,7 @@ import env
 import gym
 import os, sys
 from arguments import get_args
-from rl_modules.sac_agent2 import SACAgent
+from rl_modules.sac_agent import SACAgent
 from rl_modules.td3_agent import TD3Agent
 import random
 import torch
