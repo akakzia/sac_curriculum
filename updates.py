@@ -159,7 +159,7 @@ def update_disentangled(actor_network, critic_network, critic_target_network, co
     return qf1_loss.item(), qf2_loss.item(), policy_loss.item(), alpha_loss.item(), alpha_tlogs.item()
 
 
-def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_entropy, alpha_optim, obs_norm, ag_norm, g_norm,
+def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_entropy, alpha_optim, obs_norm, ag_norm, g_norm, anchor_ag, anchor_g,
                     obs_next_norm, ag_next_norm, actions, rewards, args):
 
     obs_norm_tensor = torch.tensor(obs_norm, dtype=torch.float32)
@@ -169,6 +169,9 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
     ag_next_norm_tensor = torch.tensor(ag_next_norm, dtype=torch.float32)
     actions_tensor = torch.tensor(actions, dtype=torch.float32)
     r_tensor = torch.tensor(rewards, dtype=torch.float32).reshape(rewards.shape[0], 1)
+
+    anchor_ag_tensor = torch.tensor(anchor_ag)
+    anchor_g_tensor = torch.tensor(anchor_g)
 
     if args.cuda:
         obs_norm_tensor = obs_norm_tensor.cuda()
@@ -180,14 +183,14 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
         r_tensor = r_tensor.cuda()
 
     with torch.no_grad():
-        model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor)
+        model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor, anchor_ag_tensor, anchor_g_tensor)
         actions_next, log_pi_next = model.pi_tensor, model.log_prob
         qf1_next_target, qf2_next_target = model.target_q1_pi_tensor, model.target_q2_pi_tensor
         min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * log_pi_next
         next_q_value = r_tensor + args.gamma * min_qf_next_target
 
     # the q loss
-    qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, actions=actions_tensor)
+    qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, anchor_ag_tensor, anchor_g_tensor, actions=actions_tensor)
     qf1_loss = F.mse_loss(qf1, next_q_value)
     qf2_loss = F.mse_loss(qf2, next_q_value)
 
