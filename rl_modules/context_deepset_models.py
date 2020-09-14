@@ -219,6 +219,9 @@ class DeepSetContext:
         dim_phi_encoder_input = self.dim_description[1]
         dim_phi_encoder_output = 3 * dim_phi_encoder_input
 
+        # Test without rho encoder
+        self.latent = dim_phi_encoder_output
+
         dim_rho_encoder_input = dim_phi_encoder_output
         dim_rho_encoder_output = self.latent
 
@@ -264,9 +267,9 @@ class DeepSetContext:
                                   self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)),
                                  dim=-1) for i in range(self.num_blocks)]
 
-        output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
-
-        self.context_tensor = self.rho_encoder(output_phi_encoder)
+        # output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
+        self.context_tensor = self.single_phi_encoder(self.g_desc).sum(dim=1)
+        # self.context_tensor = self.rho_encoder(output_phi_encoder)
 
         # if self.symmetry_trick:
         #     all_inputs = []
@@ -317,9 +320,9 @@ class DeepSetContext:
                        obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
                        for i in range(self.num_blocks)]
 
-        output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
-
-        self.context_tensor = self.rho_encoder(output_phi_encoder)
+        # output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
+        self.context_tensor = self.single_phi_encoder(self.g_desc).sum(dim=1)
+        # self.context_tensor = self.rho_encoder(output_phi_encoder)
 
         # if self.symmetry_trick:
         #     all_inputs = []
