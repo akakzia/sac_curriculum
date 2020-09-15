@@ -193,6 +193,7 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
     qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, anchor_ag_tensor, anchor_g_tensor, actions=actions_tensor)
     qf1_loss = F.mse_loss(qf1, next_q_value)
     qf2_loss = F.mse_loss(qf2, next_q_value)
+    qf_loss = qf1_loss + qf2_loss
 
     # the actor loss
     # forward pass already done above
@@ -212,16 +213,16 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
     # update the critic_network
     # attention_optim.zero_grad()
     critic_optim.zero_grad()
-    qf1_loss.backward(retain_graph=True)
+    qf_loss.backward()
     sync_grads(model.single_phi_critic)
     sync_grads(model.rho_critic)
     critic_optim.step()
 
-    critic_optim.zero_grad()
-    qf2_loss.backward()
-    sync_grads(model.single_phi_critic)
-    sync_grads(model.rho_critic)
-    critic_optim.step()
+    # critic_optim.zero_grad()
+    # qf2_loss.backward()
+    # sync_grads(model.single_phi_critic)
+    # sync_grads(model.rho_critic)
+    # critic_optim.step()
 
     alpha_loss, alpha_tlogs = update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
 
