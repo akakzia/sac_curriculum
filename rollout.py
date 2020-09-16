@@ -20,7 +20,7 @@ class RolloutWorker:
             g = observation['desired_goal']
             g_desc = observation['goal_description']
 
-            ep_obs, ep_ag, ep_g, ep_g_desc, ep_actions, ep_masks = [], [], [], [], [], []
+            ep_obs, ep_ag, ep_g, ep_g_desc, ep_actions, ep_success = [], [], [], [], [], []
 
             # Start to collect samples
             for t in range(self.env_params['max_timesteps']):
@@ -38,8 +38,6 @@ class RolloutWorker:
                 ag_new = observation_new['achieved_goal']
                 g_desc_new = observation['goal_description']
 
-                mask = 1. if t == self.env_params['max_timesteps'] - 1 else float(not info['is_success'])
-
                 # USE THIS FOR DEBUG
                 # if str(ag_new) not in self.goal_sampler.valid_goals_str:
                 #     animated = True
@@ -51,7 +49,6 @@ class RolloutWorker:
                 ep_g.append(g.copy())
                 ep_g_desc.append(g_desc.copy())
                 ep_actions.append(action.copy())
-                ep_masks.append(mask)
 
                 # re-assign the observation
                 obs = obs_new
@@ -68,7 +65,6 @@ class RolloutWorker:
                            g=np.array(ep_g).copy(),
                            ag=np.array(ep_ag).copy(),
                            g_desc=np.array(ep_g_desc),
-                           masks=np.array(ep_masks),
                            self_eval=self_eval)
             episodes.append(episode)
 

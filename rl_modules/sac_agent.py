@@ -252,8 +252,6 @@ class SACAgent:
         anchor_g = transitions['g']
         anchor_ag = transitions['ag']
 
-        masks = transitions['masks']
-
         g_desc_norm = g_desc.copy()
         g_desc_norm_next = g_desc.copy()
 
@@ -281,7 +279,7 @@ class SACAgent:
                                                                                    self.alpha, self.log_alpha, self.target_entropy,
                                                                                    self.alpha_optim, obs_norm, ag_norm, g_norm, anchor_ag, anchor_g,
                                                                                                     obs_next_norm,
-                                                                                                    ag_next_norm, actions, masks, rewards, self.args)
+                                                                                                    ag_next_norm, actions, rewards, self.args)
             else:
                 up_deep_context(self.model, self.policy_optim,self.critic_optim, self.alpha, self.log_alpha, self.target_entropy, self.alpha_optim,
                                 obs_norm, g_desc_norm, obs_next_norm, g_desc_norm_next, actions, rewards, self.args)

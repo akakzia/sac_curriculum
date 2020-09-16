@@ -28,7 +28,6 @@ class MultiBuffer:
                        'g_desc': np.empty([self.size, self.T + 1, self.env_params['g_description'][0],
                                            self.env_params['g_description'][1]]),
                        'actions': np.empty([self.size, self.T, self.env_params['action']]),
-                       'masks': np.empty([self.size, self.T, 1]),
                        }
         self.goal_ids = np.zeros([self.size])  # contains id of achieved goal (discovery rank)
         self.goal_ids.fill(np.nan)
@@ -49,7 +48,6 @@ class MultiBuffer:
                 self.buffer['g'][idxs[i]] = e['g']
                 self.buffer['g_desc'][idxs[i]] = e['g_desc']
                 self.buffer['actions'][idxs[i]] = e['act']
-                self.buffer['masks'][idxs[i]] = np.expand_dims(e['masks'], axis=1)
                 self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
 
     # sample the data from the replay buffer
