@@ -20,8 +20,8 @@ def get_args():
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
     parser.add_argument('--automatic-buckets', type=bool, default=True, help='automatically generate buckets during training')
     parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
-    parser.add_argument('--symmetry-trick', type=bool, default=True, help='experimental stuff from Cédric')
-    parser.add_argument('--combinations-trick', type=bool, default=False, help='test Thomas trick')
+    parser.add_argument('--symmetry-trick', type=bool, default=False, help='experimental stuff from Cédric')
+    parser.add_argument('--combinations-trick', type=bool, default=True, help='test Thomas trick')
     parser.add_argument('--start-biased-init', type=int, default=100, help='number of epochs before bias initialization')
     parser.add_argument('--normalize_goal', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
 
