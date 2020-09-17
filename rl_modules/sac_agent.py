@@ -88,9 +88,7 @@ class SACAgent:
                                                      list(self.model.rho_encoder.parameters()),
                                                      lr=self.args.lr_critic)
                 self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
-                                                     list(self.model.rho_actor.parameters()) +
-                                                     list(self.model.single_phi_encoder.parameters()) +
-                                                     list(self.model.rho_encoder.parameters()),
+                                                     list(self.model.rho_actor.parameters()),
                                                      lr=self.args.lr_actor)
 
 

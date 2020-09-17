@@ -41,7 +41,7 @@ class RhoEncoder(nn.Module):
         self.apply(weights_init_)
 
     def forward(self, inp):
-        x = F.relu(self.linear1(inp))
+        x = torch.tanh(self.linear1(inp))
         x = self.linear2(x)
 
         return x
@@ -172,7 +172,7 @@ class DeepSetContext:
         self.pi_tensor = None
         self.log_prob = None
 
-        dim_phi_encoder_input = self.dim_description[1] + 2*self.dim_object
+        dim_phi_encoder_input = self.dim_description[1]
         dim_phi_encoder_output = 3 * dim_phi_encoder_input
 
         dim_rho_encoder_input = dim_phi_encoder_output
@@ -180,18 +180,14 @@ class DeepSetContext:
 
         dim_input_objects = 2 * (self.num_blocks + self.dim_object)
 
-        # dim_phi_actor_input = self.latent + self.dim_body + dim_input_objects
         dim_phi_actor_input = self.latent + self.dim_body + dim_input_objects
-        # dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.latent)
-        dim_phi_actor_output = 3 * dim_phi_actor_input
+        dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.latent)
 
         dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
 
-        # dim_phi_critic_input = self.latent + self.dim_body + dim_input_objects + self.dim_act
-        dim_phi_critic_input = self.latent + self.dim_body + self.dim_act + dim_input_objects
-        # dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act + self.latent)
-        dim_phi_critic_output = 3 * dim_phi_critic_input
+        dim_phi_critic_input = self.latent + self.dim_body + dim_input_objects + self.dim_act
+        dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act + self.latent)
 
         dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
@@ -218,19 +214,19 @@ class DeepSetContext:
                                   self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)),
                                  dim=-1) for i in range(self.num_blocks)]
 
-        # Initialize context input
-        context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2*self.dim_object))
+        # # Initialize context input
+        # context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2*self.dim_object))
+        #
+        # # Concatenate object observation to g description
+        # for i, pair in enumerate(combinations(obs_objects, 2)):
+        #     context_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
+        #                                         self.g_desc[:, i, 8:]], dim=1)
+        #
+        # for i, pair in enumerate(permutations(obs_objects, 2)):
+        #     context_input[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :5], pair[0][:, 3:], self.g_desc[:, i+3, 5:8], pair[1][:, 3:],
+        #                                           self.g_desc[:, i+3, 8:]], dim=1)
 
-        # Concatenate object observation to g description
-        for i, pair in enumerate(combinations(obs_objects, 2)):
-            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
-                                                self.g_desc[:, i, 8:]], dim=1)
-
-        for i, pair in enumerate(permutations(obs_objects, 2)):
-            context_input[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :5], pair[0][:, 3:], self.g_desc[:, i+3, 5:8], pair[1][:, 3:],
-                                                  self.g_desc[:, i+3, 8:]], dim=1)
-
-        output_phi_encoder = self.single_phi_encoder(context_input).sum(dim=1)
+        output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
 
         self.context_tensor = self.rho_encoder(output_phi_encoder)
 
@@ -306,19 +302,19 @@ class DeepSetContext:
                        obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
                        for i in range(self.num_blocks)]
 
-        # Initialize context input
-        context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2 * self.dim_object))
+        # # Initialize context input
+        # context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2 * self.dim_object))
+        #
+        # # Concatenate object observation to g description
+        # for i, pair in enumerate(combinations(obs_objects, 2)):
+        #     context_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
+        #                                         self.g_desc[:, i, 8:]], dim=1)
+        #
+        # for i, pair in enumerate(permutations(obs_objects, 2)):
+        #     context_input[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :5], pair[0][:, 3:], self.g_desc[:, i + 3, 5:8], pair[1][:, 3:],
+        #                                             self.g_desc[:, i + 3, 8:]], dim=1)
 
-        # Concatenate object observation to g description
-        for i, pair in enumerate(combinations(obs_objects, 2)):
-            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
-                                                self.g_desc[:, i, 8:]], dim=1)
-
-        for i, pair in enumerate(permutations(obs_objects, 2)):
-            context_input[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :5], pair[0][:, 3:], self.g_desc[:, i + 3, 5:8], pair[1][:, 3:],
-                                                    self.g_desc[:, i + 3, 8:]], dim=1)
-
-        output_phi_encoder = self.single_phi_encoder(context_input).sum(dim=1)
+        output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
 
         self.context_tensor = self.rho_encoder(output_phi_encoder)
 

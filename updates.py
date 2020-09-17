@@ -211,7 +211,6 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
     policy_optim.step()
 
     # update the critic_network
-    # attention_optim.zero_grad()
     critic_optim.zero_grad()
     qf_loss.backward()
     sync_grads(model.single_phi_critic)
@@ -290,12 +289,6 @@ def up_deep_context(model, policy_optim, critic_optim, alpha, log_alpha, target_
     # Tensorize
     obs_norm_tensor = torch.tensor(obs_norm, dtype=torch.float32)
     obs_next_norm_tensor = torch.tensor(obs_next_norm, dtype=torch.float32)
-    # if language:
-    #     g_norm_tensor = g_norm
-    # else:
-    #     g_norm_tensor = torch.tensor(g_norm, dtype=torch.float32)
-    # ag_norm_tensor = torch.tensor(ag_norm, dtype=torch.float32)
-    # ag_next_norm_tensor = torch.tensor(ag_next_norm, dtype=torch.float32)
     g_desc_norm_tensor = torch.tensor(g_desc_norm, dtype=torch.float32)
     g_desc_next_norm_tensor = torch.tensor(g_desc_next_norm, dtype=torch.float32)
     actions_tensor = torch.tensor(actions, dtype=torch.float32)
@@ -338,8 +331,6 @@ def up_deep_context(model, policy_optim, critic_optim, alpha, log_alpha, target_
     policy_loss.backward(retain_graph=True)
     sync_grads(model.single_phi_actor)
     sync_grads(model.rho_actor)
-    sync_grads(model.single_phi_encoder)
-    sync_grads(model.rho_encoder)
     policy_optim.step()
 
     # update the critic_network
