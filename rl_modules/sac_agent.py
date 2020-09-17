@@ -73,19 +73,26 @@ class SACAgent:
             sync_networks(self.model.single_phi_target_critic)
             sync_networks(self.model.rho_target_critic)
             # create the optimizer
-            self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
-                                                 list(self.model.rho_actor.parameters()),
-                                                 lr=self.args.lr_actor)
             if self.mode == 'normal':
                 self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
                                                      list(self.model.rho_critic.parameters()),
                                                      lr=self.args.lr_critic)
+
+                self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
+                                                     list(self.model.rho_actor.parameters()),
+                                                     lr=self.args.lr_actor)
             else:
                 self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
                                                      list(self.model.rho_critic.parameters()) +
                                                      list(self.model.single_phi_encoder.parameters()) +
                                                      list(self.model.rho_encoder.parameters()),
                                                      lr=self.args.lr_critic)
+                self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
+                                                     list(self.model.rho_actor.parameters()) +
+                                                     list(self.model.single_phi_encoder.parameters()) +
+                                                     list(self.model.rho_encoder.parameters()),
+                                                     lr=self.args.lr_actor)
+
 
         else:
             raise NotImplementedError
@@ -137,7 +144,7 @@ class SACAgent:
                     g_desc_norm[:, -1] = g_norm
                     g_desc_norm[:, -2] = ag_norm
                     g_desc_tensor = torch.tensor(g_desc_norm, dtype=torch.float32).unsqueeze(0)
-                    self.model.policy_forward_pass(obs_tensor, g_desc_tensor, no_noise=no_noise)
+                    self.model.policy_forward_pass(obs_tensor, g_desc_tensor, anchor_g=g_tensor, no_noise=no_noise)
                 action = self.model.pi_tensor.numpy()[0]
                 
             # elif self.architecture == 'disentangled':
@@ -281,8 +288,8 @@ class SACAgent:
                                                                                                     obs_next_norm,
                                                                                                     ag_next_norm, actions, rewards, self.args)
             else:
-                up_deep_context(self.model, self.policy_optim,self.critic_optim, self.alpha, self.log_alpha, self.target_entropy, self.alpha_optim,
-                                obs_norm, g_desc_norm, obs_next_norm, g_desc_norm_next, actions, rewards, self.args)
+                up_deep_context(self.model, self.policy_optim, self.critic_optim, self.alpha, self.log_alpha, self.target_entropy, self.alpha_optim,
+                                obs_norm, g_desc_norm, anchor_g, obs_next_norm, g_desc_norm_next, actions, rewards, self.args)
         else:
             raise NotImplementedError
 
