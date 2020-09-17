@@ -284,8 +284,12 @@ def update_deepsets_td3(model, language, policy_optim, critic_optim, obs_norm, a
         policy_optim.step()
 
 
-def up_deep_context(model, policy_optim, critic_optim, alpha, log_alpha, target_entropy, alpha_optim, obs_norm, g_desc_norm, anchor_g,
+def up_deep_context(model, policy_optim, critic_optim, context_optim, alpha, log_alpha, target_entropy, alpha_optim, obs_norm, g_desc_norm, anchor_g,
                     obs_next_norm, g_desc_next_norm, actions, rewards, args):
+    # Coefficient of KL term
+    beta = 1.
+    use_information_bottleneck = args.use_information_bottleneck
+
     # Tensorize
     obs_norm_tensor = torch.tensor(obs_norm, dtype=torch.float32)
     obs_next_norm_tensor = torch.tensor(obs_next_norm, dtype=torch.float32)
@@ -334,12 +338,18 @@ def up_deep_context(model, policy_optim, critic_optim, alpha, log_alpha, target_
     policy_optim.step()
 
     # update the critic_network
+    context_optim.zero_grad()
+    if use_information_bottleneck:
+        kl_div = model.compute_kl_div()
+        kl_loss = beta * kl_div
+        kl_loss.backward(retain_graph=True)
     critic_optim.zero_grad()
     qf_loss.backward()
     sync_grads(model.single_phi_critic)
     sync_grads(model.rho_critic)
     sync_grads(model.single_phi_encoder)
     sync_grads(model.rho_encoder)
+    context_optim.step()
     critic_optim.step()
 
     # critic_optim.zero_grad()

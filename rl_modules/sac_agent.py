@@ -73,23 +73,34 @@ class SACAgent:
             sync_networks(self.model.single_phi_target_critic)
             sync_networks(self.model.rho_target_critic)
             # create the optimizer
-            if self.mode == 'normal':
-                self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
-                                                     list(self.model.rho_critic.parameters()),
-                                                     lr=self.args.lr_critic)
+            self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
+                                                 list(self.model.rho_critic.parameters()),
+                                                 lr=self.args.lr_critic)
 
-                self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
-                                                     list(self.model.rho_actor.parameters()),
-                                                     lr=self.args.lr_actor)
-            else:
-                self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
-                                                     list(self.model.rho_critic.parameters()) +
-                                                     list(self.model.single_phi_encoder.parameters()) +
-                                                     list(self.model.rho_encoder.parameters()),
-                                                     lr=self.args.lr_critic)
-                self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
-                                                     list(self.model.rho_actor.parameters()),
-                                                     lr=self.args.lr_actor)
+            self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
+                                                 list(self.model.rho_actor.parameters()),
+                                                 lr=self.args.lr_actor)
+            if self.mode == 'atomic':
+                self.context_optim = torch.optim.Adam(list(self.model.single_phi_encoder.parameters()) +
+                                                      list(self.model.rho_encoder.parameters()),
+                                                      lr=self.args.lr_context)
+            # if self.mode == 'normal':
+            #     self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
+            #                                          list(self.model.rho_critic.parameters()),
+            #                                          lr=self.args.lr_critic)
+            #
+            #     self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
+            #                                          list(self.model.rho_actor.parameters()),
+            #                                          lr=self.args.lr_actor)
+            # else:
+            #     self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
+            #                                          list(self.model.rho_critic.parameters()) +
+            #                                          list(self.model.single_phi_encoder.parameters()) +
+            #                                          list(self.model.rho_encoder.parameters()),
+            #                                          lr=self.args.lr_critic)
+            #     self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
+            #                                          list(self.model.rho_actor.parameters()),
+            #                                          lr=self.args.lr_actor)
 
 
         else:
@@ -286,8 +297,8 @@ class SACAgent:
                                                                                                     obs_next_norm,
                                                                                                     ag_next_norm, actions, rewards, self.args)
             else:
-                up_deep_context(self.model, self.policy_optim, self.critic_optim, self.alpha, self.log_alpha, self.target_entropy, self.alpha_optim,
-                                obs_norm, g_desc_norm, anchor_g, obs_next_norm, g_desc_norm_next, actions, rewards, self.args)
+                up_deep_context(self.model, self.policy_optim, self.critic_optim, self.context_optim, self.alpha, self.log_alpha, self.target_entropy,
+                                self.alpha_optim, obs_norm, g_desc_norm, anchor_g, obs_next_norm, g_desc_norm_next, actions, rewards, self.args)
         else:
             raise NotImplementedError
 
