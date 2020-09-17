@@ -47,8 +47,11 @@ def get_args():
     parser.add_argument('--action-l2', type=float, default=1, help='l2 reg')
     parser.add_argument('--lr-actor', type=float, default=0.001, help='the learning rate of the actor')
     parser.add_argument('--lr-critic', type=float, default=0.001, help='the learning rate of the critic')
+    parser.add_argument('--lr-context', type=float, default=0.001, help='the learning rate of the context encoder')
     parser.add_argument('--lr-entropy', type=float, default=0.001, help='the learning rate of the entropy')
     parser.add_argument('--polyak', type=float, default=0.95, help='the average coefficient')
+
+    parser.add_argument('--use-information-bottleneck', type=bool, default=True, help='use mutual information in context encoder')
 
     parser.add_argument('--freq-target_update', type=int, default=1, help='the frequency of updating the target networks')
 
