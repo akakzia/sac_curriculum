@@ -207,86 +207,53 @@ class DeepSetSAC:
             input_actor = torch.stack(all_inputs)
 
         elif self.combinations_trick:
-            # Prepare lists
-            idxs_1_2 = []
-            idxs_1_3 = []
-            idxs_2_3 = []
-            idxs_objects_1_2 = []
-            idxs_objects_1_3 = []
-            idxs_objects_2_3 = []
-
             # Get indexes of atomic goals and corresponding object tuple
-            for g_, ag_ in zip(self.anchor_g, self.anchor_ag):
-                if g_[3] == g_[5] or g_[3] == 1.:
-                    idxs_1_2.append(np.array([0, 3]))
-                    idxs_objects_1_2.append([0, 1])
-                else:
-                    idxs_1_2.append(np.array([0, 5]))
-                    idxs_objects_1_2.append([1, 0])
+            extractors = [torch.zeros((self.anchor_g.shape[1], 1)) for _ in range(self.anchor_g.shape[1])]
+            for i in range(len(extractors)):
+                extractors[i][i, :] = 1.
 
-                if g_[4] == g_[7] or g_[4] == 1.:
-                    idxs_1_3.append(np.array([1, 4]))
-                    idxs_objects_1_3.append([0, 2])
-                else:
-                    idxs_1_3.append(np.array([1, 7]))
-                    idxs_objects_1_3.append([2, 0])
+            # The trick is to create selector matrices that, when multiplied with goals retrieves certain bits. Then the sign of the difference
+            # between bits gives which objet goes above the the other
 
-                if g_[6] == g_[8] or g_[6] == 1.:
-                    idxs_2_3.append(np.array([2, 6]))
-                    idxs_objects_2_3.append([1, 2])
-                else:
-                    idxs_2_3.append(np.array([2, 8]))
-                    idxs_objects_2_3.append([2, 1])
+            idxs_bits = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
+            idxs_objects = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
 
-            idxs_1_2 = torch.tensor(idxs_1_2).long()
-            idxs_1_3 = torch.tensor(idxs_1_3).long()
-            idxs_2_3 = torch.tensor(idxs_2_3).long()
+            for i, ((o1, o2), (j, k)) in enumerate(zip([(0, 1), (0, 2), (1, 2)], [(3, 5), (4, 7), (6, 8)])):
+                stacked = torch.cat([extractors[j], extractors[k]], dim=1)
+                multiplied_matrix = torch.matmul(self.anchor_g, stacked.double())
+                selector = multiplied_matrix[:, 0] - multiplied_matrix[:, 1]
+
+                idxs_bits[i] = torch.tensor([i, k]).repeat(self.anchor_g.shape[0], 1).long()
+                idxs_bits[i][selector >= 0] = torch.Tensor([i, j]).long()
+
+                idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
+                idxs_objects[i][selector >= 0] = torch.Tensor([o1, o2]).long()
 
             # Gather 2 bits achieved goal
-            ag_1_2 = self.ag.gather(1, idxs_1_2)
-            ag_1_3 = self.ag.gather(1, idxs_1_3)
-            ag_2_3 = self.ag.gather(1, idxs_2_3)
+            ag_1_2 = self.ag.gather(1, idxs_bits[0])
+            ag_1_3 = self.ag.gather(1, idxs_bits[1])
+            ag_2_3 = self.ag.gather(1, idxs_bits[2])
 
             # Gather 2 bits goal
-            g_1_2 = self.g.gather(1, idxs_1_2)
-            g_1_3 = self.g.gather(1, idxs_1_3)
-            g_2_3 = self.g.gather(1, idxs_2_3)
-
-            idxs_objects_1_2 = torch.tensor(idxs_objects_1_2).long()
-            idxs_objects_1_3 = torch.tensor(idxs_objects_1_3).long()
-            idxs_objects_2_3 = torch.tensor(idxs_objects_2_3).long()
+            g_1_2 = self.g.gather(1, idxs_bits[0])
+            g_1_3 = self.g.gather(1, idxs_bits[1])
+            g_2_3 = self.g.gather(1, idxs_bits[2])
 
             obs_object_tensor = torch.stack(obs_objects)
 
-            objects_1_2 = [[], []]
-            objects_1_3 = [[], []]
-            objects_2_3 = [[], []]
+            obs_objects_pairs_list = []
+            for idxs_objects in idxs_objects:
+                permuted_idxs = idxs_objects.unsqueeze(0).permute(2, 1, 0)
+                permuted_idxs = permuted_idxs.repeat(1, 1, obs_object_tensor.shape[2])
+                obs_objects_pair = obs_object_tensor.gather(0, permuted_idxs)
+                obs_objects_pairs_list.append(obs_objects_pair)
 
-            # Loop over batch to see which objects to consider according to the retrieved object indexes above
-            for i in range(batch_size):
-                a = obs_object_tensor[idxs_objects_1_2[i, 0], i, :].unsqueeze(0)
-                objects_1_2[0].append(a)
-                b = obs_object_tensor[idxs_objects_1_2[i, 1], i, :].unsqueeze(0)
-                objects_1_2[1].append(b)
-
-                a = obs_object_tensor[idxs_objects_1_3[i, 0], i, :].unsqueeze(0)
-                objects_1_3[0].append(a)
-                b = obs_object_tensor[idxs_objects_1_3[i, 1], i, :].unsqueeze(0)
-                objects_1_3[1].append(b)
-
-                a = obs_object_tensor[idxs_objects_2_3[i, 0], i, :].unsqueeze(0)
-                objects_2_3[0].append(a)
-                b = obs_object_tensor[idxs_objects_2_3[i, 1], i, :].unsqueeze(0)
-                objects_2_3[1].append(b)
-
-            # Convert list of tensors to tensor
-            for entity in [objects_1_2, objects_1_3, objects_2_3]:
-                for i in [0, 1]:
-                    entity[i] = torch.stack(entity[i]).squeeze(1)
-
-            input_1_2 = torch.cat([ag_1_2, torch.cat([g_1_2, obs_body], dim=1), objects_1_2[0], objects_1_2[1]], dim=1)
-            input_1_3 = torch.cat([ag_1_3, torch.cat([g_1_3, obs_body], dim=1), objects_1_3[0], objects_1_3[1]], dim=1)
-            input_2_3 = torch.cat([ag_2_3, torch.cat([g_2_3, obs_body], dim=1), objects_2_3[0], objects_2_3[1]], dim=1)
+            input_1_2 = torch.cat([ag_1_2, torch.cat([g_1_2, obs_body], dim=1), obs_objects_pairs_list[0][0, :, :],
+                                   obs_objects_pairs_list[0][1, :, :]], dim=1)
+            input_1_3 = torch.cat([ag_1_3, torch.cat([g_1_3, obs_body], dim=1), obs_objects_pairs_list[1][0, :, :],
+                                   obs_objects_pairs_list[1][1, :, :]], dim=1)
+            input_2_3 = torch.cat([ag_2_3, torch.cat([g_2_3, obs_body], dim=1), obs_objects_pairs_list[2][0, :, :],
+                                   obs_objects_pairs_list[2][1, :, :]], dim=1)
 
             input_actor = torch.stack([input_1_2, input_1_3, input_2_3])
 
@@ -332,14 +299,6 @@ class DeepSetSAC:
             input_actor = torch.stack(all_inputs)
 
         elif self.combinations_trick:
-            # Prepare lists
-            # idxs_1_2 = []
-            # idxs_1_3 = []
-            # idxs_2_3 = []
-            # idxs_objects_1_2 = []
-            # idxs_objects_1_3 = []
-            # idxs_objects_2_3 = []
-
             # Get indexes of atomic goals and corresponding object tuple
             extractors = [torch.zeros((self.anchor_g.shape[1], 1)) for _ in range(self.anchor_g.shape[1])]
             for i in range(len(extractors)):
@@ -362,32 +321,6 @@ class DeepSetSAC:
                 idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
                 idxs_objects[i][selector >= 0] = torch.Tensor([o1, o2]).long()
 
-            # for g_ in self.anchor_g:
-            #     if g_[3] == g_[5] or g_[3] == 1.:
-            #         idxs_1_2.append(np.array([0, 3]))
-            #         idxs_objects_1_2.append([0, 1])
-            #     else:
-            #         idxs_1_2.append(np.array([0, 5]))
-            #         idxs_objects_1_2.append([1, 0])
-            #
-            #     if g_[4] == g_[7] or g_[4] == 1.:
-            #         idxs_1_3.append(np.array([1, 4]))
-            #         idxs_objects_1_3.append([0, 2])
-            #     else:
-            #         idxs_1_3.append(np.array([1, 7]))
-            #         idxs_objects_1_3.append([2, 0])
-            #
-            #     if g_[6] == g_[8] or g_[6] == 1.:
-            #         idxs_2_3.append(np.array([2, 6]))
-            #         idxs_objects_2_3.append([1, 2])
-            #     else:
-            #         idxs_2_3.append(np.array([2, 8]))
-            #         idxs_objects_2_3.append([2, 1])
-
-            # idxs_1_2 = torch.tensor(idxs_1_2).long()
-            # idxs_1_3 = torch.tensor(idxs_1_3).long()
-            # idxs_2_3 = torch.tensor(idxs_2_3).long()
-
             # Gather 2 bits achieved goal
             ag_1_2 = self.ag.gather(1, idxs_bits[0])
             ag_1_3 = self.ag.gather(1, idxs_bits[1])
@@ -398,10 +331,6 @@ class DeepSetSAC:
             g_1_3 = self.g.gather(1, idxs_bits[1])
             g_2_3 = self.g.gather(1, idxs_bits[2])
 
-            # idxs_objects_1_2 = torch.tensor(idxs_objects_1_2).long()
-            # idxs_objects_1_3 = torch.tensor(idxs_objects_1_3).long()
-            # idxs_objects_2_3 = torch.tensor(idxs_objects_2_3).long()
-
             obs_object_tensor = torch.stack(obs_objects)
 
             obs_objects_pairs_list = []
@@ -410,32 +339,6 @@ class DeepSetSAC:
                 permuted_idxs = permuted_idxs.repeat(1, 1, obs_object_tensor.shape[2])
                 obs_objects_pair = obs_object_tensor.gather(0, permuted_idxs)
                 obs_objects_pairs_list.append(obs_objects_pair)
-
-            # objects_1_2 = [[], []]
-            # objects_1_3 = [[], []]
-            # objects_2_3 = [[], []]
-
-            # # Loop over batch to see which objects to consider according to the retrieved object indexes above
-            # for i in range(batch_size):
-            #     a = obs_object_tensor[idxs_objects_1_2[i, 0], i, :].unsqueeze(0)
-            #     objects_1_2[0].append(a)
-            #     b = obs_object_tensor[idxs_objects_1_2[i, 1], i, :].unsqueeze(0)
-            #     objects_1_2[1].append(b)
-            #
-            #     a = obs_object_tensor[idxs_objects_1_3[i, 0], i, :].unsqueeze(0)
-            #     objects_1_3[0].append(a)
-            #     b = obs_object_tensor[idxs_objects_1_3[i, 1], i, :].unsqueeze(0)
-            #     objects_1_3[1].append(b)
-            #
-            #     a = obs_object_tensor[idxs_objects_2_3[i, 0], i, :].unsqueeze(0)
-            #     objects_2_3[0].append(a)
-            #     b = obs_object_tensor[idxs_objects_2_3[i, 1], i, :].unsqueeze(0)
-            #     objects_2_3[1].append(b)
-            #
-            # # Convert list of tensors to tensor
-            # for entity in [objects_1_2, objects_1_3, objects_2_3]:
-            #     for i in [0, 1]:
-            #         entity[i] = torch.stack(entity[i]).squeeze(1)
 
             input_1_2 = torch.cat([ag_1_2, torch.cat([g_1_2, obs_body], dim=1), obs_objects_pairs_list[0][0, :, :],
                                    obs_objects_pairs_list[0][1, :, :]], dim=1)
