@@ -10,15 +10,6 @@ LOG_SIG_MIN = -20
 epsilon = 1e-6
 
 
-def _product_of_gaussians(mus, sigmas_squared):
-    """ compute mu, sigma of product of gaussians """
-
-    sigmas_squared = torch.clamp(sigmas_squared, min=1e-7)
-    sigma_squared = 1. / torch.sum(torch.reciprocal(sigmas_squared), dim=0)
-    mu = sigma_squared * torch.sum(mus / sigmas_squared, dim=0)
-    return mu, sigma_squared
-
-
 # Initialize Policy weights
 def weights_init_(m):
     if isinstance(m, nn.Linear):
@@ -429,14 +420,11 @@ class DeepSetContext:
 
     def infer_posterior(self, context):
         """ compute q(z|c) as a function of input context and sample new z from it"""
-        output_phi_context = self.single_phi_encoder(context)
+        output_phi_context = self.single_phi_encoder(context).sum(dim=1)
         params = self.rho_encoder(output_phi_context)
         # with probabilistic z, predict mean and variance of q(z | c)
-        mu = params[0]
-        sigma_squared = params[1].exp() ** 2
-        z_params = [_product_of_gaussians(m, s) for m, s in zip(torch.unbind(mu), torch.unbind(sigma_squared))]
-        self.z_means = torch.stack([p[0] for p in z_params])
-        self.z_vars = torch.stack([p[1] for p in z_params])
+        self.z_means = params[0]
+        self.z_vars = params[1].exp() ** 2
         self.sample_z()
 
     def sample_z(self):
