@@ -36,17 +36,15 @@ class RhoEncoder(nn.Module):
     def __init__(self, inp, out):
         super(RhoEncoder, self).__init__()
         self.linear1 = nn.Linear(inp, 256)
-        self.mean_linear = nn.Linear(256, out)
-        self.log_std_linear = nn.Linear(256, out)
+        self.linear2 = nn.Linear(256, out)
 
         self.apply(weights_init_)
 
     def forward(self, inp):
-        x = F.relu(self.linear1(inp))
-        mean = self.mean_linear(x)
-        log_std = self.log_std_linear(x)
-        log_std = torch.clamp(log_std, min=LOG_SIG_MIN, max=LOG_SIG_MAX)
-        return mean, log_std
+        x = torch.tanh(self.linear1(inp))
+        x = self.linear2(x)
+
+        return x
 
 
 class SinglePhiActor(nn.Module):
@@ -158,9 +156,6 @@ class DeepSetContext:
         self.dim_description = env_params['g_description']
         self.dim_act = env_params['action']
         self.num_blocks = env_params['num_blocks']
-
-        self.use_ib = args.use_information_bottleneck
-
         self.combinations_trick = args.combinations_trick
         if self.combinations_trick:
             self.n_permutations = len([x for x in combinations(range(self.num_blocks), 2)])
@@ -231,12 +226,9 @@ class DeepSetContext:
         #     context_input[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :5], pair[0][:, 3:], self.g_desc[:, i+3, 5:8], pair[1][:, 3:],
         #                                           self.g_desc[:, i+3, 8:]], dim=1)
 
-        if self.use_ib:
-            self.infer_posterior(self.g_desc)
-        else:
-            output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
+        output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
 
-            self.context_tensor = self.rho_encoder(output_phi_encoder)
+        self.context_tensor = self.rho_encoder(output_phi_encoder)
 
         if self.combinations_trick:
             # Get indexes of atomic goals and corresponding object tuple
@@ -321,12 +313,10 @@ class DeepSetContext:
         # for i, pair in enumerate(permutations(obs_objects, 2)):
         #     context_input[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :5], pair[0][:, 3:], self.g_desc[:, i + 3, 5:8], pair[1][:, 3:],
         #                                             self.g_desc[:, i + 3, 8:]], dim=1)
-        if self.use_ib:
-            self.infer_posterior(self.g_desc)
-        else:
-            output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
 
-            self.context_tensor = self.rho_encoder(output_phi_encoder)
+        output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
+
+        self.context_tensor = self.rho_encoder(output_phi_encoder)
 
         if self.combinations_trick:
             # Get indexes of atomic goals and corresponding object tuple
@@ -409,25 +399,3 @@ class DeepSetContext:
             output_phi_critic_1 = output_phi_critic_1.sum(dim=0)
             output_phi_critic_2 = output_phi_critic_2.sum(dim=0)
             self.q1_pi_tensor, self.q2_pi_tensor = self.rho_critic(output_phi_critic_1, output_phi_critic_2)
-
-    def compute_kl_div(self):
-        """ compute KL(q(z|c) || r(z)) """
-        prior = torch.distributions.Normal(torch.zeros(self.latent), torch.ones(self.latent))
-        posteriors = [torch.distributions.Normal(mu, torch.sqrt(var)) for mu, var in zip(torch.unbind(self.z_means), torch.unbind(self.z_vars))]
-        kl_divs = [torch.distributions.kl.kl_divergence(post, prior) for post in posteriors]
-        kl_div_sum = torch.sum(torch.stack(kl_divs))
-        return kl_div_sum
-
-    def infer_posterior(self, context):
-        """ compute q(z|c) as a function of input context and sample new z from it"""
-        output_phi_context = self.single_phi_encoder(context).sum(dim=1)
-        params = self.rho_encoder(output_phi_context)
-        # with probabilistic z, predict mean and variance of q(z | c)
-        self.z_means = params[0]
-        self.z_vars = params[1].exp() ** 2
-        self.sample_z()
-
-    def sample_z(self):
-        posteriors = [torch.distributions.Normal(m, torch.sqrt(s)) for m, s in zip(torch.unbind(self.z_means), torch.unbind(self.z_vars))]
-        z = [d.rsample() for d in posteriors]
-        self.context_tensor = torch.stack(z)
