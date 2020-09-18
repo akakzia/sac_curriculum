@@ -51,8 +51,6 @@ def get_args():
     parser.add_argument('--lr-entropy', type=float, default=0.001, help='the learning rate of the entropy')
     parser.add_argument('--polyak', type=float, default=0.95, help='the average coefficient')
 
-    parser.add_argument('--use-information-bottleneck', type=bool, default=True, help='use mutual information in context encoder')
-
     parser.add_argument('--freq-target_update', type=int, default=2, help='the frequency of updating the target networks')
 
     parser.add_argument('--latent-dim', type=int, default=20, help='Dimension of latent for goal encoder')
