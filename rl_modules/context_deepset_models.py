@@ -250,12 +250,12 @@ class DeepSetContext:
                 # idxs_bits[i] = torch.tensor([i, k]).repeat(self.anchor_g.shape[0], 1).long()
                 # idxs_bits[i][selector >= 0] = torch.Tensor([i, j]).long()
 
-                # idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
-                # idxs_objects[i][selector >= 0] = torch.Tensor([o1, o2]).long()
-                comb = list(permutations([o1, o2], 2))
-                idxs_objects[i] = torch.stack([torch.tensor(comb[np.random.choice([0, 1])]) for _ in range(self.anchor_g.shape[0])]).long()
-                idxs_objects[i][selector > 0] = torch.Tensor([o1, o2]).long()
-                idxs_objects[i][selector < 0] = torch.Tensor([o2, o1]).long()
+                idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
+                idxs_objects[i][selector >= 0] = torch.Tensor([o1, o2]).long()
+                # comb = list(permutations([o1, o2], 2))
+                # idxs_objects[i] = torch.stack([torch.tensor(comb[np.random.choice([0, 1])]) for _ in range(self.anchor_g.shape[0])]).long()
+                # idxs_objects[i][selector > 0] = torch.Tensor([o1, o2]).long()
+                # idxs_objects[i][selector < 0] = torch.Tensor([o2, o1]).long()
 
             # Gather 2 bits achieved goal
             # ag_1_2 = self.ag.gather(1, idxs_bits[0])
@@ -344,11 +344,12 @@ class DeepSetContext:
                 # idxs_bits[i][selector > 0] = torch.Tensor([i, j]).long()
                 # idxs_bits[i][selector < 0] = torch.Tensor([i, k]).long()
 
-                # idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
-                comb = list(permutations([o1, o2], 2))
-                idxs_objects[i] = torch.stack([torch.tensor(comb[np.random.choice([0, 1])]) for _ in range(self.anchor_g.shape[0])]).long()
-                idxs_objects[i][selector > 0] = torch.Tensor([o1, o2]).long()
-                idxs_objects[i][selector < 0] = torch.Tensor([o2, o1]).long()
+                idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
+                idxs_objects[i][selector >= 0] = torch.Tensor([o1, o2]).long()
+                # comb = list(permutations([o1, o2], 2))
+                # idxs_objects[i] = torch.stack([torch.tensor(comb[np.random.choice([0, 1])]) for _ in range(self.anchor_g.shape[0])]).long()
+                # idxs_objects[i][selector > 0] = torch.Tensor([o1, o2]).long()
+                # idxs_objects[i][selector < 0] = torch.Tensor([o2, o1]).long()
 
             # Gather 2 bits achieved goal
             # ag_1_2 = self.ag.gather(1, idxs_bits[0])
