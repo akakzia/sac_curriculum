@@ -41,8 +41,8 @@ class RhoEncoder(nn.Module):
         self.apply(weights_init_)
 
     def forward(self, inp):
-        x = torch.relu(self.linear1(inp))
-        x = self.linear2(x)
+        x = self.linear1(inp)
+        x = torch.sigmoid(self.linear2(x))
 
         return x
 
