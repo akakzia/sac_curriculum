@@ -18,7 +18,7 @@ def get_args():
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
     parser.add_argument('--n-batches', type=int, default=30, help='the times to update the network')
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
-    parser.add_argument('--automatic-buckets', type=bool, default=True, help='automatically generate buckets during training')
+    parser.add_argument('--automatic-buckets', type=bool, default=False, help='automatically generate buckets during training')
     parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
     parser.add_argument('--symmetry-trick', type=bool, default=False, help='experimental stuff from Cédric')
     parser.add_argument('--combinations-trick', type=bool, default=True, help='test Thomas trick')
@@ -63,7 +63,7 @@ def get_args():
 
     # Deep sets arguments
     parser.add_argument('--architecture', type=str, default='deepsets', help='The architecture of the networks')
-    parser.add_argument('--mode', type=str, default='normal', help='Possible values: normal, atomic. If atomic, encode goal context using deep sets')
+    parser.add_argument('--mode', type=str, default='atomic', help='Possible values: normal, atomic. If atomic, encode goal context using deep sets')
 
     parser.add_argument('--n-test-rollouts', type=int, default=1, help='the number of tests')
     parser.add_argument('--clip-range', type=float, default=5, help='the clip range')
