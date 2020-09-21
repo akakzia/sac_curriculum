@@ -22,9 +22,9 @@ colors = [[0, 0.447, 0.7410], [0.85, 0.325, 0.098], [0.466, 0.674, 0.188], [0.92
           [0.3010, 0.745, 0.933], [0.635, 0.078, 0.184]]
 
 
-RESULTS_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/results/'
-SAVE_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/results/plots/'
-TO_PLOT = ['jz', 'plafrim',  'tests', 'init_study', 'symmetry_bias', 'tests']
+RESULTS_PATH = '/home/akakzia/DECSTR/results/'
+SAVE_PATH = '/home/akakzia/DECSTR/results/'
+TO_PLOT = ['jz']
 
 LINE = 'mean'
 ERR = 'std'
