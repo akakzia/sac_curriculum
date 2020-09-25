@@ -340,7 +340,7 @@ def up_deep_context(model, policy_optim, critic_optim, context_optim, alpha, log
     sync_grads(model.single_phi_critic)
     sync_grads(model.rho_critic)
     sync_grads(model.single_phi_encoder)
-    sync_grads(model.rho_encoder)
+    # sync_grads(model.rho_encoder)
     context_optim.step()
     critic_optim.step()
 

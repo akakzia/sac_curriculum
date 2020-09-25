@@ -53,7 +53,7 @@ def get_args():
 
     parser.add_argument('--freq-target_update', type=int, default=2, help='the frequency of updating the target networks')
 
-    parser.add_argument('--latent-dim', type=int, default=20, help='Dimension of latent for goal encoder')
+    parser.add_argument('--latent-dim', type=int, default=10, help='Dimension of latent for goal encoder')
 
     # Curriculum learning arguments
     parser.add_argument('--curriculum-learning', type=bool, default=True, help='Use LP-based curriculum learning')
