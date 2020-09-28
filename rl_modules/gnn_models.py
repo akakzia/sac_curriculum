@@ -150,6 +150,7 @@ class DeepSetContext:
         self.g = None
         self.g_desc = None
         self.anchor_g = None
+        self.compact_gnn = args.compact_gnn
         self.latent = args.latent_dim
         self.dim_body = 10
         self.dim_object = 15
@@ -173,7 +174,11 @@ class DeepSetContext:
         self.log_prob = None
 
         # dim_phi_encoder_input = self.dim_description[1]
-        dim_phi_encoder_input = self.dim_description[1] + 2 * self.dim_object
+        if self.compact_gnn:
+            dim_phi_encoder_input = self.dim_description[1] + 2 * self.dim_object
+        else:
+            # Two times dim object + ag and ag for each of the two predicates
+            dim_phi_encoder_input = 2 * (self.dim_object + self.num_blocks) + 4
         dim_phi_encoder_output = 3 * dim_phi_encoder_input
 
         # dim_rho_encoder_input = dim_phi_encoder_output
@@ -219,78 +224,87 @@ class DeepSetContext:
                                   self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)),
                                  dim=-1) for i in range(self.num_blocks)]
 
-        # # Initialize context input
-        context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2*self.dim_object))
+        if self.compact_gnn:
+            # Consider atomic goals and put an edge for each predicate value
+            # # Initialize context input
+            context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2*self.dim_object))
 
-        # # Concatenate object observation to g description
-        for i, pair in enumerate(combinations(obs_objects, 2)):
-            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
-                                                self.g_desc[:, i, 8:]], dim=1)
+            # # Concatenate object observation to g description
+            for i, pair in enumerate(combinations(obs_objects, 2)):
+                context_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
+                                                    self.g_desc[:, i, 8:]], dim=1)
 
-        for i, pair in enumerate(permutations(obs_objects, 2)):
-            context_input[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :5], pair[0][:, 3:], self.g_desc[:, i+3, 5:8], pair[1][:, 3:],
-                                                  self.g_desc[:, i+3, 8:]], dim=1)
+            for i, pair in enumerate(permutations(obs_objects, 2)):
+                context_input[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :5], pair[0][:, 3:], self.g_desc[:, i+3, 5:8], pair[1][:, 3:],
+                                                      self.g_desc[:, i+3, 8:]], dim=1)
 
-        output_phi_encoder = self.single_phi_encoder(context_input)
+            output_phi_encoder = self.single_phi_encoder(context_input)
 
-        ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
+            ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
 
-        input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
-                                   for i, obj in enumerate(obs_objects)])
+            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+                                       for i, obj in enumerate(obs_objects)])
+
+        else:
+            # Concatenate the predicates for the considered objects while applying the combinations trick
+            self.ag = self.g_desc[:, :, -2]
+            self.g = self.g_desc[:, :, -1]
+            # Get indexes of atomic goals and corresponding object tuple
+            extractors = [torch.zeros((self.anchor_g.shape[1], 1)) for _ in range(self.anchor_g.shape[1])]
+            for i in range(len(extractors)):
+                extractors[i][i, :] = 1.
+
+            # The trick is to create selector matrices that, when multiplied with goals retrieves certain bits. Then the sign of the difference
+            # between bits gives which objet goes above the the other
+
+            idxs_bits = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
+            idxs_objects = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
+
+            for i, ((o1, o2), (j, k)) in enumerate(zip([(0, 1), (0, 2), (1, 2)], [(3, 5), (4, 7), (6, 8)])):
+                stacked = torch.cat([extractors[j], extractors[k]], dim=1)
+                multiplied_matrix = torch.matmul(self.anchor_g, stacked.double())
+                selector = multiplied_matrix[:, 0] - multiplied_matrix[:, 1]
+
+                idxs_bits[i] = torch.tensor([i, k]).repeat(self.anchor_g.shape[0], 1).long()
+                idxs_bits[i][selector >= 0] = torch.Tensor([i, j]).long()
+
+                idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
+                idxs_objects[i][selector >= 0] = torch.Tensor([o1, o2]).long()
+
+            # Gather 2 bits achieved goal
+            ag_1_2 = self.ag.gather(1, idxs_bits[0])
+            ag_1_3 = self.ag.gather(1, idxs_bits[1])
+            ag_2_3 = self.ag.gather(1, idxs_bits[2])
+
+            # Gather 2 bits goal
+            g_1_2 = self.g.gather(1, idxs_bits[0])
+            g_1_3 = self.g.gather(1, idxs_bits[1])
+            g_2_3 = self.g.gather(1, idxs_bits[2])
+
+            obs_object_tensor = torch.stack(obs_objects)
+
+            obs_objects_pairs_list = []
+            for idxs_objects in idxs_objects:
+                permuted_idxs = idxs_objects.unsqueeze(0).permute(2, 1, 0)
+                permuted_idxs = permuted_idxs.repeat(1, 1, obs_object_tensor.shape[2])
+                obs_objects_pair = obs_object_tensor.gather(0, permuted_idxs)
+                obs_objects_pairs_list.append(obs_objects_pair)
+
+            input_1_2 = torch.cat([ag_1_2, g_1_2, obs_objects_pairs_list[0][0, :, :], obs_objects_pairs_list[0][1, :, :]], dim=1)
+            input_1_3 = torch.cat([ag_1_3, g_1_3, obs_objects_pairs_list[1][0, :, :], obs_objects_pairs_list[1][1, :, :]], dim=1)
+            input_2_3 = torch.cat([ag_2_3, g_2_3, obs_objects_pairs_list[2][0, :, :], obs_objects_pairs_list[2][1, :, :]], dim=1)
+
+            context_input = torch.stack([input_1_2, input_1_3, input_2_3], dim=1)
+
+            output_phi_encoder = self.single_phi_encoder(context_input)
+
+            ids_edges = [np.array([0, 1]), np.array([0, 2]), np.array([1, 2])]
+
+            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+                                       for i, obj in enumerate(obs_objects)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
-        # output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
-        #
-        # self.context_tensor = self.rho_encoder(output_phi_encoder)
-        #
-        # if self.combinations_trick:
-        #     # Get indexes of atomic goals and corresponding object tuple
-        #     extractors = [torch.zeros((self.anchor_g.shape[1], 1)) for _ in range(self.anchor_g.shape[1])]
-        #     for i in range(len(extractors)):
-        #         extractors[i][i, :] = 1.
-        #
-        #     # The trick is to create selector matrices that, when multiplied with goals retrieves certain bits. Then the sign of the difference
-        #     # between bits gives which objet goes above the the other
-        #
-        #     idxs_bits = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
-        #     idxs_objects = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
-        #
-        #     for i, ((o1, o2), (j, k)) in enumerate(zip([(0, 1), (0, 2), (1, 2)], [(3, 5), (4, 7), (6, 8)])):
-        #         stacked = torch.cat([extractors[j], extractors[k]], dim=1)
-        #         multiplied_matrix = torch.matmul(self.anchor_g, stacked.double())
-        #         selector = multiplied_matrix[:, 0] - multiplied_matrix[:, 1]
-        #
-        #         # idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
-        #         # idxs_objects[i][selector >= 0] = torch.Tensor([o1, o2]).long()
-        #         comb = list(permutations([o1, o2], 2))
-        #         idxs_objects[i] = torch.stack([torch.tensor(comb[np.random.choice([0, 1])]) for _ in range(self.anchor_g.shape[0])]).long()
-        #         idxs_objects[i][selector > 0] = torch.Tensor([o1, o2]).long()
-        #         idxs_objects[i][selector < 0] = torch.Tensor([o2, o1]).long()
-        #
-        #     obs_object_tensor = torch.stack(obs_objects)
-        #
-        #     obs_objects_pairs_list = []
-        #     for idxs_objects in idxs_objects:
-        #         permuted_idxs = idxs_objects.unsqueeze(0).permute(2, 1, 0)
-        #         permuted_idxs = permuted_idxs.repeat(1, 1, obs_object_tensor.shape[2])
-        #         obs_objects_pair = obs_object_tensor.gather(0, permuted_idxs)
-        #         obs_objects_pairs_list.append(obs_objects_pair)
-        #
-        #     input_actor = torch.stack([torch.cat([self.context_tensor, obs_body, obs_pair[0, :, :], obs_pair[1, :, :]], dim=1)
-        #                                for obs_pair in obs_objects_pairs_list])
-        #     # input_1_3 = torch.cat([ag_1_3, torch.cat([g_1_3, obs_body], dim=1), obs_objects_pairs_list[1][0, :, :],
-        #     #                        obs_objects_pairs_list[1][1, :, :]], dim=1)
-        #     # input_2_3 = torch.cat([ag_2_3, torch.cat([g_2_3, obs_body], dim=1), obs_objects_pairs_list[2][0, :, :],
-        #     #                        obs_objects_pairs_list[2][1, :, :]], dim=1)
-        #
-        #     # input_actor = torch.stack([input_1_2, input_1_3, input_2_3])
-        # else:
-        #     input_actor = torch.stack([torch.cat([self.context_tensor, obs_body, x[0], x[1]], dim=1) for x in permutations(obs_objects, 2)])
-
-        # self.save_values = self.single_phi_actor(input_actor).numpy()[:, 0, :]
-        # output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
-        # self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
         if not no_noise:
             self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
         else:
@@ -352,24 +366,82 @@ class DeepSetContext:
         #
         # output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
-        # # Initialize context input
-        context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2 * self.dim_object))
+        if self.compact_gnn:
+            # # Initialize context input
+            context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2 * self.dim_object))
 
-        # # Concatenate object observation to g description
-        for i, pair in enumerate(combinations(obs_objects, 2)):
-            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
-                                                self.g_desc[:, i, 8:]], dim=1)
+            # # Concatenate object observation to g description
+            for i, pair in enumerate(combinations(obs_objects, 2)):
+                context_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
+                                                    self.g_desc[:, i, 8:]], dim=1)
 
-        for i, pair in enumerate(permutations(obs_objects, 2)):
-            context_input[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :5], pair[0][:, 3:], self.g_desc[:, i + 3, 5:8], pair[1][:, 3:],
-                                                    self.g_desc[:, i + 3, 8:]], dim=1)
+            for i, pair in enumerate(permutations(obs_objects, 2)):
+                context_input[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :5], pair[0][:, 3:], self.g_desc[:, i + 3, 5:8], pair[1][:, 3:],
+                                                        self.g_desc[:, i + 3, 8:]], dim=1)
 
-        output_phi_encoder = self.single_phi_encoder(context_input)
+            output_phi_encoder = self.single_phi_encoder(context_input)
 
-        ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
+            ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
 
-        input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
-                                   for i, obj in enumerate(obs_objects)])
+            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+                                       for i, obj in enumerate(obs_objects)])
+        else:
+            # Concatenate the predicates for the considered objects while applying the combinations trick
+            self.ag = self.g_desc[:, :, -2]
+            self.g = self.g_desc[:, :, -1]
+            # Get indexes of atomic goals and corresponding object tuple
+            extractors = [torch.zeros((self.anchor_g.shape[1], 1)) for _ in range(self.anchor_g.shape[1])]
+            for i in range(len(extractors)):
+                extractors[i][i, :] = 1.
+
+            # The trick is to create selector matrices that, when multiplied with goals retrieves certain bits. Then the sign of the difference
+            # between bits gives which objet goes above the the other
+
+            idxs_bits = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
+            idxs_objects = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
+
+            for i, ((o1, o2), (j, k)) in enumerate(zip([(0, 1), (0, 2), (1, 2)], [(3, 5), (4, 7), (6, 8)])):
+                stacked = torch.cat([extractors[j], extractors[k]], dim=1)
+                multiplied_matrix = torch.matmul(self.anchor_g, stacked.double())
+                selector = multiplied_matrix[:, 0] - multiplied_matrix[:, 1]
+
+                idxs_bits[i] = torch.tensor([i, k]).repeat(self.anchor_g.shape[0], 1).long()
+                idxs_bits[i][selector >= 0] = torch.Tensor([i, j]).long()
+
+                idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
+                idxs_objects[i][selector >= 0] = torch.Tensor([o1, o2]).long()
+
+            # Gather 2 bits achieved goal
+            ag_1_2 = self.ag.gather(1, idxs_bits[0])
+            ag_1_3 = self.ag.gather(1, idxs_bits[1])
+            ag_2_3 = self.ag.gather(1, idxs_bits[2])
+
+            # Gather 2 bits goal
+            g_1_2 = self.g.gather(1, idxs_bits[0])
+            g_1_3 = self.g.gather(1, idxs_bits[1])
+            g_2_3 = self.g.gather(1, idxs_bits[2])
+
+            obs_object_tensor = torch.stack(obs_objects)
+
+            obs_objects_pairs_list = []
+            for idxs_objects in idxs_objects:
+                permuted_idxs = idxs_objects.unsqueeze(0).permute(2, 1, 0)
+                permuted_idxs = permuted_idxs.repeat(1, 1, obs_object_tensor.shape[2])
+                obs_objects_pair = obs_object_tensor.gather(0, permuted_idxs)
+                obs_objects_pairs_list.append(obs_objects_pair)
+
+            input_1_2 = torch.cat([ag_1_2, g_1_2, obs_objects_pairs_list[0][0, :, :], obs_objects_pairs_list[0][1, :, :]], dim=1)
+            input_1_3 = torch.cat([ag_1_3, g_1_3, obs_objects_pairs_list[1][0, :, :], obs_objects_pairs_list[1][1, :, :]], dim=1)
+            input_2_3 = torch.cat([ag_2_3, g_2_3, obs_objects_pairs_list[2][0, :, :], obs_objects_pairs_list[2][1, :, :]], dim=1)
+
+            context_input = torch.stack([input_1_2, input_1_3, input_2_3], dim=1)
+
+            output_phi_encoder = self.single_phi_encoder(context_input)
+
+            ids_edges = [np.array([0, 1]), np.array([0, 2]), np.array([1, 2])]
+
+            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+                                       for i, obj in enumerate(obs_objects)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
