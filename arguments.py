@@ -24,6 +24,7 @@ def get_args():
     parser.add_argument('--combinations-trick', type=bool, default=True, help='test Thomas trick')
     parser.add_argument('--start-biased-init', type=int, default=100, help='number of epochs before bias initialization')
     parser.add_argument('--normalize_goal', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
+    parser.add_argument('--compact-gnn', type=bool, default=True, help='Use compact version of MPGNN')
 
     parser.add_argument('--evaluations', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
     parser.add_argument('--save-freq', type=int, default=10, help='the interval that save the trajectory')
@@ -59,7 +60,7 @@ def get_args():
     parser.add_argument('--curriculum-learning', type=bool, default=True, help='Use LP-based curriculum learning')
     parser.add_argument('--curriculum-eps', type=float, default=0.3, help='Prob of sampling random goal in curriculum')
     parser.add_argument('--multihead-buffer', type=bool, default=True, help='use a multihead replay buffer in curriculum')
-    parser.add_argument('--queue-length', type=int, default=1800, help='The window size when computing competence')
+    parser.add_argument('--queue-length', type=int, default=1000, help='The window size when computing competence')
 
     # Deep sets arguments
     parser.add_argument('--architecture', type=str, default='deepsets', help='The architecture of the networks')
