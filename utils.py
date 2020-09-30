@@ -108,6 +108,75 @@ def generate_goals(nb_objects=3, sym=1, asym=1):
     return buckets
 
 
+def get_compact_description(description, goals):
+    assert description.shape[0] == goals.shape[0]
+    compact_description = None
+    compact_ids = None
+    goals_str_to_indexes = {str(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])): ([0, 1, 2], [], []),
+                            str(np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])): ([0, 1, 2], [], []),
+                            str(np.array([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])): ([0, 1, 2], [], []),
+                            str(np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])): ([0, 1, 2], [], []),
+
+                            str(np.array([0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])): ([0, 1, 2], [], []),
+                            str(np.array([1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])): ([0, 1, 2], [], []),
+                            str(np.array([1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])): ([0, 1, 2], [], []),
+                            str(np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])): ([0, 1, 2], [], []),
+
+                            str(np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])): ([0, 1, 8], [], []),
+                            str(np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0])): ([0, 1, 6], [], []),
+                            str(np.array([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0])): ([0, 2, 7], [], []),
+                            str(np.array([0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0])): ([0, 2, 4], [], []),
+                            str(np.array([1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])): ([1, 2, 5], [], []),
+                            str(np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0])): ([1, 2, 3], [], []),
+
+                            str(np.array([1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])): ([0, 1, 8], [], []),
+                            str(np.array([0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0])): ([0, 1, 6], [], []),
+                            str(np.array([1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0])): ([0, 2, 7], [], []),
+                            str(np.array([0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0])): ([0, 2, 4], [], []),
+                            str(np.array([1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])): ([1, 2, 5], [], []),
+                            str(np.array([1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0])): ([1, 2, 3], [], []),
+
+                            str(np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])): ([0, 1, 8], [], []),
+                            str(np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0])): ([0, 1, 6], [], []),
+                            str(np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0])): ([0, 2, 7], [], []),
+                            str(np.array([1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0])): ([0, 2, 4], [], []),
+                            str(np.array([1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])): ([1, 2, 5], [], []),
+                            str(np.array([1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0])): ([1, 2, 3], [], []),
+
+                            str(np.array([1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0])): ([1, 5, 6], [], []),
+                            str(np.array([1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0])): ([2, 3, 4], [], []),
+                            str(np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0])): ([0, 7, 8], [], []),
+
+                            str(np.array([0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0])): ([0, 6, 7], [], []),
+                            str(np.array([0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])): ([0, 4, 8], [], []),
+                            str(np.array([1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0])): ([1, 4, 8], [], []),
+                            str(np.array([1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0])): ([1, 3, 6], [], []),
+                            str(np.array([1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0])): ([2, 4, 5], [], []),
+                            str(np.array([1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0])): ([2, 3, 7], [], [])
+                            }
+    try:
+        compact_ids = np.array([goals_str_to_indexes[str(goal)][0] for goal in goals]).flatten()
+    except KeyError:
+        pass
+
+    if compact_ids is None:
+        return description
+    else:
+        a = np.take(description, compact_ids, axis=1)
+        compact_ids = np.reshape(compact_ids, (description.shape[0], 3, 1))
+        a = np.append(a, compact_ids, axis=-1)
+        compact_description = description[:, compact_ids, :]
+        return compact_description
+
+    # for i, goal in enumerate(goals):
+    #     try:
+    #         compact_description = description[i, goals_str_to_indexes[str(goal)], :]
+    #     except KeyError:
+    #         pass
+
+    # return compact_description
+
+
 def init_storage(args):
     if not os.path.exists(args.save_dir):
         os.mkdir(args.save_dir)
