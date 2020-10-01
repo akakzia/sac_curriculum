@@ -3,6 +3,7 @@ import os
 import itertools
 
 from env import rotations, robot_env, utils
+from env.utils import goals_str_to_indexes
 
 
 def objects_distance(x, y):
@@ -149,28 +150,55 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         utils.ctrl_set_action(self.sim, action)
         utils.mocap_set_action(self.sim, action)
 
-    def _get_configuration(self, positions, color_blocks):
+    def _get_configuration(self, features, color_blocks):
         """
         This functions takes as input the positions of the objects in the scene and outputs the corresponding semantic configuration
         based on the environment predicates
         """
-        object_combinations = itertools.combinations(positions, 2)
-        color_combinations = itertools.combinations(color_blocks, 2)
-        object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
+        positions = features[:, :3]
+        ids_combinations = itertools.combinations(np.arange(self.num_blocks), 2)
+        ids_permutations = itertools.permutations(np.arange(self.num_blocks), 2)
+        # object_rel_distances = np.array([objects_distance(positions[i], positions[j]) for i, j in ids_combinations])
 
-        object_permutations = itertools.permutations(positions, 2)
-        color_permutations = itertools.permutations(color_blocks, 2)
+        # Create list of atomic goals with (dummy_predicate, dummy_obj1, features_obj1, dummy_obj2, features_obj2, value_predicate)
+        close_config = [np.concatenate([np.array([0., 1.]), color_blocks[i], features[i], color_blocks[j], features[j],
+                                        np.array([objects_distance(positions[i], positions[j])])]) for i, j in ids_combinations]
+
+        above_config = [np.concatenate([np.array([0., 1.]), color_blocks[i], features[i], color_blocks[j], features[j],
+                                        np.array([above(positions[i], positions[j])])]) for i, j in ids_permutations]
+
+        global_description = np.array(close_config + above_config)
+
+        global_description = np.concatenate([global_description, np.expand_dims(self.target_goal, axis=-1)], axis=-1)
+
+        try:
+            per_object_atomic_goal_ids = goals_str_to_indexes[str(self.target_goal)]
+        except KeyError:
+            per_object_atomic_goal_ids = np.random.choice(np.arange(global_description.shape[0]), size=self.num_blocks, replace=False)
+
+        effective_description = global_description[per_object_atomic_goal_ids, :]
+
+        a = self.target_goal
+
+        return global_description, effective_description
+
+        # object_combinations = itertools.combinations(positions, 2)
+        # color_combinations = itertools.combinations(color_blocks, 2)
+        # object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
+        #
+        # object_permutations = itertools.permutations(positions, 2)
+        # color_permutations = itertools.permutations(color_blocks, 2)
         # Create list of quadruples (predicate_dummy, color_o1, color_o2, value_of_predicate)
-        close_config = [np.concatenate([np.array([0., 1.]), colors[0], colors[1], np.array([distance <= self.predicate_threshold])])
-                        for colors, distance in zip(color_combinations, object_rel_distances)]
-
-        above_config = [np.concatenate([np.array([1., 0.]), colors[0], colors[1], np.array([above(obj[0], obj[1])])])
-                        for colors, obj in zip(color_permutations, object_permutations)]
+        # close_config = [np.concatenate([np.array([0., 1.]), colors[0], colors[1], np.array([distance <= self.predicate_threshold])])
+        #                 for colors, distance in zip(color_combinations, object_rel_distances)]
+        #
+        # above_config = [np.concatenate([np.array([1., 0.]), colors[0], colors[1], np.array([above(obj[0], obj[1])])])
+        #                 for colors, obj in zip(color_permutations, object_permutations)]
 
         # Concatenate lists and form an array
-        res = np.array(close_config + above_config)
+        # res = np.array(close_config + above_config)
 
-        return res
+        # return res
 
     def _get_obs(self):
         grip_pos = self.sim.data.get_site_xpos('robot0:grip')
@@ -192,7 +220,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
             gripper_vel,
         ])
 
-        objects_positions = []
+        objects_features = []
 
         for i in range(self.num_blocks):
             object_i_pos = self.sim.data.get_site_xpos(self.object_names[i])
@@ -214,21 +242,19 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
                 object_i_velr.ravel()
             ])
 
-            objects_positions = np.concatenate([
-                objects_positions, object_i_pos.ravel()
+            objects_features = np.concatenate([
+                objects_features, object_i_pos.ravel(), object_i_rel_pos.ravel(), object_i_rot.ravel(), object_i_velp.ravel(), object_i_velr.ravel()
             ])
 
-        objects_positions = objects_positions.reshape(self.num_blocks, 3)
-        object_combinations = itertools.combinations(objects_positions, 2)
-        object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
+        objects_features = objects_features.reshape(self.num_blocks, -1)
+        # object_combinations = itertools.combinations(objects_positions, 2)
+        # object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
 
         # self.goal_size = len(object_rel_distances)
 
-        goal_description = self._get_configuration(objects_positions, color_blocks)
+        global_goal_description, compact_goal_description = self._get_configuration(objects_features, color_blocks)
 
-        goal_description = np.concatenate([goal_description, np.expand_dims(self.target_goal, axis=1)], axis=1)
-
-        achieved_goal = goal_description[:, -2]
+        achieved_goal = global_goal_description[:, -2]
 
         self.goal_size = achieved_goal.shape[0]
 
@@ -240,7 +266,8 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
             'desired_goal': self.target_goal.copy(),
             'achieved_goal_binary': achieved_goal.copy(),
             'desired_goal_binary': self.target_goal.copy(),
-            'goal_description': goal_description.copy()
+            'goal_description': global_goal_description.copy(),
+            'compact_description': compact_goal_description.copy(),
         }
 
     def _viewer_setup(self):
