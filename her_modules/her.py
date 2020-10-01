@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.linalg import block_diag
+from env.utils import goals_str_to_indexes
 
 
 class her_sampler:
@@ -31,6 +32,8 @@ class her_sampler:
         # replace goal with achieved goal
         future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
         transitions['g'][her_indexes] = future_ag
+        # After changing goal, change ids of effective atomic goals
+        transitions['atomic_ids'][her_indexes] = np.array([goals_str_to_indexes[str(goal)] for goal in future_ag])
         # to get the params to re-compute reward
         # transitions['r'] = np.expand_dims(self.reward_func(transitions['ag_next'], transitions['g'], None), 1)
         transitions['r'] = np.expand_dims(np.array([self.reward_func(ag_next, g, None) for ag_next, g in zip(transitions['ag_next'],
