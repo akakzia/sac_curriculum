@@ -19,15 +19,16 @@ class RolloutWorker:
             ag = observation['achieved_goal']
             g = observation['desired_goal']
             g_desc = observation['goal_description']
+            atomic_ids = observation['atomic_ids']
 
-            ep_obs, ep_ag, ep_g, ep_g_desc, ep_actions, ep_success = [], [], [], [], [], []
+            ep_obs, ep_ag, ep_g, ep_g_desc, ep_desc_ids, ep_actions, ep_success = [], [], [], [], [], [], []
 
             # Start to collect samples
             for t in range(self.env_params['max_timesteps']):
                 # Run policy for one step
                 no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
                 # action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
-                action = self.policy.act(obs.copy(), g_desc.copy(), no_noise)
+                action = self.policy.act(obs.copy(), g_desc.copy(),  atomic_ids.copy(), no_noise)
 
                 # feed the actions into the environment
                 if animated:
@@ -36,7 +37,9 @@ class RolloutWorker:
                 observation_new, _, _, info = self.env.step(action)
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
-                g_desc_new = observation['goal_description']
+                g_desc_new = observation_new['goal_description']
+                atomic_ids_new = observation_new['atomic_ids']
+
 
                 # USE THIS FOR DEBUG
                 # if str(ag_new) not in self.goal_sampler.valid_goals_str:
@@ -48,16 +51,19 @@ class RolloutWorker:
                 ep_ag.append(ag.copy())
                 ep_g.append(g.copy())
                 ep_g_desc.append(g_desc.copy())
+                ep_desc_ids.append(atomic_ids.copy())
                 ep_actions.append(action.copy())
 
                 # re-assign the observation
                 obs = obs_new
                 ag = ag_new
                 g_desc = g_desc_new
+                atomic_ids = atomic_ids_new
 
             ep_obs.append(obs.copy())
             ep_ag.append(ag.copy())
             ep_g_desc.append(g_desc.copy())
+            ep_desc_ids.append(atomic_ids.copy())
 
             # Gather everything
             episode = dict(obs=np.array(ep_obs).copy(),
@@ -65,6 +71,7 @@ class RolloutWorker:
                            g=np.array(ep_g).copy(),
                            ag=np.array(ep_ag).copy(),
                            g_desc=np.array(ep_g_desc),
+                           atomic_ids=np.array(ep_desc_ids),
                            self_eval=self_eval)
             episodes.append(episode)
 

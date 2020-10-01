@@ -150,6 +150,7 @@ class DeepSetContext:
         self.g = None
         self.g_desc = None
         self.anchor_g = None
+        self.atomic_ids = None
         self.latent = args.latent_dim
         self.dim_body = 10
         self.dim_object = 15
@@ -209,10 +210,12 @@ class DeepSetContext:
         self.single_phi_target_critic = SinglePhiCritic(dim_phi_critic_input, 256, dim_phi_critic_output)
         self.rho_target_critic = RhoCritic(dim_rho_critic_input, dim_rho_critic_output)
 
-    def policy_forward_pass(self, obs, g_desc, anchor_g=None, no_noise=False):
+    def policy_forward_pass(self, obs, g_desc, atomic_ids, anchor_g=None, no_noise=False):
         self.observation = obs
         self.g_desc = g_desc
         self.anchor_g = anchor_g
+
+        self.atomic_ids = atomic_ids
 
         obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
         obs_objects = [torch.cat((torch.cat(obs_body.shape[0] * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
@@ -231,11 +234,15 @@ class DeepSetContext:
             context_input[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :5], pair[0][:, 3:], self.g_desc[:, i+3, 5:8], pair[1][:, 3:],
                                                   self.g_desc[:, i+3, 8:]], dim=1)
 
+        self.atomic_ids = self.atomic_ids.unsqueeze(-1).repeat_interleave(context_input.shape[-1], dim=-1)
+
+        context_input = context_input.gather(1, self.atomic_ids)
+
         output_phi_encoder = self.single_phi_encoder(context_input)
 
-        ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
+        # ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
 
-        input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+        input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, i, :]], dim=1)
                                    for i, obj in enumerate(obs_objects)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
@@ -296,11 +303,13 @@ class DeepSetContext:
         else:
             _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
 
-    def forward_pass(self, obs, g_desc, anchor_g=None, eval=False, actions=None):
+    def forward_pass(self, obs, g_desc, atomic_ids, anchor_g=None, eval=False, actions=None):
         batch_size = obs.shape[0]
         self.observation = obs
         self.g_desc = g_desc
         self.anchor_g = anchor_g
+
+        self.atomic_ids = atomic_ids
 
         obs_body = self.observation[:, :self.dim_body]
         obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
@@ -364,11 +373,15 @@ class DeepSetContext:
             context_input[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :5], pair[0][:, 3:], self.g_desc[:, i + 3, 5:8], pair[1][:, 3:],
                                                     self.g_desc[:, i + 3, 8:]], dim=1)
 
+        self.atomic_ids = self.atomic_ids.unsqueeze(-1).repeat_interleave(context_input.shape[-1], dim=-1)
+
+        context_input = context_input.gather(1, self.atomic_ids)
+
         output_phi_encoder = self.single_phi_encoder(context_input)
 
-        ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
+        # ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
 
-        input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+        input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, i, :]], dim=1)
                                    for i, obj in enumerate(obs_objects)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)

@@ -136,7 +136,7 @@ class SACAgent:
                                   goal_sampler=self.goal_sampler
                                   )
 
-    def act(self, obs, g_desc, no_noise):
+    def act(self, obs, g_desc, atomic_ids, no_noise):
         ag = g_desc[:, -2]
         g = g_desc[:, -1]
         ag_tensor = torch.tensor(ag).unsqueeze(0)
@@ -156,7 +156,8 @@ class SACAgent:
                     g_desc_norm[:, -1] = g_norm
                     g_desc_norm[:, -2] = ag_norm
                     g_desc_tensor = torch.tensor(g_desc_norm, dtype=torch.float32).unsqueeze(0)
-                    self.model.policy_forward_pass(obs_tensor, g_desc_tensor, anchor_g=g_tensor, no_noise=no_noise)
+                    atomic_ids_tensor = torch.tensor(atomic_ids).unsqueeze(0).long()
+                    self.model.policy_forward_pass(obs_tensor, g_desc_tensor, atomic_ids_tensor, anchor_g=g_tensor, no_noise=no_noise)
                 action = self.model.pi_tensor.numpy()[0]
                 
             # elif self.architecture == 'disentangled':
@@ -211,6 +212,8 @@ class SACAgent:
         mb_ag = episode['ag']
         mb_g = episode['g']
         mb_actions = episode['act']
+        mb_g_desc = episode['g_desc']
+        mb_atomic_ids = episode['atomic_ids']
         mb_obs_next = mb_obs[1:, :]
         mb_ag_next = mb_ag[1:, :]
         # get the number of normalization transitions
@@ -222,6 +225,8 @@ class SACAgent:
                        'actions': np.expand_dims(mb_actions, 0),
                        'obs_next': np.expand_dims(mb_obs_next, 0),
                        'ag_next': np.expand_dims(mb_ag_next, 0),
+                       'g_desc': np.expand_dims(mb_g_desc, 0),
+                       'atomic_ids': np.expand_dims(mb_atomic_ids, 0)
                        }
         transitions = self.her_module.sample_her_transitions(buffer_temp, num_transitions)
         obs, g = transitions['obs'], transitions['g']
@@ -253,8 +258,9 @@ class SACAgent:
         transitions = self.buffer.sample(self.args.batch_size)
 
         # pre-process the observation and goal
-        o, o_next, g, ag, g_desc, ag_next, actions, rewards = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['ag'], \
-                                                      transitions['g_desc'], transitions['ag_next'], transitions['actions'], transitions['r']
+        o, o_next, g, ag, g_desc, atomic_ids, ag_next, actions, rewards = transitions['obs'], transitions['obs_next'], transitions['g'], \
+                                                                          transitions['ag'], transitions['g_desc'], transitions['atomic_ids'], \
+                                                                          transitions['ag_next'], transitions['actions'], transitions['r']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
         transitions['obs_next'], transitions['g_next'] = self._preproc_og(o_next, g)
         _, transitions['ag'] = self._preproc_og(o, ag)
@@ -301,7 +307,8 @@ class SACAgent:
                                                                                                     ag_next_norm, actions, rewards, self.args)
             else:
                 up_deep_context(self.model, self.policy_optim, self.critic_optim, self.context_optim, self.alpha, self.log_alpha, self.target_entropy,
-                                self.alpha_optim, obs_norm, g_desc_norm, anchor_g, obs_next_norm, g_desc_norm_next, actions, rewards, self.args)
+                                self.alpha_optim, obs_norm, g_desc_norm, atomic_ids, anchor_g, obs_next_norm, g_desc_norm_next, actions, rewards,
+                                self.args)
         else:
             raise NotImplementedError
 
