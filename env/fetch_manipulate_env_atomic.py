@@ -161,10 +161,11 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         # object_rel_distances = np.array([objects_distance(positions[i], positions[j]) for i, j in ids_combinations])
 
         # Create list of atomic goals with (dummy_predicate, dummy_obj1, features_obj1, dummy_obj2, features_obj2, value_predicate)
-        close_config = [np.concatenate([np.array([0., 1.]), color_blocks[i], features[i], color_blocks[j], features[j],
-                                        np.array([objects_distance(positions[i], positions[j])])]) for i, j in ids_combinations]
+        close_config = [np.concatenate([np.array([0., 1.]), color_blocks[i], color_blocks[j],
+                                        np.array([objects_distance(positions[i], positions[j]) <= self.predicate_threshold])])
+                        for i, j in ids_combinations]
 
-        above_config = [np.concatenate([np.array([0., 1.]), color_blocks[i], features[i], color_blocks[j], features[j],
+        above_config = [np.concatenate([np.array([1., 0.]), color_blocks[i], color_blocks[j],
                                         np.array([above(positions[i], positions[j])])]) for i, j in ids_permutations]
 
         global_description = np.array(close_config + above_config)
@@ -176,11 +177,9 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         except KeyError:
             per_object_atomic_goal_ids = np.random.choice(np.arange(global_description.shape[0]), size=self.num_blocks, replace=False)
 
-        effective_description = global_description[per_object_atomic_goal_ids, :]
+        # effective_description = global_description[per_object_atomic_goal_ids, :]
 
-        a = self.target_goal
-
-        return global_description, effective_description
+        return global_description, np.array(per_object_atomic_goal_ids)
 
         # object_combinations = itertools.combinations(positions, 2)
         # color_combinations = itertools.combinations(color_blocks, 2)
@@ -252,7 +251,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
 
         # self.goal_size = len(object_rel_distances)
 
-        global_goal_description, compact_goal_description = self._get_configuration(objects_features, color_blocks)
+        global_goal_description, effective_atomic_ids = self._get_configuration(objects_features, color_blocks)
 
         achieved_goal = global_goal_description[:, -2]
 
@@ -267,7 +266,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
             'achieved_goal_binary': achieved_goal.copy(),
             'desired_goal_binary': self.target_goal.copy(),
             'goal_description': global_goal_description.copy(),
-            'compact_description': compact_goal_description.copy(),
+            'atomic_ids': effective_atomic_ids.copy(),
         }
 
     def _viewer_setup(self):
