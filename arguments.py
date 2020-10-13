@@ -63,6 +63,7 @@ def get_args():
 
     # Deep sets arguments
     parser.add_argument('--architecture', type=str, default='deepsets', help='The architecture of the networks')
+    parser.add_argument('--aggregation', type=str, default='sum', help='the invariant operator to apply after the shared network')
     parser.add_argument('--mode', type=str, default='atomic', help='Possible values: normal, atomic. If atomic, encode goal context using deep sets')
 
     parser.add_argument('--n-test-rollouts', type=int, default=1, help='the number of tests')

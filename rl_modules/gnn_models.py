@@ -157,6 +157,7 @@ class DeepSetContext:
         self.dim_act = env_params['action']
         self.num_blocks = env_params['num_blocks']
         self.combinations_trick = args.combinations_trick
+        self.aggregation = args.aggregation
         if self.combinations_trick:
             self.n_permutations = len([x for x in combinations(range(self.num_blocks), 2)])
         else:
@@ -235,8 +236,12 @@ class DeepSetContext:
 
         ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
 
-        input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
-                                   for i, obj in enumerate(obs_objects)])
+        if self.aggregation == 'sum':
+            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+                                       for i, obj in enumerate(obs_objects)])
+        else:
+            input_actor = torch.stack([torch.cat([obs_body, obj, torch.max(output_phi_encoder[:, ids_edges[i], :], dim=1).values], dim=1)
+                                       for i, obj in enumerate(obs_objects)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
@@ -368,8 +373,12 @@ class DeepSetContext:
 
         ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
 
-        input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
-                                   for i, obj in enumerate(obs_objects)])
+        if self.aggregation == 'sum':
+            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+                                       for i, obj in enumerate(obs_objects)])
+        else:
+            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].max(dim=1).values], dim=1)
+                                       for i, obj in enumerate(obs_objects)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
