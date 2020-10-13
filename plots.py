@@ -44,7 +44,7 @@ FREQ = 50
 NB_BUCKETS = 5
 NB_EPS_PER_EPOCH = 2400
 NB_VALID_GOALS = 35
-LAST_EP = 150
+LAST_EP = 200
 LIM = NB_EPS_PER_EPOCH * LAST_EP / 1000 + 30
 line, err_min, err_plus = get_stat_func(line=LINE, err=ERR)
 COMPRESSOR = CompressPDF(4)
@@ -378,6 +378,7 @@ def get_mean_sr(experiment_path, max_len, max_seeds, conditions=None, labels=Non
         conditions = os.listdir(experiment_path)
     sr = np.zeros([max_seeds, len(conditions), LAST_EP + 1 ])
     sr.fill(np.nan)
+    last_val = []
     for i_cond, cond in enumerate(conditions):
         if cond == ref:
             ref_id = i_cond
@@ -388,8 +389,11 @@ def get_mean_sr(experiment_path, max_len, max_seeds, conditions=None, labels=Non
             data_run = pd.read_csv(run_path + 'progress.csv')
             all_sr = np.mean(np.array([data_run['Eval_SR_{}'.format(i)][:LAST_EP + 1] for i in range(NB_VALID_GOALS)]), axis=0)
             sr[i_run, i_cond, :all_sr.size] = all_sr.copy()
+            if cond == "DECSTR_bis":
+                last_val.append(np.mean(np.array([data_run['Eval_SR_{}'.format(i)][:-1] for i in range(NB_VALID_GOALS)]), axis=0)[-1])
 
-
+    mean_decstr = np.mean(last_val)
+    std_decstr = np.std(last_val)
     sr_per_cond_stats = np.zeros([len(conditions), LAST_EP + 1, 3])
     sr_per_cond_stats[:, :, 0] = line(sr)
     sr_per_cond_stats[:, :, 1] = err_min(sr)
@@ -432,6 +436,8 @@ def get_mean_sr(experiment_path, max_len, max_seeds, conditions=None, labels=Non
                 plt.scatter(x=x_eps[inds_sign], y=np.ones([inds_sign.size]) - 0.04 + 0.05 * i_cond, marker='*', color=colors[i_cond], s=1300)
     if labels is None:
         labels = conditions
+    plt.hlines(mean_decstr, xmin=x_eps[0], xmax=x_eps[-1], colors=colors[0])
+    plt.fill_between(x_eps, mean_decstr-std_decstr, mean_decstr+std_decstr, color=colors[0], alpha=ALPHA)
     leg = plt.legend(labels,
                      loc='upper center',
                      bbox_to_anchor=(0.5, 1.15),
@@ -478,9 +484,9 @@ if __name__ == '__main__':
             print('# epochs: {}, # seeds: {}'.format(min_len, min_seeds))
             # plot_c_lp_p_sr(experiment_path)
             conditions = ['DECSTR_bis',
-                          'MPGNN']
+                          'MPGNN', 'pruned']
             labels = ['DECSTR',
-                      'MPGNN']
+                      'MPGNN', 'GC_MPGNN']
             sr_per_cond_stats = get_mean_sr(experiment_path, max_len, max_seeds, conditions, labels, ref='DECSTR_bis')
 
 
