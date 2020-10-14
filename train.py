@@ -133,7 +133,9 @@ def launch(args):
         if args.evaluations:
             t_i = time.time()
             if rank==0: logger.info('\tRunning eval ..')
-            eval_goals = goal_sampler.valid_goals
+            eval_goal_ids = np.random.choice(np.arange(len(goal_sampler.discovered_goals)), size=args.n_test_rollouts)
+            eval_goals = np.array(goal_sampler.discovered_goals)[eval_goal_ids]
+            # eval_goals = goal_sampler.valid_goals
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        self_eval=True,
                                                        true_eval=True,

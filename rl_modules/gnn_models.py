@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 from itertools import permutations, combinations
 import numpy as np
+from env.utils import get_dummies
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
@@ -146,7 +147,8 @@ class MessagePassingGNN:
 
         self.n_pairs = len([x for x in combinations(range(self.num_blocks), 2)])
 
-        self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
+        # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
+        self.one_hot_encodings = [torch.Tensor(dummy) for dummy in get_dummies(self.num_blocks)]
 
         self.context_tensor = None
         self.q1_pi_tensor = None
@@ -196,19 +198,33 @@ class MessagePassingGNN:
         message_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2*self.dim_object))
 
         # # Concatenate object observation to g description
+        # To do so, we need the indexes from which we insert the object features
+        i0 = self.num_blocks # Object features start from this index (before, there are dummies)
+        i1 = 2 + self.num_blocks  # number of predicates + number of objects
+        i2 = i1 + self.num_blocks
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            message_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
-                                                self.g_desc[:, i, 8:]], dim=1)
+            message_input[:, i, :] = torch.cat([self.g_desc[:, i, :i1], pair[0][:, i0:], self.g_desc[:, i, i1:i2], pair[1][:, i0:],
+                                                self.g_desc[:, i, i2:]], dim=1)
 
+        try:
+            i4 = i + 1
+        except ValueError:
+            i4 = 3
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            message_input[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :5], pair[0][:, 3:], self.g_desc[:, i+3, 5:8], pair[1][:, 3:],
-                                                  self.g_desc[:, i+3, 8:]], dim=1)
+            message_input[:, i+i4, :] = torch.cat([self.g_desc[:, i+i4, :i1], pair[0][:, i0:], self.g_desc[:, i+i4, i1:i2], pair[1][:, i0:],
+                                                  self.g_desc[:, i+i4, i2:]], dim=1)
 
         # Message Passing step
         output_message_encoder = self.message_encoder(message_input)
 
         # For each object, define indexes of incoming edges
-        ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
+        if self.num_blocks == 3:
+            ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
+        elif self.num_blocks == 4:
+            ids_edges = [np.array([0, 1, 2, 9, 12, 15]), np.array([0, 3, 4, 6, 13, 16]), np.array([1, 3, 5, 7, 10, 17]),
+                         np.array([2, 4, 5, 8, 11, 14])]
+        else:
+            raise NotImplementedError
 
         if self.aggregation == 'sum':
             input_actor = torch.stack([torch.cat([obs_body, obj, output_message_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
@@ -239,17 +255,32 @@ class MessagePassingGNN:
         message_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2 * self.dim_object))
 
         # # Concatenate object observation to g description
+        # To do so, we need the indexes from which we insert the object features
+        i0 = self.num_blocks  # Object features start from this index (before, there are dummies)
+        i1 = 2 + self.num_blocks  # number of predicates + number of objects
+        i2 = i1 + self.num_blocks
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            message_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
-                                                self.g_desc[:, i, 8:]], dim=1)
+            message_input[:, i, :] = torch.cat([self.g_desc[:, i, :i1], pair[0][:, i0:], self.g_desc[:, i, i1:i2], pair[1][:, i0:],
+                                                self.g_desc[:, i, i2:]], dim=1)
 
+        try:
+            i4 = i + 1
+        except ValueError:
+            i4 = 3
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            message_input[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :5], pair[0][:, 3:], self.g_desc[:, i + 3, 5:8], pair[1][:, 3:],
-                                                    self.g_desc[:, i + 3, 8:]], dim=1)
+            message_input[:, i + i4, :] = torch.cat([self.g_desc[:, i + i4, :i1], pair[0][:, i0:], self.g_desc[:, i + i4, i1:i2], pair[1][:, i0:],
+                                                     self.g_desc[:, i + i4, i2:]], dim=1)
 
         output_message_encoder = self.message_encoder(message_input)
 
-        ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
+        # For each object, define indexes of incoming edges
+        if self.num_blocks == 3:
+            ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
+        elif self.num_blocks == 4:
+            ids_edges = [np.array([0, 1, 2, 9, 12, 15]), np.array([0, 3, 4, 6, 13, 16]), np.array([1, 3, 5, 7, 10, 17]),
+                         np.array([2, 4, 5, 8, 11, 14])]
+        else:
+            raise NotImplementedError
 
         if self.aggregation == 'sum':
             input_actor = torch.stack([torch.cat([obs_body, obj, output_message_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
@@ -266,10 +297,10 @@ class MessagePassingGNN:
             _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
 
         # The critic part
-        repeat_pol_actions = self.pi_tensor.repeat(self.n_pairs, 1, 1)
+        repeat_pol_actions = self.pi_tensor.repeat(self.num_blocks, 1, 1)
         input_critic = torch.cat([input_actor, repeat_pol_actions], dim=-1)
         if actions is not None:
-            repeat_actions = actions.repeat(self.n_pairs, 1, 1)
+            repeat_actions = actions.repeat(self.num_blocks, 1, 1)
             input_critic_with_act = torch.cat([input_actor, repeat_actions], dim=-1)
             input_critic = torch.cat([input_critic, input_critic_with_act], dim=0)
 

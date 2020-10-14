@@ -16,33 +16,37 @@ class GoalSampler:
         self.num_rollouts_per_mpi = args.num_rollouts_per_mpi
         self.rank = MPI.COMM_WORLD.Get_rank()
 
+        self.goal_dim = args.env_params['goal']
+
         self.epsilon = args.curriculum_eps
 
-        buckets = generate_goals(nb_objects=3, sym=1, asym=1)
+        # buckets = generate_goals(nb_objects=3, sym=1, asym=1)
         # If no curriculum is used then 0 buckets
         # If no automatic buckets, then number of buckets = number of predefined buckets
         if not self.curriculum_learning: self.num_buckets = 0
-        elif not self.automatic_buckets: self.num_buckets = len(buckets)
-        all_goals = generate_all_goals_in_goal_space().astype(np.float32)
-        valid_goals = []
-        for k in buckets.keys():
+        elif not self.automatic_buckets: self.num_buckets = args.num_buckets
+        # all_goals = generate_all_goals_in_goal_space(self.goal_dim).astype(np.float32)
+        # valid_goals = []
+        # for k in buckets.keys():
             # if k < 4:
-            valid_goals += buckets[k]
-        self.valid_goals = np.array(valid_goals)
-        self.all_goals = np.array(all_goals)
-        self.num_goals = self.all_goals.shape[0]
-        self.all_goals_str = [str(g) for g in self.all_goals]
-        self.valid_goals_str = [str(vg) for vg in self.valid_goals]
-        self.goal_dim = self.all_goals.shape[1]
+            # valid_goals += buckets[k]
+        # self.valid_goals = np.array(valid_goals)
+        # self.all_goals = np.array(all_goals)
+        # self.num_goals = self.all_goals.shape[0]
+        # self.all_goals_str = [str(g) for g in self.all_goals]
+        # self.valid_goals_str = [str(vg) for vg in self.valid_goals]
+        # self.goal_dim = self.all_goals.shape[1]
 
         # initialize dict to convert from the oracle id to goals and vice versa.
         # oracle id is position in the all_goal array
-        self.oracle_id_to_g = dict(zip(range(self.num_goals), self.all_goals))
-        self.g_str_to_oracle_id = dict(zip(self.all_goals_str, range(self.num_goals)))
-        self.valid_goals_oracle_ids = np.array([self.g_str_to_oracle_id[str(vg)] for vg in self.valid_goals])
+        # self.oracle_id_to_g = dict(zip(range(self.num_goals), self.all_goals))
+        # self.g_str_to_oracle_id = dict(zip(self.all_goals_str, range(self.num_goals)))
+        # self.valid_goals_oracle_ids = np.array([self.g_str_to_oracle_id[str(vg)] for vg in self.valid_goals])
 
-        self.rew_counters = dict(zip(range(len(self.all_goals)), [0 for _ in range(len(self.all_goals))]))
-        self.target_counters = dict(zip(range(len(self.all_goals)), [0 for _ in range(len(self.all_goals))]))
+        self.g_str_to_id = dict()
+
+        # self.rew_counters = dict(zip(range(len(self.all_goals)), [0 for _ in range(len(self.all_goals))]))
+        # self.target_counters = dict(zip(range(len(self.all_goals)), [0 for _ in range(len(self.all_goals))]))
 
         if self.curriculum_learning:
             # initialize deques of successes and failures for all goals
@@ -54,24 +58,26 @@ class GoalSampler:
             if self.automatic_buckets:
                 self.discovered_goals = []
                 self.discovered_goals_str = []
-                self.discovered_goals_oracle_id = []
+                # self.discovered_goals_oracle_id = []
 
                 # initialize empty buckets, the last one contains all
                 self.buckets = dict(zip(range(self.num_buckets), [[] for _ in range(self.num_buckets)]))
             else:
-                self.buckets = dict()
-                for k in list(buckets.keys()):
-                    self.buckets[k] = [self.g_str_to_oracle_id[str(np.array(g))] for g in buckets[k]]
-                self.discovered_goals_oracle_id = []
-                for k in self.buckets.keys():
-                    self.discovered_goals_oracle_id += self.buckets[k]
-                self.discovered_goals = self.all_goals[np.array(self.discovered_goals_oracle_id)].tolist()
-                self.discovered_goals_str = [str(np.array(g)) for g in self.discovered_goals]
+                # No predefined buckets in this version
+                pass
+                # self.buckets = dict()
+                # for k in list(buckets.keys()):
+                #     self.buckets[k] = [self.g_str_to_oracle_id[str(np.array(g))] for g in buckets[k]]
+                # self.discovered_goals_oracle_id = []
+                # for k in self.buckets.keys():
+                #     self.discovered_goals_oracle_id += self.buckets[k]
+                # self.discovered_goals = self.all_goals[np.array(self.discovered_goals_oracle_id)].tolist()
+                # self.discovered_goals_str = [str(np.array(g)) for g in self.discovered_goals]
 
         else:
             self.discovered_goals = []
             self.discovered_goals_str = []
-            self.discovered_goals_oracle_id = []
+            # self.discovered_goals_oracle_id = []
 
         self.init_stats()
 
@@ -82,7 +88,8 @@ class GoalSampler:
         """
         inits = [None] * n_goals
         if evaluation:
-            goals = np.random.choice(self.valid_goals, size=self.num_rollouts_per_mpi)
+            # assert that discovered goals is not empty
+            goals = np.random.choice(self.discovered_goals, size=self.num_rollouts_per_mpi)
             self_eval = False
         else:
             # if no goal has been discovered or if not all buckets are filled in the case of automatic buckets
@@ -111,7 +118,7 @@ class GoalSampler:
                         buckets = np.random.choice(range(self.num_buckets), p=self.p, size=n_goals)
                     goals = []
                     for i_b, b in enumerate(buckets):
-                        goals.append(self.all_goals[np.random.choice(self.buckets[b])])
+                        goals.append(self.discovered_goals[np.random.choice(self.buckets[b])])
                     goals = np.array(goals)
         return inits, goals, self_eval
 
@@ -128,27 +135,35 @@ class GoalSampler:
             for eps in all_episodes:
                 all_episode_list += eps
 
-            for e in all_episode_list:
-                reached_oracle_id = self.g_str_to_oracle_id[str(e['ag'][-1])]
-                target_oracle_id = self.g_str_to_oracle_id[str(e['g'][0])]
-                self.rew_counters[reached_oracle_id] += 1
-                self.target_counters[target_oracle_id] += 1
+            # for e in all_episode_list:
+            #     reached_oracle_id = self.g_str_to_oracle_id[str(e['ag'][-1])]
+            #     target_oracle_id = self.g_str_to_oracle_id[str(e['g'][0])]
+            #     self.rew_counters[reached_oracle_id] += 1
+            #     self.target_counters[target_oracle_id] += 1
+
             # find out if new goals were discovered
             # label each episode with the oracle id of the last ag (to know where to store it in buffers)
             if not self.curriculum_learning or self.automatic_buckets:
                 new_goal_found = False
                 for e in all_episode_list:
 
-                    id_ag_end = self.g_str_to_oracle_id[str(e['ag'][-1])]
+                    try:
+                        id_ag_end = self.g_str_to_id[str(e['ag'][-1])]
+                    except KeyError:
+                        id_ag_end = len(self.discovered_goals) + 1
 
                     if str(e['ag'][-1]) not in self.discovered_goals_str:
-                        if str(e['ag'][-1]) not in self.valid_goals_str:
-                            stop = 1
-                        else:
-                            new_goal_found = True
-                            self.discovered_goals.append(e['ag'][-1].copy())
-                            self.discovered_goals_str.append(str(e['ag'][-1]))
-                            self.discovered_goals_oracle_id.append(id_ag_end)
+                        new_goal_found = True
+                        self.discovered_goals.append(e['ag'][-1].copy())
+                        self.discovered_goals_str.append(str(e['ag'][-1]))
+                        self.g_str_to_id[str(e['ag'][-1])] = id_ag_end
+                        # if str(e['ag'][-1]) not in self.valid_goals_str:
+                        #     stop = 1
+                        # else:
+                        #     new_goal_found = True
+                        #     self.discovered_goals.append(e['ag'][-1].copy())
+                        #     self.discovered_goals_str.append(str(e['ag'][-1]))
+                        #     self.discovered_goals_oracle_id.append(id_ag_end)
 
                 # update buckets
                 if self.automatic_buckets and new_goal_found:
@@ -159,17 +174,19 @@ class GoalSampler:
                 # update list of successes and failures
                 for e in all_episode_list:
                     if e['self_eval']:
-                        oracle_id = self.g_str_to_oracle_id[str(e['g'][0])]
+                        oracle_id = self.g_str_to_id[str(e['g'][0])]
                         if str(e['g'][0]) == str(e['ag'][-1]):
                             success = 1
                         else:
                             success = 0
-                        if oracle_id in self.discovered_goals_oracle_id:
-                            self.successes_and_failures.append([t, success, oracle_id])
+
+                        self.successes_and_failures.append([t, success, oracle_id])
+                        # if oracle_id in self.discovered_goals_oracle_id:
+                        #     self.successes_and_failures.append([t, success, oracle_id])
         self.sync()
         for e in episodes:
             last_ag = e['ag'][-1]
-            oracle_id = self.g_str_to_oracle_id[str(last_ag)]
+            oracle_id = self.g_str_to_id[str(last_ag)]
             e['last_ag_oracle_id'] = oracle_id
 
         return episodes
@@ -178,7 +195,8 @@ class GoalSampler:
         """
         Dispatch the discovered goals in the buckets chronologically
         """
-        discovered = np.array(self.discovered_goals_oracle_id).copy()
+        # discovered = np.array(self.discovered_goals_oracle_id).copy()
+        discovered = np.arange(len(self.discovered_goals))
 
         j = 0
         portion_length = len(discovered) // self.num_buckets
@@ -237,7 +255,8 @@ class GoalSampler:
             self.buckets = MPI.COMM_WORLD.bcast(self.buckets, root=0)
         self.discovered_goals = MPI.COMM_WORLD.bcast(self.discovered_goals, root=0)
         self.discovered_goals_str = MPI.COMM_WORLD.bcast(self.discovered_goals_str, root=0)
-        self.discovered_goals_oracle_id = MPI.COMM_WORLD.bcast(self.discovered_goals_oracle_id, root=0)
+        # self.g_str_to_id = MPI.COMM_WORLD.bcast(self.g_str_to_id, root=0)
+        # self.discovered_goals_oracle_id = MPI.COMM_WORLD.bcast(self.discovered_goals_oracle_id, root=0)
 
     def build_batch(self, batch_size):
         # only consider buckets filled with discovered goals
@@ -270,7 +289,7 @@ class GoalSampler:
 
     def init_stats(self):
         self.stats = dict()
-        for i in range(self.valid_goals.shape[0]):
+        for i in range(len(self.discovered_goals)):
             self.stats['{}_in_bucket'.format(i)] = []
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['#Rew_{}'.format(i)] = []
@@ -295,26 +314,26 @@ class GoalSampler:
         self.stats['z_global_sr'].append(global_sr)
         for k in time_dict.keys():
             self.stats['t_{}'.format(k)].append(time_dict[k])
-        self.stats['nb_discovered'].append(len(self.discovered_goals_oracle_id))
-        for g_id, oracle_id in enumerate(self.valid_goals_oracle_ids):
-            if self.curriculum_learning:
-                found = False
-                for k in self.buckets.keys():
-                    if oracle_id in self.buckets[k]:
-                        self.stats['{}_in_bucket'.format(g_id)].append(k)
-                        found = True
-                        break
-                if not found:
-                    self.stats['{}_in_bucket'.format(g_id)].append(np.nan)
-            else:
-                # set bucket 1 if discovered, 0 otherwise
-                if oracle_id in self.discovered_goals_oracle_id:
-                    self.stats['{}_in_bucket'.format(g_id)].append(1)
-                else:
-                    self.stats['{}_in_bucket'.format(g_id)].append(0)
-            self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
-            self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
-            self.stats['#Target_{}'.format(g_id)].append(self.target_counters[oracle_id])
+        self.stats['nb_discovered'].append(len(self.discovered_goals))
+        # for g_id, oracle_id in enumerate(self.valid_goals_oracle_ids):
+        #     if self.curriculum_learning:
+        #         found = False
+        #         for k in self.buckets.keys():
+        #             if oracle_id in self.buckets[k]:
+        #                 self.stats['{}_in_bucket'.format(g_id)].append(k)
+        #                 found = True
+        #                 break
+        #         if not found:
+        #             self.stats['{}_in_bucket'.format(g_id)].append(np.nan)
+        #     else:
+        #         # set bucket 1 if discovered, 0 otherwise
+        #         if oracle_id in self.discovered_goals_oracle_id:
+        #             self.stats['{}_in_bucket'.format(g_id)].append(1)
+        #         else:
+        #             self.stats['{}_in_bucket'.format(g_id)].append(0)
+        #     self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
+        #     self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
+        #     self.stats['#Target_{}'.format(g_id)].append(self.target_counters[oracle_id])
 
         for i in range(self.num_buckets):
             self.stats['B_{}_LP'.format(i)].append(self.LP[i])
