@@ -5,7 +5,6 @@ import gym
 import os, sys
 from arguments import get_args
 from rl_modules.sac_agent import SACAgent
-from rl_modules.td3_agent import TD3Agent
 import random
 import torch
 from rollout import RolloutWorker
@@ -54,8 +53,6 @@ def launch(args):
     # create the sac agent to interact with the environment
     if args.agent == "SAC":
         policy = SACAgent(args, env.compute_reward, goal_sampler)
-    elif args.agent == "TD3":
-        policy = TD3Agent(args, env.compute_reward, goal_sampler)
     else:
         raise NotImplementedError
 
@@ -81,7 +78,8 @@ def launch(args):
         for _ in range(args.n_cycles):
             # sample goal
             t_i = time.time()
-            inits, goals, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False)
+            inits, goals, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi,
+                                                               evaluation=False)
             time_dict['goal_sampler'] += time.time() - t_i
 
             # collect episodes
@@ -92,8 +90,7 @@ def launch(args):
                 biased_init = False
             else:
                 biased_init = args.biased_init
-            episodes = rollout_worker.generate_rollout(inits=inits,
-                                                       goals=goals,
+            episodes = rollout_worker.generate_rollout(goals=goals,
                                                        self_eval=self_eval,
                                                        true_eval=False,
                                                        biased_init=biased_init)
@@ -130,15 +127,14 @@ def launch(args):
         goal_sampler.sync()
 
         time_dict['lp_update'] += time.time() - t_i
-        time_dict['epoch'] += time.time() -t_init
+        time_dict['epoch'] += time.time() - t_init
         time_dict['total'] = time.time() - t_total_init
 
         if args.evaluations:
             t_i = time.time()
             if rank==0: logger.info('\tRunning eval ..')
             eval_goals = goal_sampler.valid_goals
-            episodes = rollout_worker.generate_rollout(inits=[None] * len(eval_goals),
-                                                       goals=eval_goals,
+            episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        self_eval=True,
                                                        true_eval=True,
                                                        biased_init=False)

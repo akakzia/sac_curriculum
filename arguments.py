@@ -14,9 +14,9 @@ def get_args():
     # the environment setting
     parser.add_argument('--env-name', type=str, default='FetchManipulate3ObjectsAtomic-v0', help='the environment name')
     parser.add_argument('--agent', type=str, default='SAC', help='the agent name')
-    parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
-    parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
-    parser.add_argument('--n-batches', type=int, default=30, help='the times to update the network')
+    parser.add_argument('--n-epochs', type=int, default=10, help='the number of epochs to train the agent')
+    parser.add_argument('--n-cycles', type=int, default=1, help='the times to collect samples per epoch')
+    parser.add_argument('--n-batches', type=int, default=1, help='the times to update the network')
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
     parser.add_argument('--automatic-buckets', type=bool, default=True, help='automatically generate buckets during training')
     parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
@@ -47,13 +47,11 @@ def get_args():
     parser.add_argument('--action-l2', type=float, default=1, help='l2 reg')
     parser.add_argument('--lr-actor', type=float, default=0.001, help='the learning rate of the actor')
     parser.add_argument('--lr-critic', type=float, default=0.001, help='the learning rate of the critic')
-    parser.add_argument('--lr-context', type=float, default=0.001, help='the learning rate of the context encoder')
+    parser.add_argument('--lr-message', type=float, default=0.001, help='the learning rate of the message encoder')
     parser.add_argument('--lr-entropy', type=float, default=0.001, help='the learning rate of the entropy')
     parser.add_argument('--polyak', type=float, default=0.95, help='the average coefficient')
 
     parser.add_argument('--freq-target_update', type=int, default=2, help='the frequency of updating the target networks')
-
-    parser.add_argument('--latent-dim', type=int, default=10, help='Dimension of latent for goal encoder')
 
     # Curriculum learning arguments
     parser.add_argument('--curriculum-learning', type=bool, default=True, help='Use LP-based curriculum learning')
@@ -62,9 +60,8 @@ def get_args():
     parser.add_argument('--queue-length', type=int, default=1800, help='The window size when computing competence')
 
     # Deep sets arguments
-    parser.add_argument('--architecture', type=str, default='deepsets', help='The architecture of the networks')
+    parser.add_argument('--architecture', type=str, default='mpgnn', help='The architecture of the networks')
     parser.add_argument('--aggregation', type=str, default='sum', help='the invariant operator to apply after the shared network')
-    parser.add_argument('--mode', type=str, default='atomic', help='Possible values: normal, atomic. If atomic, encode goal context using deep sets')
 
     parser.add_argument('--n-test-rollouts', type=int, default=1, help='the number of tests')
     parser.add_argument('--clip-range', type=float, default=5, help='the clip range')

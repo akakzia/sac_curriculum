@@ -1,11 +1,9 @@
-from collections import deque
 import numpy as np
 from utils import  generate_all_goals_in_goal_space, generate_goals
 from mpi4py import MPI
 import os
 import pickle
 import pandas as pd
-from mpi_utils import logger
 
 
 class GoalSampler:

@@ -10,7 +10,7 @@ class RolloutWorker:
         self.biased_init = args.biased_init
         self.goal_sampler = goal_sampler
 
-    def generate_rollout(self, inits, goals, self_eval, true_eval, biased_init=False, animated=False):
+    def generate_rollout(self, goals, self_eval, true_eval, biased_init=False, animated=False):
 
         episodes = []
         for i in range(goals.shape[0]):
@@ -26,7 +26,6 @@ class RolloutWorker:
             for t in range(self.env_params['max_timesteps']):
                 # Run policy for one step
                 no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
-                # action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
                 action = self.policy.act(obs.copy(), g_desc.copy(), no_noise)
 
                 # feed the actions into the environment
