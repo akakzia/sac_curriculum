@@ -255,7 +255,7 @@ class GoalSampler:
             self.buckets = MPI.COMM_WORLD.bcast(self.buckets, root=0)
         self.discovered_goals = MPI.COMM_WORLD.bcast(self.discovered_goals, root=0)
         self.discovered_goals_str = MPI.COMM_WORLD.bcast(self.discovered_goals_str, root=0)
-        # self.g_str_to_id = MPI.COMM_WORLD.bcast(self.g_str_to_id, root=0)
+        self.g_str_to_id = MPI.COMM_WORLD.bcast(self.g_str_to_id, root=0)
         # self.discovered_goals_oracle_id = MPI.COMM_WORLD.bcast(self.discovered_goals_oracle_id, root=0)
 
     def build_batch(self, batch_size):
