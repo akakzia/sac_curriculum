@@ -66,7 +66,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         self.p_stack_two = p_stack_two
         self.p_grasp = p_grasp
 
-        self.goal_size = 0
+        self.goal_size = self.num_blocks * (self.num_blocks - 1) + (self.num_blocks * (self.num_blocks - 1)) // 2
 
         self.object_names = ['object{}'.format(i) for i in range(self.num_blocks)]
 
@@ -149,17 +149,17 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         utils.ctrl_set_action(self.sim, action)
         utils.mocap_set_action(self.sim, action)
 
-    def _get_configuration(self, positions, color_blocks):
+    def _get_configuration(self, positions, dummies):
         """
         This functions takes as input the positions of the objects in the scene and outputs the corresponding semantic configuration
         based on the environment predicates
         """
         object_combinations = itertools.combinations(positions, 2)
-        color_combinations = itertools.combinations(color_blocks, 2)
+        color_combinations = itertools.combinations(dummies, 2)
         object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
 
         object_permutations = itertools.permutations(positions, 2)
-        color_permutations = itertools.permutations(color_blocks, 2)
+        color_permutations = itertools.permutations(dummies, 2)
         # Create list of quadruples (predicate_dummy, color_o1, color_o2, value_of_predicate)
         close_config = [np.concatenate([np.array([0., 1.]), colors[0], colors[1], np.array([distance <= self.predicate_threshold])])
                         for colors, distance in zip(color_combinations, object_rel_distances)]
@@ -178,9 +178,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         grip_velp = self.sim.data.get_site_xvelp('robot0:grip') * dt
         robot_qpos, robot_qvel = utils.robot_get_obs(self.sim)
 
-        # num_sites = self.sim.model.site_rgba.shape[0]
-        # color_blocks = [self.sim.model.site_rgba[i] for i in range(num_sites - self.num_blocks, num_sites)]
-        color_blocks = [np.array([1., 0., 0.]), np.array([0., 1., 0.]), np.array([0., 0., 1.])]
+        dummies_blocks = utils.get_dummies(self.num_blocks)
 
         gripper_state = robot_qpos[-2:]
         gripper_vel = robot_qvel[-2:] * dt  # change to a scalar if the gripper is made symmetric
@@ -219,18 +217,16 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
             ])
 
         objects_positions = objects_positions.reshape(self.num_blocks, 3)
-        object_combinations = itertools.combinations(objects_positions, 2)
-        object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
+        # object_combinations = itertools.combinations(objects_positions, 2)
+        # object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
 
         # self.goal_size = len(object_rel_distances)
 
-        goal_description = self._get_configuration(objects_positions, color_blocks)
+        goal_description = self._get_configuration(objects_positions, dummies_blocks)
 
         goal_description = np.concatenate([goal_description, np.expand_dims(self.target_goal, axis=1)], axis=1)
 
         achieved_goal = goal_description[:, -2]
-
-        self.goal_size = achieved_goal.shape[0]
 
         # obs = np.concatenate([obs, achieved_goal])
 
@@ -276,7 +272,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         raise NotImplementedError
 
     def _sample_goal(self):
-        self.target_goal = np.random.randint(2, size=9).astype(np.float32)
+        self.target_goal = np.random.randint(2, size=self.goal_size).astype(np.float32)
 
         return self.target_goal
 

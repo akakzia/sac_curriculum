@@ -94,3 +94,12 @@ def reset_mocap2body_xpos(sim):
         assert (mocap_id != -1)
         sim.data.mocap_pos[mocap_id][:] = sim.data.body_xpos[body_idx]
         sim.data.mocap_quat[mocap_id][:] = sim.data.body_xquat[body_idx]
+
+
+def get_dummies(n):
+    res = []
+    for i in range(n):
+        anchor = np.zeros(n)
+        anchor[i] = 1.
+        res.append(anchor)
+    return res
