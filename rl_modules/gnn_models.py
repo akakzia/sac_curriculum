@@ -156,7 +156,7 @@ class MessagePassingGNN:
         self.pi_tensor = None
         self.log_prob = None
 
-        dim_message_encoder_input = self.dim_description[1] + 2 * 3
+        dim_message_encoder_input = self.dim_description[1] + 2 * self.dim_object
         dim_message_encoder_output = 3 * dim_message_encoder_input
 
         dim_phi_actor_input = dim_message_encoder_output + self.dim_body + self.num_blocks + self.dim_object
@@ -193,15 +193,15 @@ class MessagePassingGNN:
                                  dim=-1) for i in range(self.num_blocks)]
 
         # # Initialize context input
-        message_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2*3))
+        message_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2*self.dim_object))
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            message_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:6], self.g_desc[:, i, 5:8], pair[1][:, 3:6],
+            message_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
                                                 self.g_desc[:, i, 8:]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            message_input[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :5], pair[0][:, 3:6], self.g_desc[:, i+3, 5:8], pair[1][:, 3:6],
+            message_input[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :5], pair[0][:, 3:], self.g_desc[:, i+3, 5:8], pair[1][:, 3:],
                                                   self.g_desc[:, i+3, 8:]], dim=1)
 
         # Message Passing step
@@ -236,15 +236,15 @@ class MessagePassingGNN:
                        for i in range(self.num_blocks)]
 
         # # Initialize context input
-        message_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2 * 3))
+        message_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2 * self.dim_object))
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            message_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:6], self.g_desc[:, i, 5:8], pair[1][:, 3:6],
+            message_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
                                                 self.g_desc[:, i, 8:]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            message_input[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :5], pair[0][:, 3:6], self.g_desc[:, i + 3, 5:8], pair[1][:, 3:6],
+            message_input[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :5], pair[0][:, 3:], self.g_desc[:, i + 3, 5:8], pair[1][:, 3:],
                                                     self.g_desc[:, i + 3, 8:]], dim=1)
 
         output_message_encoder = self.message_encoder(message_input)
