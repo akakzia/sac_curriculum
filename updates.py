@@ -135,7 +135,7 @@ def update_deepsets(model, policy_optim, critic_optim, alpha, log_alpha, target_
     update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
 
 
-def update_gnn(model, policy_optim, critic_optim, context_optim, alpha, log_alpha, target_entropy, alpha_optim, obs_norm, g_desc_norm, anchor_g,
+def update_gnn(model, policy_optim, critic_optim, message_optim, alpha, log_alpha, target_entropy, alpha_optim, obs_norm, g_desc_norm, anchor_g,
                obs_next_norm, g_desc_next_norm, actions, rewards, args):
     # Tensorize
     obs_norm_tensor = torch.tensor(obs_norm, dtype=torch.float32)
@@ -182,14 +182,14 @@ def update_gnn(model, policy_optim, critic_optim, context_optim, alpha, log_alph
     policy_optim.step()
 
     # update the critic_network
-    context_optim.zero_grad()
+    message_optim.zero_grad()
     critic_optim.zero_grad()
     qf_loss.backward()
     sync_grads(model.single_phi_critic)
     sync_grads(model.rho_critic)
     sync_grads(model.message_encoder)
-    context_optim.step()
+    message_optim.step()
     critic_optim.step()
 
-    update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
+    alpha_loss, alpha_tlogs = update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
 

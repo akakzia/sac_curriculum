@@ -262,11 +262,6 @@ class SACAgent:
             torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
                         self.actor_network.state_dict(), self.critic_network.state_dict()],
                        model_path + '/model_{}.pt'.format(epoch))
-        elif self.args.architecture == 'disentangled':
-            torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
-                        self.actor_network.state_dict(), self.critic_network.state_dict(),
-                        self.configuration_network.state_dict()],
-                       model_path + '/model_{}.pt'.format(epoch))
         elif self.args.architecture == 'deepsets':
             torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
                         self.model.single_phi_actor.state_dict(), self.model.single_phi_critic.state_dict(),
