@@ -174,7 +174,7 @@ class DeepSetContext:
         self.log_prob = None
 
         # dim_phi_encoder_input = self.dim_description[1]
-        dim_phi_encoder_input = self.dim_description[1] + 2 * self.dim_object
+        dim_phi_encoder_input = 4 + 2 * 3
         dim_phi_encoder_output = 3 * dim_phi_encoder_input
 
         # dim_rho_encoder_input = dim_phi_encoder_output
@@ -221,15 +221,15 @@ class DeepSetContext:
                                  dim=-1) for i in range(self.num_blocks)]
 
         # # Initialize context input
-        context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2*self.dim_object))
+        context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2*3))
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
+            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0][:, 3:6], pair[1][:, 3:6],
                                                 self.g_desc[:, i, 8:]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            context_input[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :5], pair[0][:, 3:], self.g_desc[:, i+3, 5:8], pair[1][:, 3:],
+            context_input[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :2], pair[0][:, 3:6], pair[1][:, 3:6],
                                                   self.g_desc[:, i+3, 8:]], dim=1)
 
         output_phi_encoder = self.single_phi_encoder(context_input)
@@ -359,15 +359,16 @@ class DeepSetContext:
         # output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
         # # Initialize context input
-        context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2 * self.dim_object))
+        context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2 * 3))
 
         # # Concatenate object observation to g description
+        # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
+            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0][:, 3:6], pair[1][:, 3:6],
                                                 self.g_desc[:, i, 8:]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            context_input[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :5], pair[0][:, 3:], self.g_desc[:, i + 3, 5:8], pair[1][:, 3:],
+            context_input[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :2], pair[0][:, 3:6], pair[1][:, 3:6],
                                                     self.g_desc[:, i + 3, 8:]], dim=1)
 
         output_phi_encoder = self.single_phi_encoder(context_input)
