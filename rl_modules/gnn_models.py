@@ -239,12 +239,11 @@ class DeepSetContext:
         if self.aggregation == 'sum':
             input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
                                        for i, obj in enumerate(obs_objects)])
-            output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
         else:
             input_actor = torch.stack([torch.cat([obs_body, obj, torch.max(output_phi_encoder[:, ids_edges[i], :], dim=1).values], dim=1)
                                        for i, obj in enumerate(obs_objects)])
-            output_phi_actor = self.single_phi_actor(input_actor).max(dim=0).values
 
+        output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
         # output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
         #
@@ -377,12 +376,11 @@ class DeepSetContext:
         if self.aggregation == 'sum':
             input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
                                        for i, obj in enumerate(obs_objects)])
-            output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
         else:
             input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].max(dim=1).values], dim=1)
                                        for i, obj in enumerate(obs_objects)])
-            output_phi_actor = self.single_phi_actor(input_actor).max(dim=0).values
 
+        output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
         if not eval:
             self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
