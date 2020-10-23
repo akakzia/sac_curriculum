@@ -22,3 +22,19 @@ register(id='FetchManipulate3ObjectsAtomic-v0',
          entry_point='env.envs:FetchManipulateEnvAtomic',
          kwargs=kwargs,
          max_episode_steps=100,)
+
+register(id='FetchManipulate4ObjectsAtomic-v0',
+         entry_point='env.envs:FetchManipulateEnvAtomic',
+         kwargs={'reward_type': 'sparse',
+                 'num_blocks': 4,
+                 'model_path': 'fetch/stack4.xml'
+                 },
+         max_episode_steps=100,)
+
+register(id='FetchManipulate5ObjectsAtomic-v0',
+         entry_point='env.envs:FetchManipulateEnvAtomic',
+         kwargs={'reward_type': 'sparse',
+                 'num_blocks': 5,
+                 'model_path': 'fetch/stack5.xml'
+                 },
+         max_episode_steps=100,)
