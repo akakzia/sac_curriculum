@@ -94,3 +94,9 @@ def reset_mocap2body_xpos(sim):
         assert (mocap_id != -1)
         sim.data.mocap_pos[mocap_id][:] = sim.data.body_xpos[body_idx]
         sim.data.mocap_quat[mocap_id][:] = sim.data.body_xquat[body_idx]
+
+
+def get_dummy_config(ind, size):
+    res = np.zeros(size)
+    res[ind] = 1.0
+    return res
