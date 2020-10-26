@@ -63,7 +63,6 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
             p_grasp: The probability of having a block grasped at initialization
         """
 
-        self.target_goal = None
         self.num_blocks = num_blocks
         self.gripper_extra_height = gripper_extra_height
         self.block_gripper = block_gripper
@@ -78,6 +77,10 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         self.p_coplanar = p_coplanar
         self.p_stack_two = p_stack_two
         self.p_grasp = p_grasp
+
+        self.target_predicate = utils.get_dummy_config(np.random.choice(np.arange(self.num_predicates)), self.num_predicates)
+        self.target_pair = np.random.choice(np.arange(self.num_blocks), size=2, replace=False)
+        self.target_goal = None
 
         self.goal_size = self.num_blocks * (self.num_blocks - 1) * 3 // 2
         self.atomic_goal_size = 2 + 15 + 15 + 1
@@ -134,7 +137,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
     def compute_reward(self, achieved_goal, goal, info):
         assert self.reward_type == 'sparse', "only sparse reward type is implemented."
         # reward = (achieved_goal == goal).all().astype(np.float32)
-        reward = goal.issubset(achieved_goal).astype(np.float32)
+        reward = (goal[-1] == achieved_goal[-1]).astype(np.float32)
         return reward
 
     # RobotEnv methods
@@ -173,10 +176,10 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
 
         object_permutations = itertools.permutations(features, 2)
         # Create list of quadruples (predicate_dummy, features_o1, features_o2, value_of_predicate, target_predicate)
-        close_config = {DeltaState(obj[0], obj[1], np.array([0., 1.]), objects_distance(obj[0][:3], obj[1][:3]) <= self.predicate_threshold)
+        close_config = {DeltaState(obj[0], obj[1], np.array([1., 0.]), objects_distance(obj[0][:3], obj[1][:3]) <= self.predicate_threshold)
                         for i, obj in enumerate(object_combinations)}
 
-        above_config = {DeltaState(obj[0], obj[1], np.array([1., 0.]), above(obj[0][:3], obj[1][:3]))
+        above_config = {DeltaState(obj[0], obj[1], np.array([0., 1.]), above(obj[0][:3], obj[1][:3]))
                         for i, obj in enumerate(object_permutations)}
 
         return close_config.union(above_config)
@@ -212,22 +215,32 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
             object_i_rel_pos = object_i_pos - grip_pos
             object_i_velp -= grip_velp
 
-            obs = np.concatenate([
-                obs,
-                object_i_pos.ravel(),
-                object_i_rel_pos.ravel(),
-                object_i_rot.ravel(),
-                object_i_velp.ravel(),
-                object_i_velr.ravel()
-            ])
+            # obs = np.concatenate([
+            #     obs,
+            #     object_i_pos.ravel(),
+            #     object_i_rel_pos.ravel(),
+            #     object_i_rot.ravel(),
+            #     object_i_velp.ravel(),
+            #     object_i_velr.ravel()
+            # ])
 
             objects_features = np.concatenate([
                 objects_features, object_i_pos.ravel(), object_i_rel_pos.ravel(), object_i_rot.ravel(), object_i_velp.ravel(), object_i_velr.ravel()
             ])
 
-        objects_positions = objects_features.reshape(self.num_blocks, 15)
+        objects_features = objects_features.reshape(self.num_blocks, 15)
 
-        goal_description = self._get_configuration(objects_positions)
+        goal_description = self._get_configuration(objects_features)
+
+        self.target_goal = DeltaState(objects_features[self.target_pair[0]],
+                                      objects_features[self.target_pair[1]], self.target_predicate, 1.).representation
+        if self.target_predicate[0] == 1.:
+            achieved_goal = DeltaState(objects_features[self.target_pair[0]], objects_features[self.target_pair[1]], self.target_predicate,
+                                       objects_distance(objects_features[self.target_pair[0]][:3],
+                                                        objects_features[self.target_pair[1]][:3]) <= self.predicate_threshold)
+        else:
+            achieved_goal = DeltaState(objects_features[self.target_pair[0]], objects_features[self.target_pair[1]], self.target_predicate,
+                                       above(objects_features[self.target_pair[0]][:3], objects_features[self.target_pair[1]][:3]) <= self.predicate_threshold)
 
         # goal_description = np.concatenate([goal_description, np.expand_dims(self.target_goal, axis=1)], axis=1)
 
@@ -237,8 +250,9 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
 
         return {
             'observation': obs.copy(),
-            'goal': self.target_goal,
-            'goal_description': goal_description.copy()
+            'desired_goal': self.target_goal.copy(),
+            'achieved_goal': achieved_goal.representation.copy(),
+            'state_description': np.array([g.representation for g in goal_description]),
         }
 
     def _viewer_setup(self):
@@ -256,19 +270,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         self.sim.forward()
 
     def reset(self):
-        # Usual reset overriden by reset_goal, that specifies a goal
-        # num_sites = self.sim.model.site_rgba.shape[0]
-        # color_blocks = [self.sim.model.site_rgba[i] for i in range(num_sites - self.num_blocks, num_sites)]
-        # color_permutations = itertools.permutations(color_blocks, 2)
-        # color_combinations = itertools.combinations(color_blocks, 2)
-        # # Sample zeros for each predicate
-        # close_config = [np.concatenate([np.array([0., 1.]), colors[0], colors[1], np.array([0.])])
-        #                 for colors in color_combinations]
-        #
-        # above_config = [np.concatenate([np.array([1., 0.]), colors[0], colors[1], np.array([0.])])
-        #                 for colors in color_permutations]
-        # goal = np.array(close_config+above_config)
-        return self.reset_goal(np.zeros(self.atomic_goal_size), False)
+        return self.reset_goal(self.target_predicate, self.target_pair, False)
 
     def _generate_valid_goal(self):
         raise NotImplementedError
@@ -279,7 +281,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         return self.target_goal
 
     def _is_success(self, achieved_goal, desired_goal):
-        return desired_goal.issubset(achieved_goal).astype(np.float32)
+        return (desired_goal[-1] == achieved_goal[-1]).astype(np.float32)
         # return (achieved_goal == desired_goal).all()
 
     def _env_setup(self, initial_qpos):
@@ -301,25 +303,31 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         self.initial_gripper_xpos = self.sim.data.get_site_xpos('robot0:grip').copy()
         self.height_offset = self.sim.data.get_site_xpos('object0')[2]
 
-    def reset_goal(self, goal, biased_init=False):
+    def reset_goal(self, predicate, pair, biased_init=False):
         """
         This function resets the environment and target the goal given as input
         Args:
             goal: The semantic configuration to target
             biased_init: Whether or not to initialize the blocks in non-trivial configuration
         """
-
-        self.target_goal = goal
+        try:
+            self.target_predicate = utils.get_dummy_config(predicate, self.num_predicates)
+        except IndexError:
+            pass
+        self.target_pair = pair
 
         self.sim.set_state(self.initial_state)
 
         if biased_init and np.random.uniform() > self.p_coplanar:
-            if np.random.uniform() > self.p_stack_two:
-                stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
-                z_stack = [0.525, 0.475, 0.425]
-            else:
-                stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
-                z_stack = [0.475, 0.425]
+            num_blocks_in_stack = np.random.randint(2, self.num_blocks)
+            stack = list(np.random.choice(np.arange(self.num_blocks), size=num_blocks_in_stack, replace=False))
+            z_stack = [0.425 + 0.025*i for i in reversed(range(num_blocks_in_stack))]
+            # if np.random.uniform() > self.p_stack_two:
+            #     stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
+            #     z_stack = [0.525, 0.475, 0.425]
+            # else:
+            #     stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
+            #     z_stack = [0.475, 0.425]
 
             pos_stack = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
             for i, obj_name in enumerate(self.object_names):

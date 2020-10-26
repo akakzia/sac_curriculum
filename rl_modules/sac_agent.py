@@ -84,35 +84,14 @@ class SACAgent:
             if self.mode == 'atomic':
                 self.context_optim = torch.optim.Adam(self.model.single_phi_encoder.parameters(),
                                                       lr=self.args.lr_context)
-                # self.context_optim = torch.optim.Adam(list(self.model.single_phi_encoder.parameters()) +
-                #                                       list(self.model.rho_encoder.parameters()),
-                #                                       lr=self.args.lr_context)
-            # if self.mode == 'normal':
-            #     self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
-            #                                          list(self.model.rho_critic.parameters()),
-            #                                          lr=self.args.lr_critic)
-            #
-            #     self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
-            #                                          list(self.model.rho_actor.parameters()),
-            #                                          lr=self.args.lr_actor)
-            # else:
-            #     self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
-            #                                          list(self.model.rho_critic.parameters()) +
-            #                                          list(self.model.single_phi_encoder.parameters()) +
-            #                                          list(self.model.rho_encoder.parameters()),
-            #                                          lr=self.args.lr_critic)
-            #     self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
-            #                                          list(self.model.rho_actor.parameters()),
-            #                                          lr=self.args.lr_actor)
-
 
         else:
             raise NotImplementedError
 
         # create the normalizer
         self.o_norm = normalizer(size=self.env_params['obs'], default_clip_range=self.args.clip_range)
-        self.g_norm = normalizer(size=self.env_params['goal'], default_clip_range=self.args.clip_range)
-
+        # self.g_norm = normalizer(size=self.env_params['goal'], default_clip_range=self.args.clip_range)
+        self.g_norm = normalizer(size=self.env_params['goal_size'], default_clip_range=self.args.clip_range)
         # if use GPU
         if self.args.cuda:
             self.actor_network.cuda()
@@ -136,9 +115,7 @@ class SACAgent:
                                   goal_sampler=self.goal_sampler
                                   )
 
-    def act(self, obs, g_desc, no_noise):
-        ag = g_desc[:, -2]
-        g = g_desc[:, -1]
+    def act(self, obs, ag, g, no_noise):
         ag_tensor = torch.tensor(ag).unsqueeze(0)
         g_tensor = torch.tensor(g).unsqueeze(0)
         with torch.no_grad():
@@ -152,11 +129,7 @@ class SACAgent:
                 if self.mode == 'normal':
                     self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, anchor_ag=ag_tensor, anchor_g=g_tensor, no_noise=no_noise)
                 else:
-                    g_desc_norm = g_desc.copy()
-                    g_desc_norm[:, -1] = g_norm
-                    g_desc_norm[:, -2] = ag_norm
-                    g_desc_tensor = torch.tensor(g_desc_norm, dtype=torch.float32).unsqueeze(0)
-                    self.model.policy_forward_pass(obs_tensor, g_desc_tensor, anchor_g=g_tensor, no_noise=no_noise)
+                    self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
                 action = self.model.pi_tensor.numpy()[0]
                 
             # elif self.architecture == 'disentangled':
@@ -210,6 +183,7 @@ class SACAgent:
         mb_obs = episode['obs']
         mb_ag = episode['ag']
         mb_g = episode['g']
+        mb_state_desc = episode['state_desc']
         mb_actions = episode['act']
         mb_obs_next = mb_obs[1:, :]
         mb_ag_next = mb_ag[1:, :]
@@ -219,6 +193,7 @@ class SACAgent:
         buffer_temp = {'obs': np.expand_dims(mb_obs, 0),
                        'ag': np.expand_dims(mb_ag, 0),
                        'g': np.expand_dims(mb_g, 0),
+                       'state_desc': np.expand_dims(mb_state_desc, 0),
                        'actions': np.expand_dims(mb_actions, 0),
                        'obs_next': np.expand_dims(mb_obs_next, 0),
                        'ag_next': np.expand_dims(mb_ag_next, 0),
@@ -253,8 +228,8 @@ class SACAgent:
         transitions = self.buffer.sample(self.args.batch_size)
 
         # pre-process the observation and goal
-        o, o_next, g, ag, g_desc, ag_next, actions, rewards = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['ag'], \
-                                                      transitions['g_desc'], transitions['ag_next'], transitions['actions'], transitions['r']
+        o, o_next, g, ag, state_desc, ag_next, actions, rewards = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['ag'], \
+                                                      transitions['state_desc'], transitions['ag_next'], transitions['actions'], transitions['r']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
         transitions['obs_next'], transitions['g_next'] = self._preproc_og(o_next, g)
         _, transitions['ag'] = self._preproc_og(o, ag)
@@ -271,14 +246,14 @@ class SACAgent:
         anchor_g = transitions['g']
         anchor_ag = transitions['ag']
 
-        g_desc_norm = g_desc.copy()
-        g_desc_norm_next = g_desc.copy()
-
-        g_desc_norm[:, :, -1] = g_norm
-        g_desc_norm[:, :, -2] = ag_norm
-
-        g_desc_norm_next[:, :, -1] = g_norm
-        g_desc_norm_next[:, :, -2] = ag_next_norm
+        # g_desc_norm = g_desc.copy()
+        # g_desc_norm_next = g_desc.copy()
+        #
+        # g_desc_norm[:, :, -1] = g_norm
+        # g_desc_norm[:, :, -2] = ag_norm
+        #
+        # g_desc_norm_next[:, :, -1] = g_norm
+        # g_desc_norm_next[:, :, -2] = ag_next_norm
 
         if self.architecture == 'flat':
             critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_flat(self.actor_network, self.critic_network, self.critic_target_network,
@@ -300,8 +275,10 @@ class SACAgent:
                                                                                                     obs_next_norm,
                                                                                                     ag_next_norm, actions, rewards, self.args)
             else:
+                # up_deep_context(self.model, self.policy_optim, self.critic_optim, self.context_optim, self.alpha, self.log_alpha, self.target_entropy,
+                #                 self.alpha_optim, obs_norm, g_desc_norm, anchor_g, obs_next_norm, g_desc_norm_next, actions, rewards, self.args)
                 up_deep_context(self.model, self.policy_optim, self.critic_optim, self.context_optim, self.alpha, self.log_alpha, self.target_entropy,
-                                self.alpha_optim, obs_norm, g_desc_norm, anchor_g, obs_next_norm, g_desc_norm_next, actions, rewards, self.args)
+                                self.alpha_optim, obs_norm, ag_norm, g_norm, obs_next_norm, ag_next_norm, actions, rewards, self.args)
         else:
             raise NotImplementedError
 

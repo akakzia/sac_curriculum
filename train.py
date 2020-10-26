@@ -24,9 +24,9 @@ def get_env_params(env):
     #           'num_blocks': env.num_blocks,
     #           }
 
-    params = {'obs': obs['observation'].shape[0], 'goal_size': env.goal_size, 'g_description': env.atomic_goal_size,
+    params = {'obs': obs['observation'].shape[0], 'goal_size': env.atomic_goal_size, 'state_description': env.goal_size,
               'action': env.action_space.shape[0], 'action_max': env.action_space.high[0], 'max_timesteps': env._max_episode_steps,
-              'num_blocks': env.num_blocks,
+              'num_blocks': env.num_blocks, 'num_predicates': env.num_predicates,
               }
 
     return params
@@ -75,11 +75,9 @@ def launch(args):
         # setup time_tracking
         time_dict = dict(goal_sampler=0,
                          rollout=0,
-                         gs_update=0,
                          store=0,
                          norm_update=0,
                          policy_train=0,
-                         lp_update=0,
                          eval=0,
                          epoch=0)
 
@@ -87,7 +85,8 @@ def launch(args):
         for _ in range(args.n_cycles):
             # sample goal
             t_i = time.time()
-            inits, goals, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False)
+            # inits, goals, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False)
+            predicates, pairs = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi)
             time_dict['goal_sampler'] += time.time() - t_i
 
             # collect episodes
@@ -98,18 +97,20 @@ def launch(args):
                 biased_init = False
             else:
                 biased_init = args.biased_init
-            episodes = rollout_worker.generate_rollout(inits=inits,
-                                                       goals=goals,
-                                                       self_eval=self_eval,
-                                                       true_eval=False,
-                                                       biased_init=biased_init)
+            episodes = rollout_worker.generate_rollout(predicates=predicates, pairs=pairs, true_eval=False, biased_init=biased_init)
+            # episodes = rollout_worker.generate_rollout(inits=inits,
+            #                                            goals=goals,
+            #                                            self_eval=self_eval,
+            #                                            true_eval=False,
+            #                                            biased_init=biased_init)
+
             time_dict['rollout'] += time.time() - t_i
 
             # update goal sampler (add new discovered goals to the list
             # label episodes with the id of the last ag
-            t_i = time.time()
-            episodes = goal_sampler.update(episodes, episode_count)
-            time_dict['gs_update'] += time.time() - t_i
+            # t_i = time.time()
+            # episodes = goal_sampler.update(episodes, episode_count)
+            # time_dict['gs_update'] += time.time() - t_i
 
             # store episodes
             t_i = time.time()
@@ -130,26 +131,25 @@ def launch(args):
 
             episode_count += args.num_rollouts_per_mpi * args.num_workers
 
-        t_i = time.time()
-        if goal_sampler.curriculum_learning and rank == 0:
-            goal_sampler.update_LP()
-        goal_sampler.sync()
+        # t_i = time.time()
+        # if goal_sampler.curriculum_learning and rank == 0:
+        #     goal_sampler.update_LP()
+        # goal_sampler.sync()
 
-        time_dict['lp_update'] += time.time() - t_i
-        time_dict['epoch'] += time.time() -t_init
+        # time_dict['lp_update'] += time.time() - t_i
+        time_dict['epoch'] += time.time() - t_init
         time_dict['total'] = time.time() - t_total_init
 
         if args.evaluations:
             t_i = time.time()
             if rank==0: logger.info('\tRunning eval ..')
-            eval_goals = goal_sampler.valid_goals
-            episodes = rollout_worker.generate_rollout(inits=[None] * len(eval_goals),
-                                                       goals=eval_goals,
-                                                       self_eval=True,
-                                                       true_eval=True,
-                                                       biased_init=False)
+            # eval_goals = goal_sampler.valid_goals
+            eval_predicates = np.array([0 if i < args.n_test_rollouts//2 else 1 for i in range(args.n_test_rollouts)])
+            eval_pairs = np.array([np.random.choice(np.arange(args.env_params['num_blocks']), size=2, replace=False)
+                                   for _ in range(args.n_test_rollouts)])
+            episodes = rollout_worker.generate_rollout(predicates=eval_predicates, pairs=eval_pairs, true_eval=True, biased_init=False)
 
-            results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
+            results = np.array([str(e['g'][0][-1]) == str(e['ag'][-1][-1]) for e in episodes]).astype(np.int)
             all_results = MPI.COMM_WORLD.gather(results, root=0)
             time_dict['eval'] += time.time() - t_i
             if rank == 0:
@@ -159,7 +159,7 @@ def launch(args):
                 log_and_save(logdir, goal_sampler, epoch, episode_count, av_res, global_sr,time_dict)
                 if epoch % args.save_freq == 0:
                     policy.save(model_path, epoch)
-                    goal_sampler.save_bucket_contents(bucket_path, epoch)
+                    # goal_sampler.save_bucket_contents(bucket_path, epoch)
                 if rank==0: logger.info('\tEpoch #{}: SR: {}'.format(epoch, global_sr))
 
 

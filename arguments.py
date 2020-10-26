@@ -12,7 +12,7 @@ Here are the param for the training
 def get_args():
     parser = argparse.ArgumentParser()
     # the environment setting
-    parser.add_argument('--env-name', type=str, default='FetchManipulate3ObjectsAtomic-v0', help='the environment name')
+    parser.add_argument('--env-name', type=str, default='FetchManipulate5ObjectsAtomic-v0', help='the environment name')
     parser.add_argument('--agent', type=str, default='SAC', help='the agent name')
     parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
@@ -22,7 +22,7 @@ def get_args():
     parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
     parser.add_argument('--symmetry-trick', type=bool, default=False, help='experimental stuff from Cédric')
     parser.add_argument('--combinations-trick', type=bool, default=True, help='test Thomas trick')
-    parser.add_argument('--start-biased-init', type=int, default=100, help='number of epochs before bias initialization')
+    parser.add_argument('--start-biased-init', type=int, default=0, help='number of epochs before bias initialization')
     parser.add_argument('--normalize_goal', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
 
     parser.add_argument('--evaluations', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
@@ -58,7 +58,7 @@ def get_args():
     # Curriculum learning arguments
     parser.add_argument('--curriculum-learning', type=bool, default=True, help='Use LP-based curriculum learning')
     parser.add_argument('--curriculum-eps', type=float, default=0.3, help='Prob of sampling random goal in curriculum')
-    parser.add_argument('--multihead-buffer', type=bool, default=True, help='use a multihead replay buffer in curriculum')
+    parser.add_argument('--multihead-buffer', type=bool, default=False, help='use a multihead replay buffer in curriculum')
     parser.add_argument('--queue-length', type=int, default=1800, help='The window size when computing competence')
 
     # Deep sets arguments
@@ -66,7 +66,7 @@ def get_args():
     parser.add_argument('--aggregation', type=str, default='sum', help='the invariant operator to apply after the shared network')
     parser.add_argument('--mode', type=str, default='atomic', help='Possible values: normal, atomic. If atomic, encode goal context using deep sets')
 
-    parser.add_argument('--n-test-rollouts', type=int, default=1, help='the number of tests')
+    parser.add_argument('--n-test-rollouts', type=int, default=20, help='the number of tests')
     parser.add_argument('--clip-range', type=float, default=5, help='the clip range')
     parser.add_argument('--demo-length', type=int, default=20, help='the demo length')
     parser.add_argument('--cuda', action='store_true', help='if use gpu do the acceleration')

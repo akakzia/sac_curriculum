@@ -29,11 +29,14 @@ class her_sampler:
         future_t = (t_samples + 1 + future_offset)[her_indexes]
 
         # replace goal with achieved goal
-        future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
+        # future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
+        future_state_desc = episode_batch['state_desc'][episode_idxs[her_indexes], future_t]
+        atomic_g_ids = np.random.randint(0, future_state_desc.shape[1], future_t.size)
+        future_ag = future_state_desc[np.arange(len(future_state_desc)), atomic_g_ids, :]
         transitions['g'][her_indexes] = future_ag
         # to get the params to re-compute reward
         # transitions['r'] = np.expand_dims(self.reward_func(transitions['ag_next'], transitions['g'], None), 1)
-        transitions['r'] = np.expand_dims(np.array([self.reward_func(ag_next, g, None) for ag_next, g in zip(transitions['ag_next'],
-                                                                                        transitions['g'])]), 1)
+        transitions['r'] = np.expand_dims(np.array([self.reward_func(ag_next, g, None)
+                                                    for ag_next, g in zip(transitions['ag_next'], transitions['g'])]), 1)
 
         return transitions
