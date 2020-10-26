@@ -240,7 +240,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
                                                         objects_features[self.target_pair[1]][:3]) <= self.predicate_threshold)
         else:
             achieved_goal = DeltaState(objects_features[self.target_pair[0]], objects_features[self.target_pair[1]], self.target_predicate,
-                                       above(objects_features[self.target_pair[0]][:3], objects_features[self.target_pair[1]][:3]) <= self.predicate_threshold)
+                                       above(objects_features[self.target_pair[0]][:3], objects_features[self.target_pair[1]][:3]))
 
         # goal_description = np.concatenate([goal_description, np.expand_dims(self.target_goal, axis=1)], axis=1)
 

@@ -5,7 +5,6 @@ import gym
 import os, sys
 from arguments import get_args
 from rl_modules.sac_agent import SACAgent
-from rl_modules.td3_agent import TD3Agent
 import random
 import torch
 from rollout import RolloutWorker
@@ -60,8 +59,6 @@ def launch(args):
     # create the sac agent to interact with the environment
     if args.agent == "SAC":
         policy = SACAgent(args, env.compute_reward, goal_sampler)
-    elif args.agent == "TD3":
-        policy = TD3Agent(args, env.compute_reward, goal_sampler)
     else:
         raise NotImplementedError
 
