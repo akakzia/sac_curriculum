@@ -1,13 +1,12 @@
 import numpy as np
 from datetime import datetime
-import itertools
+from itertools import product
 import os
 import json
 
 import subprocess
 import os.path
 import sys
-import argparse
 
 
 
@@ -61,18 +60,19 @@ stack_three_list = [(1., 1., 0., 1., 0., 0., 1., 0., 0.), (1., 0., 1., 0., 1., 0
                     (0., 1., 1., 0., 0., 1., 0., 0., 1.), (0., 1., 1., 0., 0., 0., 1., 1., 0.)]
 
 
-def generate_all_goals_in_goal_space():
-    goals = []
-    for a in [0, 1]:
-        for b in [0, 1]:
-            for c in [0, 1]:
-                for d in [0, 1]:
-                    for e in [0, 1]:
-                        for f in [0, 1]:
-                            for g in [0, 1]:
-                                for h in [0, 1]:
-                                    for i in [0, 1]:
-                                        goals.append([a, b, c, d, e, f, g, h, i])
+def generate_all_goals_in_goal_space(n):
+    # goals = []
+    # for a in [0, 1]:
+    #     for b in [0, 1]:
+    #         for c in [0, 1]:
+    #             for d in [0, 1]:
+    #                 for e in [0, 1]:
+    #                     for f in [0, 1]:
+    #                         for g in [0, 1]:
+    #                             for h in [0, 1]:
+    #                                 for i in [0, 1]:
+    #                                     goals.append([a, b, c, d, e, f, g, h, i])
+    goals = list(product([0, 1], repeat=n))
 
     return np.array(goals)
 
