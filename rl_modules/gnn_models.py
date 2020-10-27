@@ -163,7 +163,7 @@ class DeepSetContext:
         else:
             self.n_permutations = len([x for x in permutations(range(self.num_blocks), 2)])
 
-        self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
+        self.one_hot_encodings = [torch.tensor([1., 0.]), torch.tensor([0., 1.])]
 
         self.context_tensor = None
         self.q1_pi_tensor = None
@@ -225,16 +225,16 @@ class DeepSetContext:
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
-                                                self.g_desc[:, i, 8:]], dim=1)
+            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :4], pair[0][:, 2:], self.g_desc[:, i, 4:6], pair[1][:, 2:],
+                                                self.g_desc[:, i, 6:]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            context_input[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :5], pair[0][:, 3:], self.g_desc[:, i+3, 5:8], pair[1][:, 3:],
-                                                  self.g_desc[:, i+3, 8:]], dim=1)
+            context_input[:, i+1, :] = torch.cat([self.g_desc[:, i+1, :4], pair[0][:, 2:], self.g_desc[:, i+1, 4:6], pair[1][:, 2:],
+                                                  self.g_desc[:, i+1, 6:]], dim=1)
 
         output_phi_encoder = self.single_phi_encoder(context_input)
 
-        ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
+        ids_edges = [np.array([0, 2]), np.array([0, 1])]
 
         if self.aggregation == 'sum':
             input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
@@ -362,16 +362,16 @@ class DeepSetContext:
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :5], pair[0][:, 3:], self.g_desc[:, i, 5:8], pair[1][:, 3:],
-                                                self.g_desc[:, i, 8:]], dim=1)
+            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :4], pair[0][:, 2:], self.g_desc[:, i, 4:6], pair[1][:, 2:],
+                                                self.g_desc[:, i, 6:]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            context_input[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :5], pair[0][:, 3:], self.g_desc[:, i + 3, 5:8], pair[1][:, 3:],
-                                                    self.g_desc[:, i + 3, 8:]], dim=1)
+            context_input[:, i + 1, :] = torch.cat([self.g_desc[:, i + 1, :4], pair[0][:, 2:], self.g_desc[:, i + 1, 4:6], pair[1][:, 2:],
+                                                    self.g_desc[:, i + 1, 6:]], dim=1)
 
         output_phi_encoder = self.single_phi_encoder(context_input)
 
-        ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
+        ids_edges = [np.array([0, 2]), np.array([0, 1])]
 
         if self.aggregation == 'sum':
             input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
@@ -388,25 +388,25 @@ class DeepSetContext:
             _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
 
         # The critic part
-        repeat_pol_actions = self.pi_tensor.repeat(self.n_permutations, 1, 1)
+        repeat_pol_actions = self.pi_tensor.repeat(self.num_blocks, 1, 1)
         input_critic = torch.cat([input_actor, repeat_pol_actions], dim=-1)
         if actions is not None:
-            repeat_actions = actions.repeat(self.n_permutations, 1, 1)
+            repeat_actions = actions.repeat(self.num_blocks, 1, 1)
             input_critic_with_act = torch.cat([input_actor, repeat_actions], dim=-1)
             input_critic = torch.cat([input_critic, input_critic_with_act], dim=0)
 
         with torch.no_grad():
-            output_phi_target_critic_1, output_phi_target_critic_2 = self.single_phi_target_critic(input_critic[:self.n_permutations])
+            output_phi_target_critic_1, output_phi_target_critic_2 = self.single_phi_target_critic(input_critic[:self.num_blocks])
             output_phi_target_critic_1 = output_phi_target_critic_1.sum(dim=0)
             output_phi_target_critic_2 = output_phi_target_critic_2.sum(dim=0)
             self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.rho_target_critic(output_phi_target_critic_1, output_phi_target_critic_2)
 
         output_phi_critic_1, output_phi_critic_2 = self.single_phi_critic(input_critic)
         if actions is not None:
-            output_phi_critic_1 = torch.stack([output_phi_critic_1[:self.n_permutations].sum(dim=0),
-                                               output_phi_critic_1[self.n_permutations:].sum(dim=0)])
-            output_phi_critic_2 = torch.stack([output_phi_critic_2[:self.n_permutations].sum(dim=0),
-                                               output_phi_critic_2[self.n_permutations:].sum(dim=0)])
+            output_phi_critic_1 = torch.stack([output_phi_critic_1[:self.num_blocks].sum(dim=0),
+                                               output_phi_critic_1[self.num_blocks:].sum(dim=0)])
+            output_phi_critic_2 = torch.stack([output_phi_critic_2[:self.num_blocks].sum(dim=0),
+                                               output_phi_critic_2[self.num_blocks:].sum(dim=0)])
             q1_pi_tensor, q2_pi_tensor = self.rho_critic(output_phi_critic_1, output_phi_critic_2)
             self.q1_pi_tensor, self.q2_pi_tensor = q1_pi_tensor[0], q2_pi_tensor[0]
             return q1_pi_tensor[1], q2_pi_tensor[1]

@@ -20,7 +20,7 @@ class GoalSampler:
 
         self.epsilon = args.curriculum_eps
 
-        buckets = generate_goals(nb_objects=3, sym=1, asym=1)
+        buckets = generate_goals(nb_objects=2, sym=1, asym=1)
         # If no curriculum is used then 0 buckets
         # If no automatic buckets, then number of buckets = number of predefined buckets
         if not self.curriculum_learning: self.num_buckets = 0
