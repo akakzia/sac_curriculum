@@ -36,7 +36,7 @@ class RolloutWorker:
                 observation_new, _, _, info = self.env.step(action)
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
-                g_desc_new = observation['goal_description']
+                g_desc_new = observation_new['goal_description']
 
                 # USE THIS FOR DEBUG
                 # if str(ag_new) not in self.goal_sampler.valid_goals_str:
