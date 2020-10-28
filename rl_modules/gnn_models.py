@@ -173,8 +173,8 @@ class DeepSetContext:
         self.pi_tensor = None
         self.log_prob = None
 
-        # dim_phi_encoder_input = self.dim_description[1]
-        dim_phi_encoder_input = self.dim_description[1] + 2 * self.dim_object
+        dim_phi_encoder_input = self.dim_description[1]
+        # dim_phi_encoder_input = self.dim_description[1] + 2 * self.dim_object
         dim_phi_encoder_output = 3 * dim_phi_encoder_input
 
         # dim_rho_encoder_input = dim_phi_encoder_output
@@ -182,17 +182,17 @@ class DeepSetContext:
 
         # dim_input_objects = 2 * (self.num_blocks + self.dim_object)
 
-        # dim_phi_actor_input = self.latent + self.dim_body + dim_input_objects
-        dim_phi_actor_input = dim_phi_encoder_output + self.dim_body + self.num_blocks + self.dim_object
+        dim_phi_actor_input = dim_phi_encoder_output + self.dim_body + self.dim_object
+        # dim_phi_actor_input = dim_phi_encoder_output + self.dim_body + self.num_blocks + self.dim_object
         dim_phi_actor_output = 3 * dim_phi_actor_input
         # dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.latent)
 
         dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
 
-        dim_phi_critic_input = dim_phi_encoder_output + self.dim_body + self.num_blocks + self.dim_object + self.dim_act
+        dim_phi_critic_input = dim_phi_encoder_output + self.dim_body + self.dim_object + self.dim_act
+        # dim_phi_critic_input = dim_phi_encoder_output + self.dim_body + self.num_blocks + self.dim_object + self.dim_act
         dim_phi_critic_output = 3 * dim_phi_critic_input
-        # dim_phi_critic_input = self.latent + self.dim_body + dim_input_objects + self.dim_act
         # dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act + self.latent)
 
         dim_rho_critic_input = dim_phi_critic_output
@@ -210,29 +210,29 @@ class DeepSetContext:
         self.single_phi_target_critic = SinglePhiCritic(dim_phi_critic_input, 256, dim_phi_critic_output)
         self.rho_target_critic = RhoCritic(dim_rho_critic_input, dim_rho_critic_output)
 
-    def policy_forward_pass(self, obs, g_desc, anchor_g=None, no_noise=False):
+    def policy_forward_pass(self, obs, g_desc, no_noise=False):
         self.observation = obs
         self.g_desc = g_desc
-        self.anchor_g = anchor_g
 
         obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
-        obs_objects = [torch.cat((torch.cat(obs_body.shape[0] * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
-                                  self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)),
-                                 dim=-1) for i in range(self.num_blocks)]
+        obs_objects = [self.g_desc[:, 0, :].narrow(-1, start=2+self.dim_object*i, length=self.dim_object) for i in range(self.num_blocks)]
+        # obs_objects = [torch.cat((torch.cat(obs_body.shape[0] * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
+        #                           self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)),
+        #                          dim=-1) for i in range(self.num_blocks)]
 
         # # Initialize context input
-        context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2*self.dim_object))
+        # context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2*self.dim_object))
 
         # # Concatenate object observation to g description
-        for i, pair in enumerate(combinations(obs_objects, 2)):
-            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :4], pair[0][:, 2:], self.g_desc[:, i, 4:6], pair[1][:, 2:],
-                                                self.g_desc[:, i, 6:]], dim=1)
+        # for i, pair in enumerate(combinations(obs_objects, 2)):
+        #     context_input[:, i, :] = torch.cat([self.g_desc[:, i, :4], pair[0][:, 2:], self.g_desc[:, i, 4:6], pair[1][:, 2:],
+        #                                         self.g_desc[:, i, 6:]], dim=1)
+        #
+        # for i, pair in enumerate(permutations(obs_objects, 2)):
+        #     context_input[:, i+1, :] = torch.cat([self.g_desc[:, i+1, :4], pair[0][:, 2:], self.g_desc[:, i+1, 4:6], pair[1][:, 2:],
+        #                                           self.g_desc[:, i+1, 6:]], dim=1)
 
-        for i, pair in enumerate(permutations(obs_objects, 2)):
-            context_input[:, i+1, :] = torch.cat([self.g_desc[:, i+1, :4], pair[0][:, 2:], self.g_desc[:, i+1, 4:6], pair[1][:, 2:],
-                                                  self.g_desc[:, i+1, 6:]], dim=1)
-
-        output_phi_encoder = self.single_phi_encoder(context_input)
+        output_phi_encoder = self.single_phi_encoder(self.g_desc)
 
         ids_edges = [np.array([0, 2]), np.array([0, 1])]
 
@@ -301,16 +301,16 @@ class DeepSetContext:
         else:
             _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
 
-    def forward_pass(self, obs, g_desc, anchor_g=None, eval=False, actions=None):
+    def forward_pass(self, obs, g_desc, eval=False, actions=None):
         batch_size = obs.shape[0]
         self.observation = obs
         self.g_desc = g_desc
-        self.anchor_g = anchor_g
 
         obs_body = self.observation[:, :self.dim_body]
-        obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
-                       obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
-                       for i in range(self.num_blocks)]
+        obs_objects = [self.g_desc[:, 0, :].narrow(-1, start=2 + self.dim_object * i, length=self.dim_object) for i in range(self.num_blocks)]
+        # obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
+        #                obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
+        #                for i in range(self.num_blocks)]
 
         # output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
         #
@@ -358,18 +358,18 @@ class DeepSetContext:
         # output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
         # # Initialize context input
-        context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2 * self.dim_object))
+        # context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], self.g_desc.shape[2] + 2 * self.dim_object))
 
         # # Concatenate object observation to g description
-        for i, pair in enumerate(combinations(obs_objects, 2)):
-            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :4], pair[0][:, 2:], self.g_desc[:, i, 4:6], pair[1][:, 2:],
-                                                self.g_desc[:, i, 6:]], dim=1)
+        # for i, pair in enumerate(combinations(obs_objects, 2)):
+        #     context_input[:, i, :] = torch.cat([self.g_desc[:, i, :4], pair[0][:, 2:], self.g_desc[:, i, 4:6], pair[1][:, 2:],
+        #                                         self.g_desc[:, i, 6:]], dim=1)
+        #
+        # for i, pair in enumerate(permutations(obs_objects, 2)):
+        #     context_input[:, i + 1, :] = torch.cat([self.g_desc[:, i + 1, :4], pair[0][:, 2:], self.g_desc[:, i + 1, 4:6], pair[1][:, 2:],
+        #                                             self.g_desc[:, i + 1, 6:]], dim=1)
 
-        for i, pair in enumerate(permutations(obs_objects, 2)):
-            context_input[:, i + 1, :] = torch.cat([self.g_desc[:, i + 1, :4], pair[0][:, 2:], self.g_desc[:, i + 1, 4:6], pair[1][:, 2:],
-                                                    self.g_desc[:, i + 1, 6:]], dim=1)
-
-        output_phi_encoder = self.single_phi_encoder(context_input)
+        output_phi_encoder = self.single_phi_encoder(self.g_desc)
 
         ids_edges = [np.array([0, 2]), np.array([0, 1])]
 

@@ -149,23 +149,28 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         utils.ctrl_set_action(self.sim, action)
         utils.mocap_set_action(self.sim, action)
 
-    def _get_configuration(self, positions, color_blocks):
+    def _get_configuration(self, features):
         """
         This functions takes as input the positions of the objects in the scene and outputs the corresponding semantic configuration
         based on the environment predicates
         """
-        object_combinations = itertools.combinations(positions, 2)
-        color_combinations = itertools.combinations(color_blocks, 2)
-        object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
+        object_combinations = itertools.combinations(features, 2)
+        # color_combinations = itertools.combinations(color_blocks, 2)
+        # object_rel_distances = np.array([objects_distance(obj[0][:3], obj[1][:3]) for obj in object_combinations])
 
-        object_permutations = itertools.permutations(positions, 2)
-        color_permutations = itertools.permutations(color_blocks, 2)
+        object_permutations = itertools.permutations(features, 2)
+        # color_permutations = itertools.permutations(color_blocks, 2)
         # Create list of quadruples (predicate_dummy, color_o1, color_o2, value_of_predicate)
-        close_config = [np.concatenate([np.array([0., 1.]), colors[0], colors[1], np.array([distance <= self.predicate_threshold])])
-                        for colors, distance in zip(color_combinations, object_rel_distances)]
+        # close_config = [np.concatenate([np.array([0., 1.]), colors[0], colors[1], np.array([distance <= self.predicate_threshold])])
+        #                 for colors, distance in zip(color_combinations, object_rel_distances)]
+        close_config = [np.concatenate([np.array([0., 1.]), features[0], features[1],
+                                        np.array([objects_distance(features[0][:3], features[1][:3]) <= self.predicate_threshold])])
+                        for features in object_combinations]
 
-        above_config = [np.concatenate([np.array([1., 0.]), colors[0], colors[1], np.array([above(obj[0], obj[1])])])
-                        for colors, obj in zip(color_permutations, object_permutations)]
+        # above_config = [np.concatenate([np.array([1., 0.]), colors[0], colors[1], np.array([above(obj[0], obj[1])])])
+        #                 for colors, obj in zip(color_permutations, object_permutations)]
+        above_config = [np.concatenate([np.array([1., 0.]), features[0], features[1], np.array([above(features[0][:3], features[1][:3])])])
+                        for features in object_permutations]
 
         # Concatenate lists and form an array
         res = np.array(close_config + above_config)
@@ -180,7 +185,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
 
         # num_sites = self.sim.model.site_rgba.shape[0]
         # color_blocks = [self.sim.model.site_rgba[i] for i in range(num_sites - self.num_blocks, num_sites)]
-        color_blocks = [np.array([1., 0.]), np.array([0., 1.])]
+        # color_blocks = [np.array([1., 0.]), np.array([0., 1.])]
 
         gripper_state = robot_qpos[-2:]
         gripper_vel = robot_qvel[-2:] * dt  # change to a scalar if the gripper is made symmetric
@@ -192,7 +197,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
             gripper_vel,
         ])
 
-        objects_positions = []
+        objects_features = []
 
         for i in range(self.num_blocks):
             object_i_pos = self.sim.data.get_site_xpos(self.object_names[i])
@@ -205,26 +210,26 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
             object_i_rel_pos = object_i_pos - grip_pos
             object_i_velp -= grip_velp
 
-            obs = np.concatenate([
-                obs,
-                object_i_pos.ravel(),
-                object_i_rel_pos.ravel(),
-                object_i_rot.ravel(),
-                object_i_velp.ravel(),
-                object_i_velr.ravel()
+            # obs = np.concatenate([
+            #     obs,
+            #     object_i_pos.ravel(),
+            #     object_i_rel_pos.ravel(),
+            #     object_i_rot.ravel(),
+            #     object_i_velp.ravel(),
+            #     object_i_velr.ravel()
+            # ])
+
+            objects_features = np.concatenate([
+                objects_features, object_i_pos.ravel(), object_i_rel_pos.ravel(), object_i_rot.ravel(), object_i_velp.ravel(), object_i_velr.ravel()
             ])
 
-            objects_positions = np.concatenate([
-                objects_positions, object_i_pos.ravel()
-            ])
-
-        objects_positions = objects_positions.reshape(self.num_blocks, 3)
-        object_combinations = itertools.combinations(objects_positions, 2)
-        object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
+        objects_features = objects_features.reshape(self.num_blocks, objects_features.size // self.num_blocks)
+        # object_combinations = itertools.combinations(objects_positions, 2)
+        # object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
 
         # self.goal_size = len(object_rel_distances)
 
-        goal_description = self._get_configuration(objects_positions, color_blocks)
+        goal_description = self._get_configuration(objects_features)
 
         goal_description = np.concatenate([goal_description, np.expand_dims(self.target_goal, axis=1)], axis=1)
 
