@@ -39,18 +39,21 @@ def get_env_params(env):
 
     # close the environment
     params = {'obs': obs['observation'].shape[0], 'goal': obs['desired_goal'].shape[0],
-              'action': env.action_space.shape[0], 'action_max': env.action_space.high[0],
-              'max_timesteps': env._max_episode_steps}
+              'g_description': obs['goal_description'].shape, 'action': env.action_space.shape[0],
+              'action_max': env.action_space.high[0], 'max_timesteps': env._max_episode_steps,
+              'num_blocks': 2,
+              }
     return params
 
 if __name__ == '__main__':
-    num_eval = 10
-    path = '/home/flowers/Desktop/Scratch/sac_curriculum/ignoramus/2020-05-01 17:37:33.000157_curriculum_deepsets/'
-    model_path = path + 'model_0.pt'
+    num_eval = 1
+    path = '/home/akakzia/DECSTR/results/'
+    model_path = path + 'model_40.pt'
 
-    with open(path + 'config.json', 'r') as f:
-        params = json.load(f)
-    args = SimpleNamespace(**params)
+    # with open(path + 'config.json', 'r') as f:
+    #     params = json.load(f)
+    # args = SimpleNamespace(**params)
+    args = get_args()
 
 
     # Make the environment
