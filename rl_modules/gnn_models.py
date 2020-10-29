@@ -155,7 +155,7 @@ class DeepSetContext:
         self.dim_object = 15
         self.dim_description = env_params['g_description']
         self.dim_act = env_params['action']
-        self.num_blocks = env_params['num_blocks']
+        self.num_blocks = 2
         self.combinations_trick = args.combinations_trick
         self.aggregation = args.aggregation
         if self.combinations_trick:
@@ -183,14 +183,14 @@ class DeepSetContext:
         # dim_input_objects = 2 * (self.num_blocks + self.dim_object)
 
         # dim_phi_actor_input = self.latent + self.dim_body + dim_input_objects
-        dim_phi_actor_input = dim_phi_encoder_output + self.dim_body + self.num_blocks + self.dim_object
+        dim_phi_actor_input = dim_phi_encoder_output + self.dim_body + self.num_blocks + self.dim_object + 3*self.dim_object
         dim_phi_actor_output = 3 * dim_phi_actor_input
         # dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.latent)
 
         dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
 
-        dim_phi_critic_input = dim_phi_encoder_output + self.dim_body + self.num_blocks + self.dim_object + self.dim_act
+        dim_phi_critic_input = dim_phi_encoder_output + self.dim_body + self.num_blocks + self.dim_object + self.dim_act + 3*self.dim_object
         dim_phi_critic_output = 3 * dim_phi_critic_input
         # dim_phi_critic_input = self.latent + self.dim_body + dim_input_objects + self.dim_act
         # dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act + self.latent)
@@ -215,7 +215,10 @@ class DeepSetContext:
         self.g_desc = g_desc
         self.anchor_g = anchor_g
 
-        obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
+        # obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
+        bg_objects = torch.cat([self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)
+                                for i in range(2, 5)], dim=-1)
+        obs_body = torch.cat((self.observation.narrow(-1, start=0, length=self.dim_body), bg_objects), dim=-1)
         obs_objects = [torch.cat((torch.cat(obs_body.shape[0] * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
                                   self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)),
                                  dim=-1) for i in range(self.num_blocks)]
@@ -307,7 +310,10 @@ class DeepSetContext:
         self.g_desc = g_desc
         self.anchor_g = anchor_g
 
-        obs_body = self.observation[:, :self.dim_body]
+        # obs_body = self.observation[:, :self.dim_body]
+        bg_objects = torch.cat([self.observation.narrow(-1, start=self.dim_object * i + self.dim_body, length=self.dim_object)
+                                for i in range(2, 5)], dim=-1)
+        obs_body = torch.cat((self.observation.narrow(-1, start=0, length=self.dim_body), bg_objects), dim=-1)
         obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
                        obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
                        for i in range(self.num_blocks)]
