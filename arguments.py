@@ -12,7 +12,7 @@ Here are the param for the training
 def get_args():
     parser = argparse.ArgumentParser()
     # the environment setting
-    parser.add_argument('--env-name', type=str, default='FetchManipulate2ObjectsAtomic-v0', help='the environment name')
+    parser.add_argument('--env-name', type=str, default='FetchManipulate5ObjectsAtomic-v0', help='the environment name')
     parser.add_argument('--agent', type=str, default='SAC', help='the agent name')
     parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')

@@ -66,7 +66,8 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         self.p_stack_two = p_stack_two
         self.p_grasp = p_grasp
 
-        self.goal_size = self.num_blocks * (self.num_blocks - 1) * 3 // 2
+        # self.goal_size = self.num_blocks * (self.num_blocks - 1) * 3 // 2
+        self.goal_size = 3
 
         self.object_names = ['object{}'.format(i) for i in range(self.num_blocks)]
 
@@ -224,7 +225,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
 
         # self.goal_size = len(object_rel_distances)
 
-        goal_description = self._get_configuration(objects_positions, color_blocks)
+        goal_description = self._get_configuration(objects_positions[:2], color_blocks)
 
         goal_description = np.concatenate([goal_description, np.expand_dims(self.target_goal, axis=1)], axis=1)
 
@@ -319,8 +320,11 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
                 stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
                 z_stack = [0.525, 0.475, 0.425]
             else:
-                stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
-                z_stack = [0.475, 0.425]
+                levels = np.random.randint(2, 5)
+                stack = list(np.random.choice(np.arange(5), size=levels, replace=False))
+                z_stack = [0.425 + 0.05*i for i in reversed(range(levels))]
+                # stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
+                # z_stack = [0.475, 0.425]
 
             pos_stack = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
             for i, obj_name in enumerate(self.object_names):
