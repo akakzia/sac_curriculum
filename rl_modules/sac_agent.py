@@ -111,7 +111,7 @@ class SACAgent:
 
         # create the normalizer
         self.o_norm = normalizer(size=self.env_params['obs'], default_clip_range=self.args.clip_range)
-        self.g_norm = normalizer(size=self.env_params['goal'], default_clip_range=self.args.clip_range)
+        self.g_norm = normalizer(size=self.env_params['g_description'][0] * self.env_params['g_description'][1], default_clip_range=self.args.clip_range)
 
         # if use GPU
         if self.args.cuda:
@@ -137,26 +137,27 @@ class SACAgent:
                                   )
 
     def act(self, obs, g_desc, no_noise):
-        ag = g_desc[:, -2]
-        g = g_desc[:, -1]
-        ag_tensor = torch.tensor(ag).unsqueeze(0)
-        g_tensor = torch.tensor(g).unsqueeze(0)
+        # ag = g_desc[:, -2]
+        # g = g_desc[:, -1]
+        # ag_tensor = torch.tensor(ag).unsqueeze(0)
+        # g_tensor = torch.tensor(g).unsqueeze(0)
         with torch.no_grad():
             # normalize policy inputs 
             obs_norm = self.o_norm.normalize(obs)
-            g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
-            ag_norm = torch.tensor(self.g_norm.normalize(ag), dtype=torch.float32).unsqueeze(0)
+            g_desc_norm = self.g_norm.normalize(g_desc.flatten()).reshape(g_desc.shape[0], g_desc.shape[1])
+            # g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
+            # ag_norm = torch.tensor(self.g_norm.normalize(ag), dtype=torch.float32).unsqueeze(0)
 
             if self.architecture == 'deepsets':
                 obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
                 if self.mode == 'normal':
                     self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, anchor_ag=ag_tensor, anchor_g=g_tensor, no_noise=no_noise)
                 else:
-                    g_desc_norm = g_desc.copy()
-                    g_desc_norm[:, -1] = g_norm
-                    g_desc_norm[:, -2] = ag_norm
+                    # g_desc_norm = g_desc.copy()
+                    # g_desc_norm[:, -1] = g_norm
+                    # g_desc_norm[:, -2] = ag_norm
                     g_desc_tensor = torch.tensor(g_desc_norm, dtype=torch.float32).unsqueeze(0)
-                    self.model.policy_forward_pass(obs_tensor, g_desc_tensor, anchor_g=g_tensor, no_noise=no_noise)
+                    self.model.policy_forward_pass(obs_tensor, g_desc_tensor, no_noise=no_noise)
                 action = self.model.pi_tensor.numpy()[0]
                 
             # elif self.architecture == 'disentangled':
@@ -210,6 +211,7 @@ class SACAgent:
         mb_obs = episode['obs']
         mb_ag = episode['ag']
         mb_g = episode['g']
+        mb_g_desc = episode['g_desc']
         mb_actions = episode['act']
         mb_obs_next = mb_obs[1:, :]
         mb_ag_next = mb_ag[1:, :]
@@ -219,6 +221,7 @@ class SACAgent:
         buffer_temp = {'obs': np.expand_dims(mb_obs, 0),
                        'ag': np.expand_dims(mb_ag, 0),
                        'g': np.expand_dims(mb_g, 0),
+                       'g_desc': np.expand_dims(mb_g_desc, 0),
                        'actions': np.expand_dims(mb_actions, 0),
                        'obs_next': np.expand_dims(mb_obs_next, 0),
                        'ag_next': np.expand_dims(mb_ag_next, 0),
@@ -233,7 +236,7 @@ class SACAgent:
         self.o_norm.recompute_stats()
 
         if self.args.normalize_goal:
-            self.g_norm.update(transitions['g'])
+            self.g_norm.update(transitions['g_desc'].flatten())
             self.g_norm.recompute_stats()
 
     def _preproc_og(self, o, g):
@@ -262,23 +265,28 @@ class SACAgent:
 
         # apply normalization
         obs_norm = self.o_norm.normalize(transitions['obs'])
-        g_norm = self.g_norm.normalize(transitions['g'])
-        ag_norm = self.g_norm.normalize(transitions['ag'])
+        # g_norm = self.g_norm.normalize(transitions['g'])
+        # ag_norm = self.g_norm.normalize(transitions['ag'])
         obs_next_norm = self.o_norm.normalize(transitions['obs_next'])
-        ag_next_norm = self.g_norm.normalize(transitions['ag_next'])
-        g_next_norm = self.g_norm.normalize(transitions['g_next'])
+        # ag_next_norm = self.g_norm.normalize(transitions['ag_next'])
+        # g_next_norm = self.g_norm.normalize(transitions['g_next'])
 
-        anchor_g = transitions['g']
-        anchor_ag = transitions['ag']
+        # anchor_g = transitions['g']
+        # anchor_ag = transitions['ag']
 
-        g_desc_norm = g_desc.copy()
-        g_desc_norm_next = g_desc.copy()
+        g_desc_norm = self.g_norm.normalize(g_desc.reshape(g_desc.shape[0], -1)).reshape(g_desc.shape)
+        g_desc_next = transitions['g_desc'].copy()
+        g_desc_next[:, :, -1] = transitions['ag']
+        g_desc_norm_next = self.g_norm.normalize(g_desc_next.reshape(g_desc_next.shape[0], -1)).reshape(g_desc_next.shape)
 
-        g_desc_norm[:, :, -1] = g_norm
-        g_desc_norm[:, :, -2] = ag_norm
-
-        g_desc_norm_next[:, :, -1] = g_norm
-        g_desc_norm_next[:, :, -2] = ag_next_norm
+        # g_desc_norm = g_desc.copy()
+        # g_desc_norm_next = g_desc.copy()
+        #
+        # g_desc_norm[:, :, -1] = g_norm
+        # g_desc_norm[:, :, -2] = ag_norm
+        #
+        # g_desc_norm_next[:, :, -1] = g_norm
+        # g_desc_norm_next[:, :, -2] = ag_next_norm
 
         if self.architecture == 'flat':
             critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_flat(self.actor_network, self.critic_network, self.critic_target_network,
@@ -301,7 +309,7 @@ class SACAgent:
                                                                                                     ag_next_norm, actions, rewards, self.args)
             else:
                 up_deep_context(self.model, self.policy_optim, self.critic_optim, self.context_optim, self.alpha, self.log_alpha, self.target_entropy,
-                                self.alpha_optim, obs_norm, g_desc_norm, anchor_g, obs_next_norm, g_desc_norm_next, actions, rewards, self.args)
+                                self.alpha_optim, obs_norm, g_desc_norm, obs_next_norm, g_desc_norm_next, actions, rewards, self.args)
         else:
             raise NotImplementedError
 
