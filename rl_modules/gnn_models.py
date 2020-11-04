@@ -20,16 +20,14 @@ def weights_init_(m):
 class SinglePhiContext(nn.Module):
     def __init__(self, inp, out):
         super(SinglePhiContext, self).__init__()
-        self.linear1 = nn.Linear(inp, out)
-        # self.linear1 = nn.Linear(inp, 256)
-        # self.linear2 = nn.Linear(256, out)
+        self.linear1 = nn.Linear(inp, 256)
+        self.linear2 = nn.Linear(256, out)
 
         self.apply(weights_init_)
 
     def forward(self, inp):
         x = F.relu(self.linear1(inp))
-        # x = F.relu(self.linear1(inp))
-        # x = F.relu(self.linear2(x))
+        x = F.relu(self.linear2(x))
 
         return x
 
@@ -37,14 +35,14 @@ class SinglePhiContext(nn.Module):
 class SinglePhiActor(nn.Module):
     def __init__(self, inp, hid, out):
         super(SinglePhiActor, self).__init__()
-        self.linear1 = nn.Linear(inp, hid)
-        self.linear2 = nn.Linear(hid, out)
+        self.linear1 = nn.Linear(inp, out)
+        # self.linear2 = nn.Linear(hid, out)
 
         self.apply(weights_init_)
 
     def forward(self, inp):
         x = F.relu(self.linear1(inp))
-        x = F.relu(self.linear2(x))
+        # x = F.relu(self.linear2(x))
 
         return x
 
@@ -90,20 +88,20 @@ class RhoActor(nn.Module):
 class SinglePhiCritic(nn.Module):
     def __init__(self, inp, hid, out):
         super(SinglePhiCritic, self).__init__()
-        self.linear1 = nn.Linear(inp, hid)
-        self.linear2 = nn.Linear(hid, out)
+        self.linear1 = nn.Linear(inp, out)
+        # self.linear2 = nn.Linear(hid, out)
 
-        self.linear4 = nn.Linear(inp, hid)
-        self.linear5 = nn.Linear(hid, out)
+        self.linear4 = nn.Linear(inp, out)
+        # self.linear5 = nn.Linear(hid, out)
 
         self.apply(weights_init_)
 
     def forward(self, inp):
         x1 = F.relu(self.linear1(inp))
-        x1 = F.relu(self.linear2(x1))
+        # x1 = F.relu(self.linear2(x1))
 
         x2 = F.relu(self.linear4(inp))
-        x2 = F.relu(self.linear5(x2))
+        # x2 = F.relu(self.linear5(x2))
 
         return x1, x2
 
