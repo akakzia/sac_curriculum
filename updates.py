@@ -337,7 +337,7 @@ def up_deep_context(model, policy_optim, critic_optim, context_optim, alpha, log
     context_optim.zero_grad()
     critic_optim.zero_grad()
     qf_loss.backward()
-    # sync_grads(model.single_phi_critic)
+    sync_grads(model.single_phi_critic)
     sync_grads(model.rho_critic)
     sync_grads(model.single_phi_encoder)
     # sync_grads(model.rho_encoder)

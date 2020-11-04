@@ -172,7 +172,7 @@ class DeepSetContext:
         dim_rho_actor_input = dim_phi_actor_output + self.dim_body
         dim_rho_actor_output = self.dim_act
 
-        dim_phi_critic_input = dim_phi_encoder_output + self.dim_body + self.dim_object + self.dim_act
+        dim_phi_critic_input = dim_phi_encoder_output + self.dim_object
         dim_phi_critic_output = 3 * dim_phi_critic_input
         # dim_phi_critic_input = self.latent + self.dim_body + dim_input_objects + self.dim_act
         # dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act + self.latent)
@@ -271,21 +271,27 @@ class DeepSetContext:
 
         # The critic part
         # repeat_pol_actions = self.pi_tensor.repeat(self.num_blocks, 1, 1)
-        input_rho_critic = torch.cat([obs_body, self.pi_tensor, output_phi_actor], dim=-1)
+        output_phi_critic_1, output_phi_critic_2 = self.single_phi_critic(input_actor)
+        output_phi_critic_1 = output_phi_critic_1.sum(dim=0)
+        output_phi_critic_2 = output_phi_critic_2.sum(dim=0)
+        input_rho_critic_1 = torch.cat([obs_body, self.pi_tensor, output_phi_critic_1], dim=-1)
+        input_rho_critic_2 = torch.cat([obs_body, self.pi_tensor, output_phi_critic_2], dim=-1)
         if actions is not None:
             # repeat_actions = actions.repeat(self.num_blocks, 1, 1)
-            input_rho_critic_with_act = torch.cat([obs_body, actions, output_phi_actor], dim=-1)
-            input_rho_critic = torch.stack([input_rho_critic, input_rho_critic_with_act])
+            input_rho_critic_with_act_1 = torch.cat([obs_body, actions, output_phi_critic_1], dim=-1)
+            input_rho_critic_with_act_2 = torch.cat([obs_body, actions, output_phi_critic_2], dim=-1)
+            input_rho_critic_1 = torch.stack([input_rho_critic_1, input_rho_critic_with_act_1])
+            input_rho_critic_2 = torch.stack([input_rho_critic_2, input_rho_critic_with_act_2])
 
         with torch.no_grad():
-            self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.rho_target_critic(input_rho_critic, input_rho_critic)
+            self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.rho_target_critic(input_rho_critic_1, input_rho_critic_2)
 
         if actions is not None:
-            q1_pi_tensor, q2_pi_tensor = self.rho_critic(input_rho_critic, input_rho_critic)
+            q1_pi_tensor, q2_pi_tensor = self.rho_critic(input_rho_critic_1, input_rho_critic_2)
             self.q1_pi_tensor, self.q2_pi_tensor = q1_pi_tensor[0], q2_pi_tensor[0]
             return q1_pi_tensor[1], q2_pi_tensor[1]
 
-        self.q1_pi_tensor, self.q2_pi_tensor = self.rho_critic(input_rho_critic, input_rho_critic)
+        self.q1_pi_tensor, self.q2_pi_tensor = self.rho_critic(input_rho_critic_1, input_rho_critic_2)
 
         # input_critic = torch.cat([input_actor, repeat_pol_actions], dim=-1)
         # if actions is not None:
