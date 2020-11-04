@@ -34,21 +34,6 @@ class SinglePhiContext(nn.Module):
         return x
 
 
-class RhoEncoder(nn.Module):
-    def __init__(self, inp, out):
-        super(RhoEncoder, self).__init__()
-        self.linear1 = nn.Linear(inp, 256)
-        self.linear2 = nn.Linear(256, out)
-
-        self.apply(weights_init_)
-
-    def forward(self, inp):
-        x = self.linear1(inp)
-        x = torch.sigmoid(self.linear2(x))
-
-        return x
-
-
 class SinglePhiActor(nn.Module):
     def __init__(self, inp, hid, out):
         super(SinglePhiActor, self).__init__()
@@ -179,9 +164,6 @@ class DeepSetContext:
         dim_phi_encoder_input = 4 + 2 * self.dim_object
         dim_phi_encoder_output = 3 * dim_phi_encoder_input
 
-        # dim_rho_encoder_input = dim_phi_encoder_output
-        # dim_rho_encoder_output = self.latent
-
         # dim_input_objects = 2 * (self.num_blocks + self.dim_object)
 
         # dim_phi_actor_input = self.latent + self.dim_body + dim_input_objects
@@ -201,7 +183,6 @@ class DeepSetContext:
         dim_rho_critic_output = 1
 
         self.single_phi_encoder = SinglePhiContext(dim_phi_encoder_input, dim_phi_encoder_output)
-        # self.rho_encoder = RhoEncoder(dim_rho_encoder_input, dim_rho_encoder_output)
 
         self.single_phi_actor = SinglePhiActor(dim_phi_actor_input, 256, dim_phi_actor_output)
         self.rho_actor = RhoActor(dim_rho_actor_input, dim_rho_actor_output)
@@ -218,9 +199,6 @@ class DeepSetContext:
         self.anchor_g = anchor_g
 
         obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
-        # obs_objects = [torch.cat((torch.cat(obs_body.shape[0] * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
-        #                           self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)),
-        #                          dim=-1) for i in range(self.num_blocks)]
         obs_objects = [self.observation.narrow(-1, start=self.dim_object * i + self.dim_body, length=self.dim_object)
                        for i in range(self.num_blocks)]
 
@@ -247,119 +225,19 @@ class DeepSetContext:
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
-        # output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
-        #
-        # self.context_tensor = self.rho_encoder(output_phi_encoder)
-        #
-        # if self.combinations_trick:
-        #     # Get indexes of atomic goals and corresponding object tuple
-        #     extractors = [torch.zeros((self.anchor_g.shape[1], 1)) for _ in range(self.anchor_g.shape[1])]
-        #     for i in range(len(extractors)):
-        #         extractors[i][i, :] = 1.
-        #
-        #     # The trick is to create selector matrices that, when multiplied with goals retrieves certain bits. Then the sign of the difference
-        #     # between bits gives which objet goes above the the other
-        #
-        #     idxs_bits = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
-        #     idxs_objects = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
-        #
-        #     for i, ((o1, o2), (j, k)) in enumerate(zip([(0, 1), (0, 2), (1, 2)], [(3, 5), (4, 7), (6, 8)])):
-        #         stacked = torch.cat([extractors[j], extractors[k]], dim=1)
-        #         multiplied_matrix = torch.matmul(self.anchor_g, stacked.double())
-        #         selector = multiplied_matrix[:, 0] - multiplied_matrix[:, 1]
-        #
-        #         # idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
-        #         # idxs_objects[i][selector >= 0] = torch.Tensor([o1, o2]).long()
-        #         comb = list(permutations([o1, o2], 2))
-        #         idxs_objects[i] = torch.stack([torch.tensor(comb[np.random.choice([0, 1])]) for _ in range(self.anchor_g.shape[0])]).long()
-        #         idxs_objects[i][selector > 0] = torch.Tensor([o1, o2]).long()
-        #         idxs_objects[i][selector < 0] = torch.Tensor([o2, o1]).long()
-        #
-        #     obs_object_tensor = torch.stack(obs_objects)
-        #
-        #     obs_objects_pairs_list = []
-        #     for idxs_objects in idxs_objects:
-        #         permuted_idxs = idxs_objects.unsqueeze(0).permute(2, 1, 0)
-        #         permuted_idxs = permuted_idxs.repeat(1, 1, obs_object_tensor.shape[2])
-        #         obs_objects_pair = obs_object_tensor.gather(0, permuted_idxs)
-        #         obs_objects_pairs_list.append(obs_objects_pair)
-        #
-        #     input_actor = torch.stack([torch.cat([self.context_tensor, obs_body, obs_pair[0, :, :], obs_pair[1, :, :]], dim=1)
-        #                                for obs_pair in obs_objects_pairs_list])
-        #     # input_1_3 = torch.cat([ag_1_3, torch.cat([g_1_3, obs_body], dim=1), obs_objects_pairs_list[1][0, :, :],
-        #     #                        obs_objects_pairs_list[1][1, :, :]], dim=1)
-        #     # input_2_3 = torch.cat([ag_2_3, torch.cat([g_2_3, obs_body], dim=1), obs_objects_pairs_list[2][0, :, :],
-        #     #                        obs_objects_pairs_list[2][1, :, :]], dim=1)
-        #
-        #     # input_actor = torch.stack([input_1_2, input_1_3, input_2_3])
-        # else:
-        #     input_actor = torch.stack([torch.cat([self.context_tensor, obs_body, x[0], x[1]], dim=1) for x in permutations(obs_objects, 2)])
-
-        # self.save_values = self.single_phi_actor(input_actor).numpy()[:, 0, :]
-        # output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
-        # self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
         if not no_noise:
             self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
         else:
             _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
 
     def forward_pass(self, obs, g_desc, anchor_g=None, eval=False, actions=None):
-        batch_size = obs.shape[0]
         self.observation = obs
         self.g_desc = g_desc
         self.anchor_g = anchor_g
 
         obs_body = self.observation[:, :self.dim_body]
-        # obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
-        #                obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
-        #                for i in range(self.num_blocks)]
         obs_objects = [self.observation.narrow(-1, start=self.dim_object * i + self.dim_body, length=self.dim_object)
                        for i in range(self.num_blocks)]
-
-        # output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
-        #
-        # self.context_tensor = self.rho_encoder(output_phi_encoder)
-        #
-        # if self.combinations_trick:
-        #     # Get indexes of atomic goals and corresponding object tuple
-        #     extractors = [torch.zeros((self.anchor_g.shape[1], 1)) for _ in range(self.anchor_g.shape[1])]
-        #     for i in range(len(extractors)):
-        #         extractors[i][i, :] = 1.
-        #
-        #     # The trick is to create selector matrices that, when multiplied with goals retrieves certain bits. Then the sign of the difference
-        #     # between bits gives which objet goes above the the other
-        #
-        #     idxs_bits = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
-        #     idxs_objects = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
-        #
-        #     for i, ((o1, o2), (j, k)) in enumerate(zip([(0, 1), (0, 2), (1, 2)], [(3, 5), (4, 7), (6, 8)])):
-        #         stacked = torch.cat([extractors[j], extractors[k]], dim=1)
-        #         multiplied_matrix = torch.matmul(self.anchor_g, stacked.double())
-        #         selector = multiplied_matrix[:, 0] - multiplied_matrix[:, 1]
-        #
-        #         # idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
-        #         # idxs_objects[i][selector >= 0] = torch.Tensor([o1, o2]).long()
-        #         comb = list(permutations([o1, o2], 2))
-        #         idxs_objects[i] = torch.stack([torch.tensor(comb[np.random.choice([0, 1])]) for _ in range(self.anchor_g.shape[0])]).long()
-        #         idxs_objects[i][selector > 0] = torch.Tensor([o1, o2]).long()
-        #         idxs_objects[i][selector < 0] = torch.Tensor([o2, o1]).long()
-        #
-        #     obs_object_tensor = torch.stack(obs_objects)
-        #
-        #     obs_objects_pairs_list = []
-        #     for idxs_objects in idxs_objects:
-        #         permuted_idxs = idxs_objects.unsqueeze(0).permute(2, 1, 0)
-        #         permuted_idxs = permuted_idxs.repeat(1, 1, obs_object_tensor.shape[2])
-        #         obs_objects_pair = obs_object_tensor.gather(0, permuted_idxs)
-        #         obs_objects_pairs_list.append(obs_objects_pair)
-        #
-        #     input_actor = torch.stack([torch.cat([self.context_tensor, obs_body, obs_pair[0, :, :], obs_pair[1, :, :]], dim=1)
-        #                                for obs_pair in obs_objects_pairs_list])
-        #
-        # else:
-        #     input_actor = torch.stack([torch.cat([self.context_tensor, obs_body, x[0], x[1]], dim=1) for x in permutations(obs_objects, 2)])
-        #
-        # output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
         # # Initialize context input
         context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2 * self.dim_object))
