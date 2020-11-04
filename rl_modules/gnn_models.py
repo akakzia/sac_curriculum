@@ -165,11 +165,11 @@ class DeepSetContext:
         # dim_input_objects = 2 * (self.num_blocks + self.dim_object)
 
         # dim_phi_actor_input = self.latent + self.dim_body + dim_input_objects
-        dim_phi_actor_input = dim_phi_encoder_output + self.dim_body + self.dim_object
+        dim_phi_actor_input = dim_phi_encoder_output + self.dim_object
         dim_phi_actor_output = 3 * dim_phi_actor_input
         # dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.latent)
 
-        dim_rho_actor_input = dim_phi_actor_output
+        dim_rho_actor_input = dim_phi_actor_output + self.dim_body
         dim_rho_actor_output = self.dim_act
 
         dim_phi_critic_input = dim_phi_encoder_output + self.dim_body + self.dim_object + self.dim_act
@@ -177,7 +177,7 @@ class DeepSetContext:
         # dim_phi_critic_input = self.latent + self.dim_body + dim_input_objects + self.dim_act
         # dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act + self.latent)
 
-        dim_rho_critic_input = dim_phi_critic_output
+        dim_rho_critic_input = self.dim_body + self.dim_act + dim_phi_actor_output
         dim_rho_critic_output = 1
 
         self.single_phi_encoder = SinglePhiContext(dim_phi_encoder_input, dim_phi_encoder_output)
@@ -215,18 +215,20 @@ class DeepSetContext:
         ids_edges = [np.array([0, 2]), np.array([0, 1])]
 
         if self.aggregation == 'sum':
-            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+            input_actor = torch.stack([torch.cat([obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
                                        for i, obj in enumerate(obs_objects)])
         else:
-            input_actor = torch.stack([torch.cat([obs_body, obj, torch.max(output_phi_encoder[:, ids_edges[i], :], dim=1).values], dim=1)
+            input_actor = torch.stack([torch.cat([obj, torch.max(output_phi_encoder[:, ids_edges[i], :], dim=1).values], dim=1)
                                        for i, obj in enumerate(obs_objects)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
+        input_rho_actor = torch.cat([obs_body, output_phi_actor], dim=1)
+
         if not no_noise:
-            self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
+            self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(input_rho_actor)
         else:
-            _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
+            _, self.log_prob, self.pi_tensor = self.rho_actor.sample(input_rho_actor)
 
     def forward_pass(self, obs, g_desc, anchor_g=None, eval=False, actions=None):
         self.observation = obs
@@ -252,43 +254,61 @@ class DeepSetContext:
         ids_edges = [np.array([0, 2]), np.array([0, 1])]
 
         if self.aggregation == 'sum':
-            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+            input_actor = torch.stack([torch.cat([obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
                                        for i, obj in enumerate(obs_objects)])
         else:
-            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].max(dim=1).values], dim=1)
+            input_actor = torch.stack([torch.cat([obj, output_phi_encoder[:, ids_edges[i], :].max(dim=1).values], dim=1)
                                        for i, obj in enumerate(obs_objects)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
+        input_rho_actor = torch.cat([obs_body, output_phi_actor], dim=1)
+
         if not eval:
-            self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
+            self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(input_rho_actor)
         else:
-            _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
+            _, self.log_prob, self.pi_tensor = self.rho_actor.sample(input_rho_actor)
 
         # The critic part
-        repeat_pol_actions = self.pi_tensor.repeat(self.num_blocks, 1, 1)
-        input_critic = torch.cat([input_actor, repeat_pol_actions], dim=-1)
+        # repeat_pol_actions = self.pi_tensor.repeat(self.num_blocks, 1, 1)
+        input_rho_critic = torch.cat([obs_body, self.pi_tensor, output_phi_actor], dim=-1)
         if actions is not None:
-            repeat_actions = actions.repeat(self.num_blocks, 1, 1)
-            input_critic_with_act = torch.cat([input_actor, repeat_actions], dim=-1)
-            input_critic = torch.cat([input_critic, input_critic_with_act], dim=0)
+            # repeat_actions = actions.repeat(self.num_blocks, 1, 1)
+            input_rho_critic_with_act = torch.cat([obs_body, actions, output_phi_actor], dim=-1)
+            input_rho_critic = torch.stack([input_rho_critic, input_rho_critic_with_act])
 
         with torch.no_grad():
-            output_phi_target_critic_1, output_phi_target_critic_2 = self.single_phi_target_critic(input_critic[:self.num_blocks])
-            output_phi_target_critic_1 = output_phi_target_critic_1.sum(dim=0)
-            output_phi_target_critic_2 = output_phi_target_critic_2.sum(dim=0)
-            self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.rho_target_critic(output_phi_target_critic_1, output_phi_target_critic_2)
+            self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.rho_target_critic(input_rho_critic, input_rho_critic)
 
-        output_phi_critic_1, output_phi_critic_2 = self.single_phi_critic(input_critic)
         if actions is not None:
-            output_phi_critic_1 = torch.stack([output_phi_critic_1[:self.num_blocks].sum(dim=0),
-                                               output_phi_critic_1[self.num_blocks:].sum(dim=0)])
-            output_phi_critic_2 = torch.stack([output_phi_critic_2[:self.num_blocks].sum(dim=0),
-                                               output_phi_critic_2[self.num_blocks:].sum(dim=0)])
-            q1_pi_tensor, q2_pi_tensor = self.rho_critic(output_phi_critic_1, output_phi_critic_2)
+            q1_pi_tensor, q2_pi_tensor = self.rho_critic(input_rho_critic, input_rho_critic)
             self.q1_pi_tensor, self.q2_pi_tensor = q1_pi_tensor[0], q2_pi_tensor[0]
             return q1_pi_tensor[1], q2_pi_tensor[1]
-        else:
-            output_phi_critic_1 = output_phi_critic_1.sum(dim=0)
-            output_phi_critic_2 = output_phi_critic_2.sum(dim=0)
-            self.q1_pi_tensor, self.q2_pi_tensor = self.rho_critic(output_phi_critic_1, output_phi_critic_2)
+
+        self.q1_pi_tensor, self.q2_pi_tensor = self.rho_critic(input_rho_critic, input_rho_critic)
+
+        # input_critic = torch.cat([input_actor, repeat_pol_actions], dim=-1)
+        # if actions is not None:
+        #     repeat_actions = actions.repeat(self.num_blocks, 1, 1)
+        #     input_critic_with_act = torch.cat([input_actor, repeat_actions], dim=-1)
+        #     input_critic = torch.cat([input_critic, input_critic_with_act], dim=0)
+        #
+        # with torch.no_grad():
+        #     output_phi_target_critic_1, output_phi_target_critic_2 = self.single_phi_target_critic(input_critic[:self.num_blocks])
+        #     output_phi_target_critic_1 = output_phi_target_critic_1.sum(dim=0)
+        #     output_phi_target_critic_2 = output_phi_target_critic_2.sum(dim=0)
+        #     self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.rho_target_critic(output_phi_target_critic_1, output_phi_target_critic_2)
+        #
+        # output_phi_critic_1, output_phi_critic_2 = self.single_phi_critic(input_critic)
+        # if actions is not None:
+        #     output_phi_critic_1 = torch.stack([output_phi_critic_1[:self.num_blocks].sum(dim=0),
+        #                                        output_phi_critic_1[self.num_blocks:].sum(dim=0)])
+        #     output_phi_critic_2 = torch.stack([output_phi_critic_2[:self.num_blocks].sum(dim=0),
+        #                                        output_phi_critic_2[self.num_blocks:].sum(dim=0)])
+        #     q1_pi_tensor, q2_pi_tensor = self.rho_critic(output_phi_critic_1, output_phi_critic_2)
+        #     self.q1_pi_tensor, self.q2_pi_tensor = q1_pi_tensor[0], q2_pi_tensor[0]
+        #     return q1_pi_tensor[1], q2_pi_tensor[1]
+        # else:
+        #     output_phi_critic_1 = output_phi_critic_1.sum(dim=0)
+        #     output_phi_critic_2 = output_phi_critic_2.sum(dim=0)
+        #     self.q1_pi_tensor, self.q2_pi_tensor = self.rho_critic(output_phi_critic_1, output_phi_critic_2)
