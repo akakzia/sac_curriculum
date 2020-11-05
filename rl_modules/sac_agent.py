@@ -7,7 +7,7 @@ from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from rl_modules.sac_deepset_models import DeepSetSAC
 # from rl_modules.context_deepset_models import DeepSetContext
-from rl_modules.gnn_models import DeepSetContext
+from rl_modules.gnn_models import GNN
 from updates import update_flat, update_disentangled, update_deepsets, up_deep_context
 
 
@@ -58,32 +58,55 @@ class SACAgent:
             if self.mode == 'normal':
                 self.model = DeepSetSAC(self.env_params, args)
             else:
-                self.model = DeepSetContext(self.env_params, args)
+                self.model = GNN(self.env_params, args)
                 # sync the encoder networks across the CPUs
-                sync_networks(self.model.single_phi_encoder)
+                # sync_networks(self.model.single_phi_encoder)
                 # sync_networks(self.model.rho_encoder)
 
             # sync the networks across the CPUs
-            sync_networks(self.model.rho_actor)
-            sync_networks(self.model.rho_critic)
-            sync_networks(self.model.single_phi_actor)
-            sync_networks(self.model.single_phi_critic)
+            # sync_networks(self.model.rho_actor)
+            # sync_networks(self.model.rho_critic)
+            # sync_networks(self.model.single_phi_actor)
+            # sync_networks(self.model.single_phi_critic)
+            sync_networks(self.model.current_state_encoder.message_passing_module)
+            sync_networks(self.model.current_state_encoder.node_aggr_module)
+            sync_networks(self.model.current_state_encoder.graph_aggr_module)
 
-            hard_update(self.model.single_phi_target_critic, self.model.single_phi_critic)
-            hard_update(self.model.rho_target_critic, self.model.rho_critic)
-            sync_networks(self.model.single_phi_target_critic)
-            sync_networks(self.model.rho_target_critic)
+            sync_networks(self.model.target_state_encoder.message_passing_module)
+            sync_networks(self.model.target_state_encoder.node_aggr_module)
+            sync_networks(self.model.target_state_encoder.graph_aggr_module)
+
+            sync_networks(self.model.actor_network)
+            sync_networks(self.model.critic_network)
+
+            hard_update(self.model.target_critic_network, self.model.critic_network)
+            sync_networks(self.model.target_critic_network)
+
+            # hard_update(self.model.single_phi_target_critic, self.model.single_phi_critic)
+            # hard_update(self.model.rho_target_critic, self.model.rho_critic)
+            # sync_networks(self.model.single_phi_target_critic)
+            # sync_networks(self.model.rho_target_critic)
             # create the optimizer
-            self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
-                                                 list(self.model.rho_critic.parameters()),
-                                                 lr=self.args.lr_critic)
+            self.critic_optim = torch.optim.Adam(self.model.critic_network.parameters(), lr=self.args.lr_critic)
+            self.policy_optim = torch.optim.Adam(self.model.actor_network.parameters(), lr=self.args.lr_actor)
 
-            self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
-                                                 list(self.model.rho_actor.parameters()),
-                                                 lr=self.args.lr_actor)
-            if self.mode == 'atomic':
-                self.context_optim = torch.optim.Adam(self.model.single_phi_encoder.parameters(),
-                                                      lr=self.args.lr_context)
+            self.context_optim = torch.optim.Adam(list(self.model.current_state_encoder.message_passing_module.parameters()) +
+                                                  list(self.model.current_state_encoder.node_aggr_module.parameters()) +
+                                                  list(self.model.current_state_encoder.graph_aggr_module.parameters()) +
+                                                  list(self.model.target_state_encoder.message_passing_module.parameters()) +
+                                                  list(self.model.target_state_encoder.node_aggr_module.parameters()) +
+                                                  list(self.model.target_state_encoder.graph_aggr_module.parameters()),
+                                                  lr=self.args.lr_critic)
+            # self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
+            #                                      list(self.model.rho_critic.parameters()),
+            #                                      lr=self.args.lr_critic)
+            #
+            # self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
+            #                                      list(self.model.rho_actor.parameters()),
+            #                                      lr=self.args.lr_actor)
+            # if self.mode == 'atomic':
+            #     self.context_optim = torch.optim.Adam(self.model.single_phi_encoder.parameters(),
+            #                                           lr=self.args.lr_context)
                 # self.context_optim = torch.optim.Adam(list(self.model.single_phi_encoder.parameters()) +
                 #                                       list(self.model.rho_encoder.parameters()),
                 #                                       lr=self.args.lr_context)
@@ -192,8 +215,8 @@ class SACAgent:
         # soft update
         if self.architecture == 'deepsets':
             if self.total_iter % self.freq_target_update == 0:
-                self._soft_update_target_network(self.model.single_phi_target_critic, self.model.single_phi_critic)
-                self._soft_update_target_network(self.model.rho_target_critic, self.model.rho_critic)
+                self._soft_update_target_network(self.model.target_critic_network, self.model.critic_network)
+                # self._soft_update_target_network(self.model.rho_target_critic, self.model.rho_critic)
         else:
             self._soft_update_target_network(self.critic_target_network, self.critic_network)
 
@@ -323,10 +346,20 @@ class SACAgent:
                             self.model.rho_actor.state_dict(), self.model.rho_critic.state_dict()],
                            model_path + '/model_{}.pt'.format(epoch))
             else:
+                # torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
+                #             self.model.single_phi_encoder.state_dict(), self.model.single_phi_actor.state_dict(),
+                #             self.model.single_phi_critic.state_dict(),
+                #             self.model.rho_actor.state_dict(), self.model.rho_critic.state_dict()],
+                #            model_path + '/model_{}.pt'.format(epoch))
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
-                            self.model.single_phi_encoder.state_dict(), self.model.single_phi_actor.state_dict(),
-                            self.model.single_phi_critic.state_dict(),
-                            self.model.rho_actor.state_dict(), self.model.rho_critic.state_dict()],
+                            self.model.actor_network.state_dict(), self.model.critic_network.state_dict(),
+                            self.model.current_state_encoder.message_passing_module.state_dict(),
+                            self.model.current_state_encoder.node_aggr_module.state_dict(),
+                            self.model.current_state_encoder.graph_aggr_module.state_dict(),
+                            self.model.target_state_encoder.message_passing_module.state_dict(),
+                            self.model.target_state_encoder.node_aggr_module.state_dict(),
+                            self.model.target_state_encoder.graph_aggr_module.state_dict()
+                            ],
                            model_path + '/model_{}.pt'.format(epoch))
         else:
             raise NotImplementedError
