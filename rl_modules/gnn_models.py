@@ -63,35 +63,42 @@ class GraphAggregation(nn.Module):
 
 
 class GnnStateEncoder:
-    def __init__(self, dim_edge, dim_node, dim_latent, aggr='sum'):
+    def __init__(self, dim_edge, dim_node, dim_u, dim_latent, aggr='sum'):
         self.aggr = aggr
 
-        input_mp = dim_edge
+        input_mp = dim_edge + 2 * dim_node + dim_u
         output_mp = 3 * input_mp
         self.message_passing_module = MessagePassing(input_mp, output_mp)
 
-        input_node_aggr = output_mp + dim_node
+        input_node_aggr = output_mp + dim_node + dim_u
         output_node_aggr = 3 * input_node_aggr
         self.node_aggr_module = NodeAggregation(input_node_aggr, 256, output_node_aggr)
 
-        input_graph_aggr = output_node_aggr
+        input_graph_aggr = output_node_aggr + dim_u
         output_graph_aggr = dim_latent
         self.graph_aggr_module = GraphAggregation(input_graph_aggr, 256, output_graph_aggr)
 
     def propagate(self, inp):
         return self.message_passing_module(inp)
 
-    def node_aggr(self, obs_objects, updated_edges, ids_edges):
+    def node_aggr(self, u, nodes, updated_edges, ids_edges):
+        """
+        Following notations:
+            E_ij <-- updated_edges
+            Xi <-- nodes
+            u <-- u
+        """
         if self.aggr == 'sum':
-            inp = torch.stack([torch.cat([obj, updated_edges[:, ids_edges[i], :].sum(dim=1)], dim=1)
-                                       for i, obj in enumerate(obs_objects)])
+            inp = torch.stack([torch.cat([obj, updated_edges[:, ids_edges[i], :].sum(dim=1), u], dim=1)
+                                       for i, obj in enumerate(nodes)])
         else:
-            inp = torch.stack([torch.cat([obj, torch.max(updated_edges[:, ids_edges[i], :], dim=1).values], dim=1)
-                                       for i, obj in enumerate(obs_objects)])
+            inp = torch.stack([torch.cat([obj, torch.max(updated_edges[:, ids_edges[i], :], dim=1).values, u], dim=1)
+                                       for i, obj in enumerate(nodes)])
 
         return self.node_aggr_module(inp).sum(dim=0)
 
-    def graph_aggr(self, inp):
+    def graph_aggr(self, aggr_nodes, u):
+        inp = torch.cat([aggr_nodes, u], dim=-1)
         return self.graph_aggr_module(inp)
 
 
@@ -328,11 +335,13 @@ class GNN:
         # self.single_phi_target_critic = SinglePhiCritic(dim_phi_critic_input, 256, dim_phi_critic_output)
         # self.rho_target_critic = RhoCritic(dim_rho_critic_input, dim_rho_critic_output)
 
-        dim_phi_encoder_input = 4 + 2 * self.dim_object
-        self.context_encoder = GnnStateEncoder(dim_phi_encoder_input, self.dim_object, 10, aggr=self.aggregation)
+        # dim_phi_encoder_input = 4 + 2 * self.dim_object
+        self.actor_gnn = GnnStateEncoder(dim_edge=4, dim_node=self.dim_object, dim_u=self.dim_body, dim_latent=10, aggr=self.aggregation)
+        self.critic_gnn = GnnStateEncoder(dim_edge=4, dim_node=self.dim_object, dim_u=self.dim_body+self.dim_act, dim_latent=10,
+                                          aggr=self.aggregation)
         # self.target_state_encoder = GnnStateEncoder(dim_phi_encoder_input, self.dim_object, 10, aggr=self.aggregation)
 
-        dim_actor_input = self.dim_body + self.num_blocks * self.dim_object + 10
+        dim_actor_input = self.dim_body + 10
         self.actor_network = ActorNet(dim_actor_input, self.dim_act)
 
         dim_critic_input = dim_actor_input + self.dim_act
@@ -349,29 +358,32 @@ class GNN:
                        for i in range(self.num_blocks)]
 
         # # Initialize context input
-        message_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2*self.dim_object))
+        message_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2*self.dim_object + self.dim_body))
         # message_input_target = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 3 + 2 * self.dim_object))
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            message_input[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 6:]], dim=1)
+            message_input[:, i, :] = torch.cat([pair[0], pair[1], self.g_desc[:, i, :2], self.g_desc[:, i, 6:], obs_body], dim=1)
             # message_input_target[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 7:8]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            message_input[:, i+1, :] = torch.cat([self.g_desc[:, i+1, :2], pair[0], pair[1], self.g_desc[:, i+1, 6:]], dim=1)
+            message_input[:, i+1, :] = torch.cat([pair[0], pair[1], self.g_desc[:, i+1, :2], self.g_desc[:, i+1, 6:], obs_body], dim=1)
             # message_input_target[:, i + 1, :] = torch.cat([self.g_desc[:, i + 1, :2], pair[0], pair[1], self.g_desc[:, i + 1, 7:8]], dim=1)
 
         ids_edges = [np.array([0, 2]), np.array([0, 1])]
 
-        updated_edges = self.context_encoder.propagate(message_input)
-        aggregated_nodes_emb = self.context_encoder.node_aggr(obs_objects, updated_edges, ids_edges)
-        context_embedding = self.context_encoder.graph_aggr(aggregated_nodes_emb)
+        updated_edges = self.actor_gnn.propagate(message_input)
+        aggregated_nodes_emb = self.actor_gnn.node_aggr(u=obs_body, nodes=obs_objects, updated_edges=updated_edges, ids_edges=ids_edges)
+        context_embedding = self.actor_gnn.graph_aggr(aggr_nodes=aggregated_nodes_emb, u=obs_body)
+        # updated_edges = self.context_encoder.propagate(message_input)
+        # aggregated_nodes_emb = self.context_encoder.node_aggr(obs_objects, updated_edges, ids_edges)
+        # context_embedding = self.context_encoder.graph_aggr(aggregated_nodes_emb)
 
         # target_updated_edges = self.target_state_encoder.propagate(message_input_target)
         # target_aggregated_nodes_emb = self.target_state_encoder.node_aggr(obs_objects, target_updated_edges, ids_edges)
         # target_state_embedding = self.target_state_encoder.graph_aggr(target_aggregated_nodes_emb)
 
-        input_actor = torch.cat([self.observation, context_embedding], dim=-1)
+        input_actor = torch.cat([obs_body, context_embedding], dim=-1)
 
         if not no_noise:
             self.pi_tensor, self.log_prob, _ = self.actor_network.sample(input_actor)
@@ -438,38 +450,53 @@ class GNN:
         #     _, self.log_prob, self.pi_tensor = self.rho_actor.sample(input_rho_actor)
 
         # # Initialize context input
-        message_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2 * self.dim_object))
+        message_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2 * self.dim_object + self.dim_body))
         # message_input_target = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 3 + 2 * self.dim_object))
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            message_input[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 6:]], dim=1)
+            message_input[:, i, :] = torch.cat([pair[0], pair[1], self.g_desc[:, i, :2], self.g_desc[:, i, 6:], obs_body], dim=1)
             # message_input_target[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 7:8]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            message_input[:, i + 1, :] = torch.cat([self.g_desc[:, i + 1, :2], pair[0], pair[1], self.g_desc[:, i + 1, 6:]], dim=1)
+            message_input[:, i + 1, :] = torch.cat([pair[0], pair[1], self.g_desc[:, i + 1, :2], self.g_desc[:, i + 1, 6:], obs_body], dim=1)
             # message_input_target[:, i + 1, :] = torch.cat([self.g_desc[:, i + 1, :2], pair[0], pair[1], self.g_desc[:, i + 1, 7:8]], dim=1)
 
         ids_edges = [np.array([0, 2]), np.array([0, 1])]
 
-        updated_edges = self.context_encoder.propagate(message_input)
-        aggregated_nodes_emb = self.context_encoder.node_aggr(obs_objects, updated_edges, ids_edges)
-        context_embedding = self.context_encoder.graph_aggr(aggregated_nodes_emb)
+        updated_edges = self.actor_gnn.propagate(message_input)
+        aggregated_nodes_emb = self.actor_gnn.node_aggr(u=obs_body, nodes=obs_objects, updated_edges=updated_edges, ids_edges=ids_edges)
+        context_embedding = self.actor_gnn.graph_aggr(aggr_nodes=aggregated_nodes_emb, u=obs_body)
 
         # target_updated_edges = self.target_state_encoder.propagate(message_input_target)
         # target_aggregated_nodes_emb = self.target_state_encoder.node_aggr(obs_objects, target_updated_edges, ids_edges)
         # target_state_embedding = self.target_state_encoder.graph_aggr(target_aggregated_nodes_emb)
 
-        input_actor = torch.cat([self.observation, context_embedding], dim=-1)
+        input_actor = torch.cat([obs_body, context_embedding], dim=-1)
 
         if not eval:
             self.pi_tensor, self.log_prob, _ = self.actor_network.sample(input_actor)
         else:
             _, self.log_prob, self.pi_tensor = self.actor_network.sample(input_actor)
 
-        input_critic = torch.cat([self.observation, self.pi_tensor, context_embedding], dim=-1)
+        repeat_action_policy = self.pi_tensor.repeat(3, 1, 1).permute(1, 0, 2)
+        critic_message_input = torch.cat([message_input, repeat_action_policy], dim=-1)
+        critic_updated_edges = self.critic_gnn.propagate(critic_message_input)
+        critic_aggregated_nodes_emb = self.critic_gnn.node_aggr(u=torch.cat([obs_body, self.pi_tensor], dim=-1), nodes=obs_objects,
+                                                                updated_edges=critic_updated_edges, ids_edges=ids_edges)
+        critic_context_embedding = self.critic_gnn.graph_aggr(aggr_nodes=critic_aggregated_nodes_emb, u=torch.cat([obs_body, self.pi_tensor],
+                                                                                                                 dim=-1))
+
+        input_critic = torch.cat([obs_body, self.pi_tensor, critic_context_embedding], dim=-1)
         if actions is not None:
-            input_critic_with_act = torch.cat([self.observation, actions, context_embedding], dim=-1)
+            repeat_actions = actions.repeat(3, 1, 1).permute(1, 0, 2)
+            critic_message_input = torch.cat([message_input, repeat_actions], dim=-1)
+            critic_updated_edges = self.critic_gnn.propagate(critic_message_input)
+            critic_aggregated_nodes_emb = self.critic_gnn.node_aggr(u=torch.cat([obs_body, actions], dim=-1), nodes=obs_objects,
+                                                                    updated_edges=critic_updated_edges, ids_edges=ids_edges)
+            critic_context_embedding = self.critic_gnn.graph_aggr(aggr_nodes=critic_aggregated_nodes_emb, u=torch.cat([obs_body, actions],
+                                                                                                                     dim=-1))
+            input_critic_with_act = torch.cat([obs_body, actions, critic_context_embedding], dim=-1)
             input_critic = torch.stack([input_critic, input_critic_with_act])
 
         with torch.no_grad():
