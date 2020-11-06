@@ -10,7 +10,7 @@ class RolloutWorker:
         self.biased_init = args.biased_init
         self.goal_sampler = goal_sampler
 
-    def generate_rollout(self, inits, goals, self_eval, true_eval, biased_init=False, animated=False):
+    def generate_rollout(self, inits, goals, self_eval, true_eval, biased_init=False, animated=True):
 
         episodes = []
         for i in range(goals.shape[0]):
