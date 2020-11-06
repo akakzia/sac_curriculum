@@ -68,13 +68,13 @@ class SACAgent:
             # sync_networks(self.model.rho_critic)
             # sync_networks(self.model.single_phi_actor)
             # sync_networks(self.model.single_phi_critic)
-            sync_networks(self.model.context_encoder.message_passing_module)
-            sync_networks(self.model.context_encoder.node_aggr_module)
-            sync_networks(self.model.context_encoder.graph_aggr_module)
+            sync_networks(self.model.current_state_encoder.message_passing_module)
+            sync_networks(self.model.current_state_encoder.node_aggr_module)
+            sync_networks(self.model.current_state_encoder.graph_aggr_module)
 
-            # sync_networks(self.model.target_state_encoder.message_passing_module)
-            # sync_networks(self.model.target_state_encoder.node_aggr_module)
-            # sync_networks(self.model.target_state_encoder.graph_aggr_module)
+            sync_networks(self.model.target_state_encoder.message_passing_module)
+            sync_networks(self.model.target_state_encoder.node_aggr_module)
+            sync_networks(self.model.target_state_encoder.graph_aggr_module)
 
             sync_networks(self.model.actor_network)
             sync_networks(self.model.critic_network)
@@ -90,9 +90,12 @@ class SACAgent:
             self.critic_optim = torch.optim.Adam(self.model.critic_network.parameters(), lr=self.args.lr_critic)
             self.policy_optim = torch.optim.Adam(self.model.actor_network.parameters(), lr=self.args.lr_actor)
 
-            self.context_optim = torch.optim.Adam(list(self.model.context_encoder.message_passing_module.parameters()) +
-                                                  list(self.model.context_encoder.node_aggr_module.parameters()) +
-                                                  list(self.model.context_encoder.graph_aggr_module.parameters()),
+            self.context_optim = torch.optim.Adam(list(self.model.current_state_encoder.message_passing_module.parameters()) +
+                                                  list(self.model.current_state_encoder.node_aggr_module.parameters()) +
+                                                  list(self.model.current_state_encoder.graph_aggr_module.parameters()) +
+                                                  list(self.model.target_state_encoder.message_passing_module.parameters()) +
+                                                  list(self.model.target_state_encoder.node_aggr_module.parameters()) +
+                                                  list(self.model.target_state_encoder.graph_aggr_module.parameters()),
                                                   lr=self.args.lr_critic)
             # self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
             #                                      list(self.model.rho_critic.parameters()),
@@ -350,9 +353,12 @@ class SACAgent:
                 #            model_path + '/model_{}.pt'.format(epoch))
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
                             self.model.actor_network.state_dict(), self.model.critic_network.state_dict(),
-                            self.model.context_encoder.message_passing_module.state_dict(),
-                            self.model.context_encoder.node_aggr_module.state_dict(),
-                            self.model.context_encoder.graph_aggr_module.state_dict()
+                            self.model.current_state_encoder.message_passing_module.state_dict(),
+                            self.model.current_state_encoder.node_aggr_module.state_dict(),
+                            self.model.current_state_encoder.graph_aggr_module.state_dict(),
+                            self.model.target_state_encoder.message_passing_module.state_dict(),
+                            self.model.target_state_encoder.node_aggr_module.state_dict(),
+                            self.model.target_state_encoder.graph_aggr_module.state_dict()
                             ],
                            model_path + '/model_{}.pt'.format(epoch))
         else:
