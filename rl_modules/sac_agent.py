@@ -7,7 +7,7 @@ from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from rl_modules.sac_deepset_models import DeepSetSAC
 # from rl_modules.context_deepset_models import DeepSetContext
-from rl_modules.gnn_models import DeepSetContext
+from rl_modules.gnn_models import GnnModel
 from updates import update_flat, update_disentangled, update_deepsets, up_deep_context
 
 
@@ -58,9 +58,9 @@ class SACAgent:
             if self.mode == 'normal':
                 self.model = DeepSetSAC(self.env_params, args)
             else:
-                self.model = DeepSetContext(self.env_params, args)
+                self.model = GnnModel(self.env_params, args)
                 # sync the encoder networks across the CPUs
-                sync_networks(self.model.single_phi_encoder)
+                sync_networks(self.model.edge_encoder)
                 # sync_networks(self.model.rho_encoder)
 
             # sync the networks across the CPUs
@@ -82,7 +82,7 @@ class SACAgent:
                                                  list(self.model.rho_actor.parameters()),
                                                  lr=self.args.lr_actor)
             if self.mode == 'atomic':
-                self.context_optim = torch.optim.Adam(self.model.single_phi_encoder.parameters(),
+                self.context_optim = torch.optim.Adam(self.model.edge_encoder.parameters(),
                                                       lr=self.args.lr_context)
                 # self.context_optim = torch.optim.Adam(list(self.model.single_phi_encoder.parameters()) +
                 #                                       list(self.model.rho_encoder.parameters()),
@@ -324,7 +324,7 @@ class SACAgent:
                            model_path + '/model_{}.pt'.format(epoch))
             else:
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
-                            self.model.single_phi_encoder.state_dict(), self.model.single_phi_actor.state_dict(),
+                            self.model.edge_encoder.state_dict(), self.model.single_phi_actor.state_dict(),
                             self.model.single_phi_critic.state_dict(),
                             self.model.rho_actor.state_dict(), self.model.rho_critic.state_dict()],
                            model_path + '/model_{}.pt'.format(epoch))

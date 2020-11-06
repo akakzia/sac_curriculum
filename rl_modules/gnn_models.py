@@ -17,9 +17,9 @@ def weights_init_(m):
         torch.nn.init.constant_(m.bias, 0)
 
 
-class SinglePhiContext(nn.Module):
+class EdgeEncoder(nn.Module):
     def __init__(self, inp, out):
-        super(SinglePhiContext, self).__init__()
+        super(EdgeEncoder, self).__init__()
         self.linear1 = nn.Linear(inp, 256)
         self.linear2 = nn.Linear(256, out)
 
@@ -28,21 +28,6 @@ class SinglePhiContext(nn.Module):
     def forward(self, inp):
         x = F.relu(self.linear1(inp))
         x = F.relu(self.linear2(x))
-
-        return x
-
-
-class RhoEncoder(nn.Module):
-    def __init__(self, inp, out):
-        super(RhoEncoder, self).__init__()
-        self.linear1 = nn.Linear(inp, 256)
-        self.linear2 = nn.Linear(256, out)
-
-        self.apply(weights_init_)
-
-    def forward(self, inp):
-        x = self.linear1(inp)
-        x = torch.sigmoid(self.linear2(x))
 
         return x
 
@@ -142,7 +127,7 @@ class RhoCritic(nn.Module):
         return x1, x2
 
 
-class DeepSetContext:
+class GnnModel:
     def __init__(self, env_params, args):
         # A raw version of DeepSet-based SAC without attention mechanism
         self.observation = None
@@ -158,12 +143,6 @@ class DeepSetContext:
         self.num_blocks = env_params['num_blocks']
         self.combinations_trick = args.combinations_trick
         self.aggregation = args.aggregation
-        if self.combinations_trick:
-            self.n_permutations = len([x for x in combinations(range(self.num_blocks), 2)])
-        else:
-            self.n_permutations = len([x for x in permutations(range(self.num_blocks), 2)])
-
-        self.one_hot_encodings = [torch.tensor([1., 0.]), torch.tensor([0., 1.])]
 
         self.context_tensor = None
         self.q1_pi_tensor = None
@@ -173,33 +152,22 @@ class DeepSetContext:
         self.pi_tensor = None
         self.log_prob = None
 
-        # dim_phi_encoder_input = self.dim_description[1]
-        dim_phi_encoder_input = 4 + 2 * self.dim_object
-        dim_phi_encoder_output = 3 * dim_phi_encoder_input
+        dim_edge_encoder_input = 4 + 2 * self.dim_object
+        dim_edge_encoder_output = 3 * dim_edge_encoder_input
 
-        # dim_rho_encoder_input = dim_phi_encoder_output
-        # dim_rho_encoder_output = self.latent
-
-        # dim_input_objects = 2 * (self.num_blocks + self.dim_object)
-
-        # dim_phi_actor_input = self.latent + self.dim_body + dim_input_objects
-        dim_phi_actor_input = dim_phi_encoder_output + self.dim_body + self.dim_object
+        dim_phi_actor_input = dim_edge_encoder_output + self.dim_body + self.dim_object
         dim_phi_actor_output = 3 * dim_phi_actor_input
-        # dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.latent)
 
         dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
 
-        dim_phi_critic_input = dim_phi_encoder_output + self.dim_body + self.dim_object + self.dim_act
+        dim_phi_critic_input = dim_edge_encoder_output + self.dim_body + self.dim_object + self.dim_act
         dim_phi_critic_output = 3 * dim_phi_critic_input
-        # dim_phi_critic_input = self.latent + self.dim_body + dim_input_objects + self.dim_act
-        # dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act + self.latent)
 
         dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
 
-        self.single_phi_encoder = SinglePhiContext(dim_phi_encoder_input, dim_phi_encoder_output)
-        # self.rho_encoder = RhoEncoder(dim_rho_encoder_input, dim_rho_encoder_output)
+        self.edge_encoder = EdgeEncoder(dim_edge_encoder_input, dim_edge_encoder_output)
 
         self.single_phi_actor = SinglePhiActor(dim_phi_actor_input, 256, dim_phi_actor_output)
         self.rho_actor = RhoActor(dim_rho_actor_input, dim_rho_actor_output)
@@ -213,26 +181,22 @@ class DeepSetContext:
     def policy_forward_pass(self, obs, g_desc, anchor_g=None, no_noise=False):
         self.observation = obs
         self.g_desc = g_desc
-        self.anchor_g = anchor_g
 
         obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
-        # obs_objects = [torch.cat((torch.cat(obs_body.shape[0] * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
-        #                           self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)),
-        #                          dim=-1) for i in range(self.num_blocks)]
         obs_objects = [self.observation.narrow(-1, start=self.dim_object * i + self.dim_body, length=self.dim_object)
                        for i in range(self.num_blocks)]
 
         # # Initialize context input
-        context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2*self.dim_object))
+        edge_inputs = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2*self.dim_object))
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 6:]], dim=1)
+            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 6:]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            context_input[:, i+1, :] = torch.cat([self.g_desc[:, i+1, :2], pair[0], pair[1], self.g_desc[:, i+1, 6:]], dim=1)
+            edge_inputs[:, i+1, :] = torch.cat([self.g_desc[:, i+1, :2], pair[0], pair[1], self.g_desc[:, i+1, 6:]], dim=1)
 
-        output_phi_encoder = self.single_phi_encoder(context_input)
+        output_phi_encoder = self.edge_encoder(edge_inputs)
 
         ids_edges = [np.array([0, 2]), np.array([0, 1])]
 
@@ -251,74 +215,25 @@ class DeepSetContext:
             _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
 
     def forward_pass(self, obs, g_desc, anchor_g=None, eval=False, actions=None):
-        batch_size = obs.shape[0]
         self.observation = obs
         self.g_desc = g_desc
         self.anchor_g = anchor_g
 
         obs_body = self.observation[:, :self.dim_body]
-        # obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
-        #                obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
-        #                for i in range(self.num_blocks)]
         obs_objects = [self.observation.narrow(-1, start=self.dim_object * i + self.dim_body, length=self.dim_object)
                        for i in range(self.num_blocks)]
 
-        # output_phi_encoder = self.single_phi_encoder(self.g_desc).sum(dim=1)
-        #
-        # self.context_tensor = self.rho_encoder(output_phi_encoder)
-        #
-        # if self.combinations_trick:
-        #     # Get indexes of atomic goals and corresponding object tuple
-        #     extractors = [torch.zeros((self.anchor_g.shape[1], 1)) for _ in range(self.anchor_g.shape[1])]
-        #     for i in range(len(extractors)):
-        #         extractors[i][i, :] = 1.
-        #
-        #     # The trick is to create selector matrices that, when multiplied with goals retrieves certain bits. Then the sign of the difference
-        #     # between bits gives which objet goes above the the other
-        #
-        #     idxs_bits = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
-        #     idxs_objects = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
-        #
-        #     for i, ((o1, o2), (j, k)) in enumerate(zip([(0, 1), (0, 2), (1, 2)], [(3, 5), (4, 7), (6, 8)])):
-        #         stacked = torch.cat([extractors[j], extractors[k]], dim=1)
-        #         multiplied_matrix = torch.matmul(self.anchor_g, stacked.double())
-        #         selector = multiplied_matrix[:, 0] - multiplied_matrix[:, 1]
-        #
-        #         # idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
-        #         # idxs_objects[i][selector >= 0] = torch.Tensor([o1, o2]).long()
-        #         comb = list(permutations([o1, o2], 2))
-        #         idxs_objects[i] = torch.stack([torch.tensor(comb[np.random.choice([0, 1])]) for _ in range(self.anchor_g.shape[0])]).long()
-        #         idxs_objects[i][selector > 0] = torch.Tensor([o1, o2]).long()
-        #         idxs_objects[i][selector < 0] = torch.Tensor([o2, o1]).long()
-        #
-        #     obs_object_tensor = torch.stack(obs_objects)
-        #
-        #     obs_objects_pairs_list = []
-        #     for idxs_objects in idxs_objects:
-        #         permuted_idxs = idxs_objects.unsqueeze(0).permute(2, 1, 0)
-        #         permuted_idxs = permuted_idxs.repeat(1, 1, obs_object_tensor.shape[2])
-        #         obs_objects_pair = obs_object_tensor.gather(0, permuted_idxs)
-        #         obs_objects_pairs_list.append(obs_objects_pair)
-        #
-        #     input_actor = torch.stack([torch.cat([self.context_tensor, obs_body, obs_pair[0, :, :], obs_pair[1, :, :]], dim=1)
-        #                                for obs_pair in obs_objects_pairs_list])
-        #
-        # else:
-        #     input_actor = torch.stack([torch.cat([self.context_tensor, obs_body, x[0], x[1]], dim=1) for x in permutations(obs_objects, 2)])
-        #
-        # output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
-
         # # Initialize context input
-        context_input = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2 * self.dim_object))
+        edge_inputs = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2 * self.dim_object))
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            context_input[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 6:]], dim=1)
+            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 6:]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            context_input[:, i + 1, :] = torch.cat([self.g_desc[:, i + 1, :2], pair[0], pair[1], self.g_desc[:, i + 1, 6:]], dim=1)
+            edge_inputs[:, i + 1, :] = torch.cat([self.g_desc[:, i + 1, :2], pair[0], pair[1], self.g_desc[:, i + 1, 6:]], dim=1)
 
-        output_phi_encoder = self.single_phi_encoder(context_input)
+        output_phi_encoder = self.edge_encoder(edge_inputs)
 
         ids_edges = [np.array([0, 2]), np.array([0, 1])]
 
