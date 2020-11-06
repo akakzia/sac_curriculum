@@ -191,14 +191,16 @@ class GnnModel:
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 2:]], dim=1)
+            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :], pair[0], pair[1]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            edge_inputs[:, i+1, :] = torch.cat([self.g_desc[:, i+1, :2], pair[0], pair[1], self.g_desc[:, i+1, 2:]], dim=1)
+            edge_inputs[:, i+10, :] = torch.cat([self.g_desc[:, i+10, :], pair[0], pair[1]], dim=1)
 
         output_phi_encoder = self.edge_encoder(edge_inputs)
 
-        ids_edges = [np.array([0, 2]), np.array([0, 1])]
+        ids_edges = [np.array([0, 1, 2, 3, 14, 18, 22, 26]), np.array([0, 4, 5, 6, 10, 19, 23, 27]),
+                     np.array([1, 5, 7, 8, 11, 15, 24, 28]), np.array([2, 5, 7, 9, 12, 16, 20, 29]),
+                     np.array([3, 6, 8, 9, 13, 17, 21, 25])]
 
         if self.aggregation == 'sum':
             input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
@@ -228,14 +230,16 @@ class GnnModel:
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 2:]], dim=1)
+            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :], pair[0], pair[1]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            edge_inputs[:, i + 1, :] = torch.cat([self.g_desc[:, i + 1, :2], pair[0], pair[1], self.g_desc[:, i + 1, 2:]], dim=1)
+            edge_inputs[:, i + 10, :] = torch.cat([self.g_desc[:, i + 10, :], pair[0], pair[1]], dim=1)
 
         output_phi_encoder = self.edge_encoder(edge_inputs)
 
-        ids_edges = [np.array([0, 2]), np.array([0, 1])]
+        ids_edges = [np.array([0, 1, 2, 3, 14, 18, 22, 26]), np.array([0, 4, 5, 6, 10, 19, 23, 27]),
+                     np.array([1, 5, 7, 8, 11, 15, 24, 28]), np.array([2, 5, 7, 9, 12, 16, 20, 29]),
+                     np.array([3, 6, 8, 9, 13, 17, 21, 25])]
 
         if self.aggregation == 'sum':
             input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)

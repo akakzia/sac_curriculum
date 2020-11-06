@@ -220,6 +220,17 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
 
         goal_description = self._get_configuration(objects_positions)
 
+        # The incoming target goal is of dimension 3 (for only one pair of objects)
+        # Concatenate this atomic goal to the current atomic goals of other pairs
+        ids = [0, 10, 14]
+        achieved_goal_atomic = goal_description[ids, -1]
+        if self.target_goal.size != goal_description.shape[0]:
+            desired_goal_atomic = self.target_goal
+            self.target_goal = goal_description[:, -1]
+            self.target_goal[ids] = desired_goal_atomic
+        else:
+            desired_goal_atomic = self.target_goal[ids]
+
         goal_description = np.concatenate([goal_description, np.expand_dims(self.target_goal, axis=1)], axis=1)
 
         achieved_goal = goal_description[:, -2]
@@ -232,8 +243,8 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
             'observation': obs.copy(),
             'achieved_goal': achieved_goal.copy(),
             'desired_goal': self.target_goal.copy(),
-            'achieved_goal_binary': achieved_goal.copy(),
-            'desired_goal_binary': self.target_goal.copy(),
+            'achieved_goal_atomic': achieved_goal_atomic.copy(),
+            'desired_goal_atomic': desired_goal_atomic.copy(),
             'goal_description': goal_description.copy()
         }
 

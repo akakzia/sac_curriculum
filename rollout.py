@@ -19,8 +19,10 @@ class RolloutWorker:
             ag = observation['achieved_goal']
             g = observation['desired_goal']
             g_desc = observation['goal_description']
+            g_atomic = observation['desired_goal_atomic']
+            ag_atomic = observation['achieved_goal_atomic']
 
-            ep_obs, ep_ag, ep_g, ep_g_desc, ep_actions, ep_success = [], [], [], [], [], []
+            ep_obs, ep_ag, ep_g, ep_g_atomic, ep_ag_atomic, ep_g_desc, ep_actions, ep_success = [], [], [], [], [], [], [], []
 
             # Start to collect samples
             for t in range(self.env_params['max_timesteps']):
@@ -36,6 +38,7 @@ class RolloutWorker:
                 observation_new, _, _, info = self.env.step(action)
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
+                ag_atomic_new = observation_new['achieved_goal_atomic']
                 g_desc_new = observation_new['goal_description']
 
                 # USE THIS FOR DEBUG
@@ -47,23 +50,29 @@ class RolloutWorker:
                 ep_obs.append(obs.copy())
                 ep_ag.append(ag.copy())
                 ep_g.append(g.copy())
+                ep_ag_atomic.append(ag_atomic.copy())
+                ep_g_atomic.append(g_atomic.copy())
                 ep_g_desc.append(g_desc.copy())
                 ep_actions.append(action.copy())
 
                 # re-assign the observation
                 obs = obs_new
                 ag = ag_new
+                ag_atomic = ag_atomic_new
                 g_desc = g_desc_new
 
             ep_obs.append(obs.copy())
             ep_ag.append(ag.copy())
             ep_g_desc.append(g_desc.copy())
+            ep_ag_atomic.append(ag_atomic.copy())
 
             # Gather everything
             episode = dict(obs=np.array(ep_obs).copy(),
                            act=np.array(ep_actions).copy(),
                            g=np.array(ep_g).copy(),
                            ag=np.array(ep_ag).copy(),
+                           g_atomic=np.array(ep_g_atomic).copy(),
+                           ag_atomic=np.array(ep_ag_atomic).copy(),
                            g_desc=np.array(ep_g_desc),
                            self_eval=self_eval)
             episodes.append(episode)

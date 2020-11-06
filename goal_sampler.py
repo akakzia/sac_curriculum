@@ -131,8 +131,8 @@ class GoalSampler:
                 all_episode_list += eps
 
             for e in all_episode_list:
-                reached_oracle_id = self.g_str_to_oracle_id[str(e['ag'][-1])]
-                target_oracle_id = self.g_str_to_oracle_id[str(e['g'][0])]
+                reached_oracle_id = self.g_str_to_oracle_id[str(e['ag_atomic'][-1])]
+                target_oracle_id = self.g_str_to_oracle_id[str(e['g_atomic'][0])]
                 self.rew_counters[reached_oracle_id] += 1
                 self.target_counters[target_oracle_id] += 1
             # find out if new goals were discovered
@@ -141,15 +141,15 @@ class GoalSampler:
                 new_goal_found = False
                 for e in all_episode_list:
 
-                    id_ag_end = self.g_str_to_oracle_id[str(e['ag'][-1])]
+                    id_ag_end = self.g_str_to_oracle_id[str(e['ag_atomic'][-1])]
 
-                    if str(e['ag'][-1]) not in self.discovered_goals_str:
-                        if str(e['ag'][-1]) not in self.valid_goals_str:
+                    if str(e['ag_atomic'][-1]) not in self.discovered_goals_str:
+                        if str(e['ag_atomic'][-1]) not in self.valid_goals_str:
                             stop = 1
                         else:
                             new_goal_found = True
-                            self.discovered_goals.append(e['ag'][-1].copy())
-                            self.discovered_goals_str.append(str(e['ag'][-1]))
+                            self.discovered_goals.append(e['ag_atomic'][-1].copy())
+                            self.discovered_goals_str.append(str(e['ag_atomic'][-1]))
                             self.discovered_goals_oracle_id.append(id_ag_end)
 
                 # update buckets
@@ -170,7 +170,7 @@ class GoalSampler:
                             self.successes_and_failures.append([t, success, oracle_id])
         self.sync()
         for e in episodes:
-            last_ag = e['ag'][-1]
+            last_ag = e['ag_atomic'][-1]
             oracle_id = self.g_str_to_oracle_id[str(last_ag)]
             e['last_ag_oracle_id'] = oracle_id
 
