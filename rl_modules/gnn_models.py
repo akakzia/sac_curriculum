@@ -191,10 +191,10 @@ class GnnModel:
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 6:]], dim=1)
+            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 2:]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            edge_inputs[:, i+1, :] = torch.cat([self.g_desc[:, i+1, :2], pair[0], pair[1], self.g_desc[:, i+1, 6:]], dim=1)
+            edge_inputs[:, i+1, :] = torch.cat([self.g_desc[:, i+1, :2], pair[0], pair[1], self.g_desc[:, i+1, 2:]], dim=1)
 
         output_phi_encoder = self.edge_encoder(edge_inputs)
 
@@ -228,10 +228,10 @@ class GnnModel:
 
         # # Concatenate object observation to g description
         for i, pair in enumerate(combinations(obs_objects, 2)):
-            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 6:]], dim=1)
+            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :2], pair[0], pair[1], self.g_desc[:, i, 2:]], dim=1)
 
         for i, pair in enumerate(permutations(obs_objects, 2)):
-            edge_inputs[:, i + 1, :] = torch.cat([self.g_desc[:, i + 1, :2], pair[0], pair[1], self.g_desc[:, i + 1, 6:]], dim=1)
+            edge_inputs[:, i + 1, :] = torch.cat([self.g_desc[:, i + 1, :2], pair[0], pair[1], self.g_desc[:, i + 1, 2:]], dim=1)
 
         output_phi_encoder = self.edge_encoder(edge_inputs)
 
