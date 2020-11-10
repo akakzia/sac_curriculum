@@ -41,7 +41,7 @@ def get_env_params(env):
     params = {'obs': obs['observation'].shape[0], 'goal': obs['desired_goal'].shape[0],
               'g_description': obs['goal_description'].shape, 'action': env.action_space.shape[0],
               'action_max': env.action_space.high[0], 'max_timesteps': env._max_episode_steps,
-              'num_blocks': 2,
+              'num_blocks': 5,
               }
     return params
 
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     # def rollout worker
     rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
 
-    eval_goals = goal_sampler.valid_goals
+    eval_goals = goal_sampler.valid_goals[1:2]
     inits = [None] * len(eval_goals)
     all_results = []
     for i in range(num_eval):

@@ -335,7 +335,7 @@ class SACAgent:
 
         if args.architecture == 'deepsets':
             o_mean, o_std, g_mean, g_std, phi_e, phi_a, phi_c, rho_a, rho_c = torch.load(model_path, map_location=lambda storage, loc: storage)
-            self.model.single_phi_encoder.load_state_dict(phi_e)
+            self.model.edge_encoder.load_state_dict(phi_e)
             self.model.single_phi_actor.load_state_dict(phi_a)
             self.model.single_phi_critic.load_state_dict(phi_c)
             self.model.rho_actor.load_state_dict(rho_a)
