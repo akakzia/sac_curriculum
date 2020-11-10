@@ -21,6 +21,16 @@ def above(x, y):
     return np.linalg.norm(x[:2] - y[:2]) < 0.05 and 0.06 > x[2] - y[2] > 0.03
 
 
+def get_dx_dy_dz(objects):
+    """
+    A function that outputs all the relative distance components of the objects
+    """
+    res = []
+    for pair in itertools.combinations(objects, 2):
+        res.append(abs(pair[0] - pair[1]))
+    return np.array(res).flatten()
+
+
 class FetchManipulateEnvAtomic(robot_env.RobotEnv):
     """Superclass for all Fetch environments.
     """
@@ -156,6 +166,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         """
         object_combinations = itertools.combinations(positions, 2)
         object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
+        object_rel_dx_dy_dz = get_dx_dy_dz(positions)
 
         object_permutations = itertools.permutations(positions, 2)
         # Create list of quadruples (predicate_dummy, color_o1, color_o2, value_of_predicate)
@@ -168,7 +179,7 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         # Concatenate lists and form an array
         res = np.array(close_config + above_config)
 
-        return res
+        return res, object_rel_dx_dy_dz
 
     def _get_obs(self):
         grip_pos = self.sim.data.get_site_xpos('robot0:grip')
@@ -218,11 +229,16 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
 
         # self.goal_size = len(object_rel_distances)
 
-        goal_description = self._get_configuration(objects_positions)
+        goal_description, objects_rel_dx_dy_dz = self._get_configuration(objects_positions)
 
         # The incoming target goal is of dimension 3 (for only one pair of objects)
         # Concatenate this atomic goal to the current atomic goals of other pairs
-        ids = [0, 10, 14]
+        if self.num_blocks == 5:
+            ids = [0, 10, 14]
+        elif self.num_blocks == 3:
+            ids = [0, 3, 5]
+        else:
+            raise NotImplementedError
         achieved_goal_atomic = goal_description[ids, -1]
         if self.target_goal.size != goal_description.shape[0]:
             desired_goal_atomic = self.target_goal
@@ -236,6 +252,8 @@ class FetchManipulateEnvAtomic(robot_env.RobotEnv):
         achieved_goal = goal_description[:, -2]
 
         self.goal_size = achieved_goal.shape[0]
+
+        obs = np.concatenate([obs, objects_rel_dx_dy_dz])
 
         # obs = np.concatenate([obs, achieved_goal])
 

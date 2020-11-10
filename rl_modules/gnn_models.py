@@ -152,7 +152,7 @@ class GnnModel:
         self.pi_tensor = None
         self.log_prob = None
 
-        dim_edge_encoder_input = 4 + 2 * self.dim_object
+        dim_edge_encoder_input = 9 + 2 * self.dim_object
         dim_edge_encoder_output = 3 * dim_edge_encoder_input
 
         dim_phi_actor_input = dim_edge_encoder_output + self.dim_body + self.dim_object
@@ -185,31 +185,51 @@ class GnnModel:
         obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
         obs_objects = [self.observation.narrow(-1, start=self.dim_object * i + self.dim_body, length=self.dim_object)
                        for i in range(self.num_blocks)]
+        objects_rel_dx_dy_dz = self.observation.narrow(-1, start=self.observation.shape[-1]-9, length=9).reshape(-1, 3, 3)
 
-        # # Initialize context input
-        edge_inputs = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2*self.dim_object))
-
-        # # Concatenate object observation to g description
-        for i, pair in enumerate(combinations(obs_objects, 2)):
-            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :], pair[0], pair[1]], dim=1)
-
-        for i, pair in enumerate(permutations(obs_objects, 2)):
-            edge_inputs[:, i+10, :] = torch.cat([self.g_desc[:, i+10, :], pair[0], pair[1]], dim=1)
+        ids_goals = [np.array([0, 3, 5]), np.array([1, 4, 7]), np.array([2, 6, 8])]
+        ids_pair_objects = [np.array([0, 1]), np.array([0, 2]), np.array([1, 2])]
+        edge_inputs = torch.empty((self.g_desc.shape[0], 3, 9 + 2 * self.dim_object))
+        for i, (pair, ids) in enumerate(zip(ids_pair_objects, ids_goals)):
+            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, ids, -2], self.g_desc[:, ids, -1],
+                                              obs_objects[pair[0]], obs_objects[pair[1]], objects_rel_dx_dy_dz[:, i, :]], dim=1)
 
         output_phi_encoder = self.edge_encoder(edge_inputs)
 
-        ids_edges = [np.array([0, 1, 2, 3, 14, 18, 22, 26]), np.array([0, 4, 5, 6, 10, 19, 23, 27]),
-                     np.array([1, 5, 7, 8, 11, 15, 24, 28]), np.array([2, 5, 7, 9, 12, 16, 20, 29]),
-                     np.array([3, 6, 8, 9, 13, 17, 21, 25])]
-
         if self.aggregation == 'sum':
-            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_pair_objects[i], :].sum(dim=1)], dim=1)
                                        for i, obj in enumerate(obs_objects)])
         else:
-            input_actor = torch.stack([torch.cat([obs_body, obj, torch.max(output_phi_encoder[:, ids_edges[i], :], dim=1).values], dim=1)
+            input_actor = torch.stack([torch.cat([obs_body, obj, torch.max(output_phi_encoder[:, ids_pair_objects[i], :], dim=1).values], dim=1)
                                        for i, obj in enumerate(obs_objects)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
+
+        # # # Initialize context input
+        # edge_inputs = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2*self.dim_object))
+        #
+        # # # Concatenate object observation to g description
+        # for i, pair in enumerate(combinations(obs_objects, 2)):
+        #     edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :], pair[0], pair[1]], dim=1)
+        #
+        # for i, pair in enumerate(permutations(obs_objects, 2)):
+        #     edge_inputs[:, i+3, :] = torch.cat([self.g_desc[:, i+3, :], pair[0], pair[1]], dim=1)
+
+        # output_phi_encoder = self.edge_encoder(edge_inputs)
+
+        # ids_edges = [np.array([0, 1, 2, 3, 14, 18, 22, 26]), np.array([0, 4, 5, 6, 10, 19, 23, 27]),
+        #              np.array([1, 5, 7, 8, 11, 15, 24, 28]), np.array([2, 5, 7, 9, 12, 16, 20, 29]),
+        #              np.array([3, 6, 8, 9, 13, 17, 21, 25])]
+        # ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
+
+        # if self.aggregation == 'sum':
+        #     input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+        #                                for i, obj in enumerate(obs_objects)])
+        # else:
+        #     input_actor = torch.stack([torch.cat([obs_body, obj, torch.max(output_phi_encoder[:, ids_edges[i], :], dim=1).values], dim=1)
+        #                                for i, obj in enumerate(obs_objects)])
+        #
+        # output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
         if not no_noise:
             self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
@@ -225,30 +245,51 @@ class GnnModel:
         obs_objects = [self.observation.narrow(-1, start=self.dim_object * i + self.dim_body, length=self.dim_object)
                        for i in range(self.num_blocks)]
 
-        # # Initialize context input
-        edge_inputs = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2 * self.dim_object))
+        objects_rel_dx_dy_dz = self.observation.narrow(-1, start=self.observation.shape[-1] - 9, length=9).reshape(-1, 3, 3)
 
-        # # Concatenate object observation to g description
-        for i, pair in enumerate(combinations(obs_objects, 2)):
-            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :], pair[0], pair[1]], dim=1)
-
-        for i, pair in enumerate(permutations(obs_objects, 2)):
-            edge_inputs[:, i + 10, :] = torch.cat([self.g_desc[:, i + 10, :], pair[0], pair[1]], dim=1)
+        ids_goals = [np.array([0, 3, 5]), np.array([1, 4, 7]), np.array([2, 6, 8])]
+        ids_pair_objects = [np.array([0, 1]), np.array([0, 2]), np.array([1, 2])]
+        edge_inputs = torch.empty((self.g_desc.shape[0], 3, 9 + 2 * self.dim_object))
+        for i, (pair, ids) in enumerate(zip(ids_pair_objects, ids_goals)):
+            edge_inputs[:, i, :] = torch.cat([self.g_desc[:, ids, -2], self.g_desc[:, ids, -1],
+                                              obs_objects[pair[0]], obs_objects[pair[1]], objects_rel_dx_dy_dz[:, i, :]], dim=1)
 
         output_phi_encoder = self.edge_encoder(edge_inputs)
 
-        ids_edges = [np.array([0, 1, 2, 3, 14, 18, 22, 26]), np.array([0, 4, 5, 6, 10, 19, 23, 27]),
-                     np.array([1, 5, 7, 8, 11, 15, 24, 28]), np.array([2, 5, 7, 9, 12, 16, 20, 29]),
-                     np.array([3, 6, 8, 9, 13, 17, 21, 25])]
-
         if self.aggregation == 'sum':
-            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_pair_objects[i], :].sum(dim=1)], dim=1)
                                        for i, obj in enumerate(obs_objects)])
         else:
-            input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].max(dim=1).values], dim=1)
+            input_actor = torch.stack([torch.cat([obs_body, obj, torch.max(output_phi_encoder[:, ids_pair_objects[i], :], dim=1).values], dim=1)
                                        for i, obj in enumerate(obs_objects)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
+
+        # # Initialize context input
+        # edge_inputs = torch.empty((self.g_desc.shape[0], self.g_desc.shape[1], 4 + 2 * self.dim_object))
+
+        # # Concatenate object observation to g description
+        # for i, pair in enumerate(combinations(obs_objects, 2)):
+        #     edge_inputs[:, i, :] = torch.cat([self.g_desc[:, i, :], pair[0], pair[1]], dim=1)
+        #
+        # for i, pair in enumerate(permutations(obs_objects, 2)):
+        #     edge_inputs[:, i + 3, :] = torch.cat([self.g_desc[:, i + 3, :], pair[0], pair[1]], dim=1)
+        #
+        # output_phi_encoder = self.edge_encoder(edge_inputs)
+
+        # ids_edges = [np.array([0, 1, 2, 3, 14, 18, 22, 26]), np.array([0, 4, 5, 6, 10, 19, 23, 27]),
+        #              np.array([1, 5, 7, 8, 11, 15, 24, 28]), np.array([2, 5, 7, 9, 12, 16, 20, 29]),
+        #              np.array([3, 6, 8, 9, 13, 17, 21, 25])]
+        # ids_edges = [np.array([0, 1, 5, 7]), np.array([0, 2, 3, 8]), np.array([1, 2, 4, 6])]
+        #
+        # if self.aggregation == 'sum':
+        #     input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].sum(dim=1)], dim=1)
+        #                                for i, obj in enumerate(obs_objects)])
+        # else:
+        #     input_actor = torch.stack([torch.cat([obs_body, obj, output_phi_encoder[:, ids_edges[i], :].max(dim=1).values], dim=1)
+        #                                for i, obj in enumerate(obs_objects)])
+        #
+        # output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
 
         if not eval:
             self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
