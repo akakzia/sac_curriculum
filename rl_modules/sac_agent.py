@@ -92,7 +92,7 @@ class SACAgent:
             self.language = True
         else:
             self.language = False
-        self.her_module = her_sampler(self.args, self.continuous_goals, compute_rew)
+        self.her_module = her_sampler(self.args, compute_rew)
 
         # create the replay buffer
         self.buffer = MultiBuffer(env_params=self.env_params,
@@ -102,7 +102,7 @@ class SACAgent:
                                   goal_sampler=self.goal_sampler
                                   )
 
-    def act(self, obs, ag, g, no_noise):
+    def act(self, obs, ag, g, no_noise, language_goal=None):
         with torch.no_grad():
             # normalize policy inputs 
             obs_norm = self.o_norm.normalize(obs)
@@ -114,7 +114,7 @@ class SACAgent:
                 g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
             if self.architecture == 'deepsets':
                 obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
-                self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
+                self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise, language_goal=language_goal)
                 action = self.model.pi_tensor.numpy()[0]
 
             else:
@@ -174,6 +174,8 @@ class SACAgent:
                        'obs_next': np.expand_dims(mb_obs_next, 0),
                        'ag_next': np.expand_dims(mb_ag_next, 0),
                        }
+        if 'language_goal' in episode.keys():
+            buffer_temp['language_goal'] = np.array([episode['language_goal'] for _ in range(mb_g.shape[0])]).reshape(1, -1)
         transitions = self.her_module.sample_her_transitions(buffer_temp, num_transitions)
         obs, g = transitions['obs'], transitions['g']
         # pre process the obs and g
@@ -215,8 +217,10 @@ class SACAgent:
         obs_norm = self.o_norm.normalize(transitions['obs'])
         if self.language:
             g_norm = transitions['g']
+            language_goals = transitions['language_goal']
         else:
             g_norm = self.g_norm.normalize(transitions['g'])
+            language_goals = None
         ag_norm = self.g_norm.normalize(transitions['ag'])
         obs_next_norm = self.o_norm.normalize(transitions['obs_next'])
         ag_next_norm = self.g_norm.normalize(transitions['ag_next'])
@@ -231,7 +235,7 @@ class SACAgent:
             critic_1_loss, critic_2_loss, actor_loss, self.alpha, alpha_loss, alpha_tlogs = update_deepsets(self.model, self.language,
                                                                                self.policy_optim, self.critic_optim, self.alpha, self.log_alpha,
                                                                                self.target_entropy, self.alpha_optim, obs_norm, ag_norm, g_norm,
-                                                                               obs_next_norm, ag_next_norm, actions, rewards, self.args)
+                                                                               obs_next_norm, ag_next_norm, actions, rewards, language_goals, self.args)
         else:
             raise NotImplementedError
 

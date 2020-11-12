@@ -1,9 +1,9 @@
 import numpy as np
 from scipy.linalg import block_diag
-
+from language.build_dataset import sentence_from_configuration
 
 class her_sampler:
-    def __init__(self, args, continuous=False, reward_func=None):
+    def __init__(self, args, reward_func=None):
         self.replay_strategy = args.replay_strategy
         self.replay_k = args.replay_k
         if self.replay_strategy == 'future':
@@ -11,7 +11,8 @@ class her_sampler:
         else:
             self.future_p = 0
         self.reward_func = reward_func
-        self.continuous = continuous  # whether to use semantic configurations or continuous goals
+        self.continuous = args.algo == 'continuous'  # whether to use semantic configurations or continuous goals
+        self.language = args.algo == 'language'
         self.obj_inds = np.array([np.arange(i * 3, (i+1) * 3) for i in range(len(args.object_inds))])
 
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions):
@@ -32,24 +33,30 @@ class her_sampler:
 
         # replace goal with achieved goal
         future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
-        # transitions['g'][her_indexes] = future_ag
+        n_replay = her_indexes[0].size
         # to get the params to re-compute reward
 
         if self.continuous:
             # multi-criteria her
-            n_replay = her_indexes[0].size
             number_of_blocks_to_replay = np.random.choice([1, 2, 3], size=n_replay)
             for i in range(n_replay):
                 ids = np.random.choice([0, 1, 2], size=number_of_blocks_to_replay[i], replace=False)
                 obs_inds = np.concatenate(self.obj_inds[ids])
                 transitions['g'][her_indexes[0][i]][obs_inds] = future_ag[i][obs_inds]
             transitions['r'] = np.expand_dims(compute_reward(transitions['ag_next'], transitions['g'], None), 1)
-            return transitions
+        elif self.language:
+            for i in range(n_replay):
+                transitions['language_goal'][her_indexes[0][i]] = sentence_from_configuration(future_ag[i])
+            transitions['r'] = np.expand_dims(compute_reward_language(transitions['ag_next'], transitions['language_goal']), 1)
         else:
             transitions['g'][her_indexes] = future_ag
             transitions['r'] = np.expand_dims(np.array([self.reward_func(ag_next, g, None) for ag_next, g in zip(transitions['ag_next'],
                                                                                                                  transitions['g'])]), 1)
-            return transitions
+        return transitions
+
+def compute_reward_language(ags, lgs):
+    r = np.array([lg in sentence_from_configuration(ag, all=True) for ag, lg in zip(ags, lgs)]).astype(np.float32)
+    return r
 
 def compute_reward(ag, g, info):
     dists = []

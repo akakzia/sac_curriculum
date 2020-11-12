@@ -80,7 +80,7 @@ def update_flat(actor_network, critic_network, critic_target_network, policy_opt
 
 
 def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alpha, target_entropy, alpha_optim, obs_norm, ag_norm, g_norm,
-                    obs_next_norm, ag_next_norm, actions, rewards, args):
+                    obs_next_norm, ag_next_norm, actions, rewards, language_goals, args):
     # Tensorize
     obs_norm_tensor = torch.tensor(obs_norm, dtype=torch.float32)
     obs_next_norm_tensor = torch.tensor(obs_next_norm, dtype=torch.float32)
@@ -103,14 +103,14 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
         r_tensor = r_tensor.cuda()
 
     with torch.no_grad():
-        model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor)
+        model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor, language_goals=language_goals)
         actions_next, log_pi_next = model.pi_tensor, model.log_prob
         qf1_next_target, qf2_next_target = model.target_q1_pi_tensor, model.target_q2_pi_tensor
         min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * log_pi_next
         next_q_value = r_tensor + args.gamma * min_qf_next_target
 
     # the q loss
-    qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, actions=actions_tensor)
+    qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, actions=actions_tensor, language_goals=language_goals)
     qf1_loss = F.mse_loss(qf1, next_q_value)
     qf2_loss = F.mse_loss(qf2, next_q_value)
 

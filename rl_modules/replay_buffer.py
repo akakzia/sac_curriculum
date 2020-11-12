@@ -26,6 +26,7 @@ class MultiBuffer:
                        'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
                        'g': np.empty([self.size, self.T, self.env_params['goal']]),
                        'actions': np.empty([self.size, self.T, self.env_params['action']]),
+                       'language_goal': [None for _ in range(self.size)]
                        }
         self.goal_ids = np.zeros([self.size])  # contains id of achieved goal (discovery rank)
         self.goal_ids.fill(np.nan)
@@ -46,6 +47,8 @@ class MultiBuffer:
                 self.buffer['g'][idxs[i]] = e['g']
                 self.buffer['actions'][idxs[i]] = e['act']
                 self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
+                if 'language_goal' in e.keys():
+                    self.buffer['language_goal'][idxs[i]] = e['language_goal']
 
     # sample the data from the replay buffer
     def sample(self, batch_size):
@@ -69,10 +72,15 @@ class MultiBuffer:
                         buffer_ids.append(np.random.choice(buffer_ids_g))
                 buffer_ids = np.array(buffer_ids)
                 for key in self.buffer.keys():
-                    temp_buffers[key] = self.buffer[key][buffer_ids]
+                    if key == 'language_goal':
+                        temp_buffers[key] = np.array([np.array(self.buffer[key])[buffer_ids] for _ in range(self.T)])
+                    else:
+                        temp_buffers[key] = self.buffer[key][buffer_ids]
         temp_buffers['obs_next'] = temp_buffers['obs'][:, 1:, :]
         temp_buffers['ag_next'] = temp_buffers['ag'][:, 1:, :]
 
+        if 'language_goal' in temp_buffers.keys():
+            temp_buffers['language_goal'] = temp_buffers['language_goal'].T
         # sample transitions
         transitions = self.sample_func(temp_buffers, batch_size)
         return transitions

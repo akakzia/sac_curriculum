@@ -1,5 +1,5 @@
 import numpy as np
-
+from language.build_dataset import sentence_from_configuration
 
 class RolloutWorker:
     def __init__(self, env, policy, goal_sampler, args):
@@ -9,6 +9,7 @@ class RolloutWorker:
         self.env_params = args.env_params
         self.biased_init = args.biased_init
         self.goal_sampler = goal_sampler
+        self.args = args
 
     def generate_rollout(self, goals, self_eval, true_eval, biased_init=False, animated=False):
 
@@ -30,7 +31,13 @@ class RolloutWorker:
 
                 # Run policy for one step
                 no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
-                action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
+                if self.args.algo == 'language':
+                    # in the language condition, we need to sample a language goal
+                    # here we sampled a configuration goal like in DECSTR, so we just use a language goal describing one of the predicates
+                    language_goal = sentence_from_configuration(g)
+                    action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal)
+                else:
+                    action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
 
                 # Feed the actions into the environment
                 if animated:
@@ -67,6 +74,10 @@ class RolloutWorker:
                            g_binary=np.array(ep_g_bin).copy(),
                            ag_binary=np.array(ep_ag_bin).copy(),
                            self_eval=self_eval)
+
+            if self.args.algo == 'language':
+                episode['language_goal'] = language_goal
+
             episodes.append(episode)
 
         return episodes

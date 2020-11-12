@@ -5,7 +5,7 @@ from torch.distributions import Normal
 from itertools import permutations
 import numpy as np
 from language.utils import OneHotEncoder, analyze_inst, Vocab
-from utils import get_instruction
+from utils import get_instruction, get_instruction2
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
@@ -140,14 +140,12 @@ class DeepSetSAC:
 
         if args.algo == 'language':
             self.language = True
-            self.instruction_dict, self.g_str_to_inst = get_instruction()
-            sentences = list(self.instruction_dict.values())
+            self.instructions = get_instruction2()
 
-            set_sentences = set(sentences)
-            split_instructions, max_seq_length, word_set = analyze_inst(set_sentences)
+            split_instructions, max_seq_length, word_set = analyze_inst(self.instructions)
             vocab = Vocab(word_set)
             self.one_hot_encoder = OneHotEncoder(vocab, max_seq_length)
-            self.one_hot_language = dict(zip(self.g_str_to_inst.keys(), [self.one_hot_encoder.encode(s) for s in split_instructions]))
+            self.one_hot_language = dict(zip(self.instructions, [self.one_hot_encoder.encode(s) for s in split_instructions]))
 
             self.policy_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
                                                   hidden_size=100,
@@ -162,6 +160,31 @@ class DeepSetSAC:
                                                   nonlinearity='tanh',
                                                   bias=True,
                                                   batch_first=True)
+
+            # OLD language model
+            # self.language = True
+            # self.instruction_dict, self.g_str_to_inst = get_instruction()
+            # sentences = list(self.instruction_dict.values())
+            #
+            # set_sentences = set(sentences)
+            # split_instructions, max_seq_length, word_set = analyze_inst(set_sentences)
+            # vocab = Vocab(word_set)
+            # self.one_hot_encoder = OneHotEncoder(vocab, max_seq_length)
+            # self.one_hot_language = dict(zip(self.g_str_to_inst.keys(), [self.one_hot_encoder.encode(s) for s in split_instructions]))
+            #
+            # self.policy_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
+            #                                       hidden_size=100,
+            #                                       num_layers=1,
+            #                                       nonlinearity='tanh',
+            #                                       bias=True,
+            #                                       batch_first=True)
+            #
+            # self.critic_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
+            #                                       hidden_size=100,
+            #                                       num_layers=1,
+            #                                       nonlinearity='tanh',
+            #                                       bias=True,
+            #                                       batch_first=True)
         else:
             self.language = False
 
@@ -209,13 +232,15 @@ class DeepSetSAC:
         self.single_phi_target_critic = SinglePhiCritic(dim_phi_critic_input, 256, dim_phi_critic_output)
         self.rho_target_critic = RhoCritic(dim_rho_critic_input, dim_rho_critic_output)
 
-    def policy_forward_pass(self, obs, ag, g, no_noise=False):
+    def policy_forward_pass(self, obs, ag, g, no_noise=False, language_goal=None):
         self.observation = obs
         self.ag = ag
         self.g = g
 
         if self.language:
-            encodings = np.array(self.one_hot_language[str(g)])
+            encodings = self.one_hot_language[language_goal]
+            # old
+            # encodings = np.array(self.one_hot_language[str(g)])
             encodings = torch.tensor(encodings, dtype=torch.float32).unsqueeze(0)
             goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
 
@@ -257,14 +282,16 @@ class DeepSetSAC:
         else:
             _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
 
-    def forward_pass(self, obs, ag, g, eval=False, actions=None):
+    def forward_pass(self, obs, ag, g, eval=False, actions=None, language_goals=None):
         batch_size = obs.shape[0]
         self.observation = obs
         self.ag = ag
         self.g = g
 
         if self.language:
-            encodings = np.array([self.one_hot_language[str(sg)] for sg in g])
+            encodings = np.array([self.one_hot_language[lg] for lg in language_goals])
+            # old
+            # encodings = np.array([self.one_hot_language[str(sg)] for sg in g])
             encodings = torch.tensor(encodings, dtype=torch.float32)
             goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
         obs_body = self.observation[:, :self.dim_body]

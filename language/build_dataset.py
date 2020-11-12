@@ -2,7 +2,100 @@ from language.get_data import get_data
 import numpy as np
 import env
 import gym
-from utils import generate_goals, generate_all_goals_in_goal_space
+from language.sentence_vae.utils import generate_goals, generate_all_goals_in_goal_space
+
+
+def sentence_from_configuration(config, all=False, balanced_sampling=True):
+
+
+    predicates = ['close_0_1',
+                  'close_0_2',
+                  'close_1_2',
+                  'above_0_1',
+                  'above_1_0',
+                  'above_0_2',
+                  'above_2_0',
+                  'above_1_2',
+                  'above_2_1']
+    colors = {'0':'red', '1':'green', '2':'blue'}
+
+    sentences = []
+    positive_close_sentences = []
+    negative_close_sentences = []
+    positive_above_sentences = []
+    negative_above_sentences = []
+    for i in range(len(predicates)):
+        p = predicates[i]
+        words = p.split('_')
+        for j in range(len(words)):
+            try:
+                words[j] = colors[words[j]]
+            except:
+                pass
+        positive = config[i] == 1
+        if words[0] == 'close':
+            if positive:
+                new_sentences = []
+                new_sentences.append('Put {} close_to {}'.format(words[1], words[2]))
+                new_sentences.append('Get {} close_to {}'.format(words[1], words[2]))
+                new_sentences.append('Put {} close_to {}'.format(words[2], words[1]))
+                new_sentences.append('Get {} close_to {}'.format(words[2], words[1]))
+                new_sentences.append('Get {} and {} close_from each_other'.format(words[1], words[2]))
+                new_sentences.append('Get {} and {} close_from each_other'.format(words[2], words[1]))
+                new_sentences.append('Bring {} and {} together'.format(words[1], words[2]))
+                new_sentences.append('Bring {} and {} together'.format(words[2], words[1]))
+                new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
+                positive_close_sentences += new_sentences
+                sentences += new_sentences
+            else:
+                new_sentences = []
+                new_sentences.append('Put {} far_from {}'.format(words[1], words[2]))
+                new_sentences.append('Get {} far_from {}'.format(words[1], words[2]))
+                new_sentences.append('Put {} far_from {}'.format(words[2], words[1]))
+                new_sentences.append('Get {} far_from {}'.format(words[2], words[1]))
+                new_sentences.append('Get {} and {} far_from each_other'.format(words[1], words[2]))
+                new_sentences.append('Get {} and {} far_from each_other'.format(words[2], words[1]))
+                new_sentences.append('Bring {} and {} apart'.format(words[1], words[2]))
+                new_sentences.append('Bring {} and {} apart'.format(words[2], words[1]))
+                new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
+                negative_close_sentences += new_sentences
+                sentences += new_sentences
+        elif words[0] == 'above':
+            if positive:
+                new_sentences = []
+                new_sentences.append('Put {} above {}'.format(words[1], words[2]))
+                new_sentences.append('Put {} on_top_of {}'.format(words[1], words[2]))
+                new_sentences.append('Put {} under {}'.format(words[2], words[1]))
+                new_sentences.append('Put {} below {}'.format(words[2], words[1]))
+                new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
+                positive_above_sentences += new_sentences
+                sentences += new_sentences
+            else:
+                new_sentences = []
+                new_sentences.append('Remove {} from {}'.format(words[1], words[2]))
+                new_sentences.append('Remove {} from_above {}'.format(words[1], words[2]))
+                new_sentences.append('Remove {} from_under {}'.format(words[2], words[1]))
+                new_sentences.append('Remove {} from_below {}'.format(words[2], words[1]))
+                new_sentences.append('Put {} and {} on_the_same_plane'.format(words[1], words[2]))
+                new_sentences.append('Put {} and {} on_the_same_plane'.format(words[2], words[1]))
+                new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
+                negative_above_sentences += new_sentences
+                sentences += new_sentences
+        else:
+            raise NotImplementedError
+
+    if all:
+        return sentences
+
+    elif balanced_sampling:
+        sentences_sets = [positive_close_sentences, negative_close_sentences, positive_above_sentences, negative_above_sentences]
+        indices = [i for i in range(4) if len(sentences_sets[i])>0]
+        ind = np.random.choice(indices)
+        return np.random.choice(sentences_sets[ind])
+
+    else:
+        return np.random.choice(sentences)
+
 
 def label_transitions(transitions, predicates, colors, n='all'):
     data_configs, data_sentences = [], []
