@@ -166,7 +166,7 @@ if __name__ == '__main__':
     dict_goals = dict(zip([str(g) for g in all_goals], all_goals))
 
     policy_scores = []
-    for vae_id in range(9,10):
+    for vae_id in range(10):
         model_path = path + '/policy_models/model{}.pt'.format(vae_id + 1)
 
         # create the sac agent to interact with the environment

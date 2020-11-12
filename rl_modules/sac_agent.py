@@ -92,7 +92,7 @@ class SACAgent:
             self.language = True
         else:
             self.language = False
-        self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.continuous_goals, compute_rew)
+        self.her_module = her_sampler(self.args, self.continuous_goals, compute_rew)
 
         # create the replay buffer
         self.buffer = MultiBuffer(env_params=self.env_params,

@@ -31,6 +31,7 @@ def launch(args):
 
     # Make the environment
     env = gym.make(args.env_name)
+    args.object_inds = env.unwrapped.object_inds
 
     # set random seeds for reproducibility
     env.seed(args.seed + MPI.COMM_WORLD.Get_rank())
