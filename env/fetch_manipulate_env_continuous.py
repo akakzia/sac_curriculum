@@ -79,6 +79,8 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         self.location_record_steps_recorded = 0
         self.location_record_max_steps = 2000
 
+        self.object_inds = [list(range(10 + i * 15, 10 + (i + 1) * 15)) for i in range(self.num_blocks)]
+
         buckets = generate_goals()
         valid_goals = []
         for k in buckets.keys():
