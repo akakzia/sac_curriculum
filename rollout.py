@@ -34,7 +34,7 @@ class RolloutWorker:
                 if self.args.algo == 'language':
                     # in the language condition, we need to sample a language goal
                     # here we sampled a configuration goal like in DECSTR, so we just use a language goal describing one of the predicates
-                    language_goal = sentence_from_configuration(g)
+                    language_goal = sentence_from_configuration(g, eval=true_eval)
                     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal)
                 else:
                     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)

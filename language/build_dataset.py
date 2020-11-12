@@ -5,7 +5,7 @@ import gym
 from language.sentence_vae.utils import generate_goals, generate_all_goals_in_goal_space
 
 
-def sentence_from_configuration(config, all=False, balanced_sampling=True):
+def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=False):
 
 
     predicates = ['close_0_1',
@@ -83,6 +83,9 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True):
                 sentences += new_sentences
         else:
             raise NotImplementedError
+
+    if eval and len(positive_above_sentences) > 0:
+        return np.random.choice(positive_above_sentences)
 
     if all:
         return sentences
