@@ -38,11 +38,24 @@ class her_sampler:
 
         if self.continuous:
             # multi-criteria her
-            number_of_blocks_to_replay = np.random.choice([1, 2, 3], size=n_replay)
-            for i in range(n_replay):
-                ids = np.random.choice([0, 1, 2], size=number_of_blocks_to_replay[i], replace=False)
-                obs_inds = np.concatenate(self.obj_inds[ids])
-                transitions['g'][her_indexes[0][i]][obs_inds] = future_ag[i][obs_inds]
+            # number_of_blocks_to_replay = np.random.choice([1, 2, 3], size=n_replay)
+            # for i in range(n_replay):
+            #     ids = np.random.choice([0, 1, 2], size=number_of_blocks_to_replay[i], replace=False)
+            #     obs_inds = np.concatenate(self.obj_inds[ids])
+            #     transitions['g'][her_indexes[0][i]][obs_inds] = future_ag[i][obs_inds]
+            # transitions['r'] = np.expand_dims(compute_reward(transitions['ag_next'], transitions['g'], None), 1)
+
+            # V2 MC HER
+            for sub_goal in self.obj_inds:
+                her_indexes = np.where(np.random.uniform(size=batch_size) < self.future_p)
+                future_offset = np.random.uniform(size=batch_size) * (T - t_samples)
+                future_offset = future_offset.astype(int)
+                future_t = (t_samples + 1 + future_offset)[her_indexes]
+                # Replace
+                future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
+                transition_goals = transitions['g'][her_indexes]
+                transition_goals[:, sub_goal] = future_ag[:, sub_goal]
+                transitions['g'][her_indexes] = transition_goals
             transitions['r'] = np.expand_dims(compute_reward(transitions['ag_next'], transitions['g'], None), 1)
         elif self.language:
             for i in range(n_replay):
