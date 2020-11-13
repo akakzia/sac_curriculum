@@ -276,6 +276,7 @@ class GoalSampler:
         for i in range(self.valid_goals.shape[0]):
             self.stats['{}_in_bucket'.format(i)] = []  # track the bucket allocation of each valid goal
             self.stats['Eval_SR_{}'.format(i)] = []  # track the offline success rate of each valid goal
+            self.stats['Av_Rew_{}'.format(i)] = []  # track the offline average reward of each valid goal
             self.stats['#Rew_{}'.format(i)] = []  # track the number of rewards obtained by each valid goal (last_ag = g)
             self.stats['#Target_{}'.format(i)] = []  # track the number of times each goal was used as a target.
 
@@ -293,7 +294,7 @@ class GoalSampler:
         for k in keys:
             self.stats['t_{}'.format(k)] = []
 
-    def save(self, epoch, episode_count, av_res, global_sr, time_dict):
+    def save(self, epoch, episode_count, av_res, av_rew, global_sr, time_dict):
         self.stats['epoch'].append(epoch)
         self.stats['episodes'].append(episode_count)
         self.stats['global_sr'].append(global_sr)
@@ -317,6 +318,7 @@ class GoalSampler:
                 else:
                     self.stats['{}_in_bucket'.format(g_id)].append(0)
             self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
+            self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id])
             self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
             self.stats['#Target_{}'.format(g_id)].append(self.target_counters[oracle_id])
 

@@ -20,5 +20,5 @@ register(id='FetchManipulate3Objects-v0',
 
 register(id='FetchManipulate3ObjectsContinuous-v0',
          entry_point='env.envs:FetchManipulateEnvContinuous',
-         kwargs=kwargs,
+         kwargs={'reward_type': 'incremental'},
          max_episode_steps=100,)

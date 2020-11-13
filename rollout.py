@@ -24,7 +24,7 @@ class RolloutWorker:
             g = observation['desired_goal']
             g_bin = observation['desired_goal_binary']
 
-            ep_obs, ep_ag, ep_ag_bin, ep_g, ep_g_bin, ep_actions, ep_success = [], [], [], [], [], [], []
+            ep_obs, ep_ag, ep_ag_bin, ep_g, ep_g_bin, ep_actions, ep_success, ep_rewards = [], [], [], [], [], [], [], []
 
             # Start to collect samples
             for t in range(self.env_params['max_timesteps']):
@@ -43,7 +43,7 @@ class RolloutWorker:
                 if animated:
                     self.env.render()
 
-                observation_new, _, _, info = self.env.step(action)
+                observation_new, r, _, info = self.env.step(action)
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
                 ag_new_bin = observation['achieved_goal_binary']
@@ -56,6 +56,7 @@ class RolloutWorker:
                 ep_g.append(g.copy())
                 ep_g_bin.append(g_bin.copy())
                 ep_actions.append(action.copy())
+                ep_rewards.append(r)
 
                 # Re-assign the observation
                 obs = obs_new
@@ -73,6 +74,7 @@ class RolloutWorker:
                            ag=np.array(ep_ag).copy(),
                            g_binary=np.array(ep_g_bin).copy(),
                            ag_binary=np.array(ep_ag_bin).copy(),
+                           rewards=np.array(ep_rewards).copy(),
                            self_eval=self_eval)
 
             if self.args.algo == 'language':
