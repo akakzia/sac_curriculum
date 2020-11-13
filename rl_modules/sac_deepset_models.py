@@ -126,6 +126,7 @@ class DeepSetSAC:
         self.dim_act = env_params['action']
         self.num_blocks = 3
         self.n_permutations = len([x for x in permutations(range(self.num_blocks), 2)])
+        self.continuous_trick = False
 
         if args.algo == 'continuous' or args.algo == 'language':
             self.symmetry_trick = False
@@ -137,6 +138,10 @@ class DeepSetSAC:
             self.first_inds = np.array([0, 1, 2, 3, 5, 7])
             self.second_inds = np.array([0, 1, 2, 4, 6, 8])
             self.dim_goal = 6
+
+        if args.algo == 'continuous':
+            self.continuous_trick = True
+            self.obj_ids = [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
 
         if args.algo == 'language':
             self.language = True
@@ -208,15 +213,20 @@ class DeepSetSAC:
                 dim_input_goals = self.dim_goal
 
         dim_input_objects = 2 * (self.num_blocks + self.dim_object)
-
-        dim_phi_actor_input = dim_input_goals + self.dim_body + dim_input_objects
+        if self.continuous_trick:
+            dim_phi_actor_input = 2*6 + self.dim_body + dim_input_objects
+        else:
+            dim_phi_actor_input = dim_input_goals + self.dim_body + dim_input_objects
 
         dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object))
 
         dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
 
-        dim_phi_critic_input = dim_input_goals + self.dim_body + dim_input_objects + self.dim_act
+        if self.continuous_trick:
+            dim_phi_critic_input = 6*2 + self.dim_body + dim_input_objects + self.dim_act
+        else:
+            dim_phi_critic_input = dim_input_goals + self.dim_body + dim_input_objects + self.dim_act
 
         dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act)
 
@@ -269,10 +279,21 @@ class DeepSetSAC:
 
             # Parallelization by stacking input tensors
 
-            if not self.include_ag:
-                input_actor = torch.stack([torch.cat([body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
+            if self.continuous_trick:
+                all_inputs = []
+                for i in range(self.num_blocks):
+                    for j in range(self.num_blocks):
+                        if i != j:
+                            all_inputs.append(
+                                torch.cat([ag[:, self.obj_ids[i]], ag[:, self.obj_ids[j]], obs_body, self.g[:, self.obj_ids[i]],
+                                           self.g[:, self.obj_ids[j]], obs_objects[i], obs_objects[j]], dim=1))
+
+                input_actor = torch.stack(all_inputs)
             else:
-                input_actor = torch.stack([torch.cat([ag, body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
+                if not self.include_ag:
+                    input_actor = torch.stack([torch.cat([body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
+                else:
+                    input_actor = torch.stack([torch.cat([ag, body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
 
         self.save_values = self.single_phi_actor(input_actor).numpy()[:, 0, :]
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
@@ -318,10 +339,21 @@ class DeepSetSAC:
             obj_input = [obs_objects[i] for i in range(self.num_blocks)]
 
             # Parallelization by stacking input tensors
-            if not self.include_ag:
-                input_actor = torch.stack([torch.cat([body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
+            if self.continuous_trick:
+                all_inputs = []
+                for i in range(self.num_blocks):
+                    for j in range(self.num_blocks):
+                        if i != j:
+                            all_inputs.append(
+                                torch.cat([ag[:, self.obj_ids[i]], ag[:, self.obj_ids[j]], obs_body, self.g[:, self.obj_ids[i]],
+                                           self.g[:, self.obj_ids[j]], obs_objects[i], obs_objects[j]], dim=1))
+
+                input_actor = torch.stack(all_inputs)
             else:
-                input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])            #input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in combinations(obj_input, 2)])
+                if not self.include_ag:
+                    input_actor = torch.stack([torch.cat([body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
+                else:
+                    input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])            #input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in combinations(obj_input, 2)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
         if not eval:
