@@ -62,4 +62,4 @@ def compute_reward(ag, g, info):
     dists = []
     for i in range(3):
         dists.append(np.linalg.norm(g[:, i * 3: (i+1) * 3] - ag[:, i * 3: (i+1) * 3], axis=1))
-    return (np.array(dists) < 0.05).sum(axis=0).astype(np.float32)
+    return (np.array(dists) < 0.09).sum(axis=0).astype(np.float32)
