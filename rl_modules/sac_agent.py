@@ -122,7 +122,7 @@ class SACAgent:
                 action = self.model.pi_tensor.numpy()[0]
 
             else:
-                input_tensor = self._preproc_inputs(obs, g)
+                input_tensor = self._preproc_inputs(obs, ag, g)
                 action = self._select_actions(input_tensor, no_noise=no_noise)
 
         return action.copy()
@@ -131,11 +131,12 @@ class SACAgent:
         self.buffer.store_episode(episode_batch=episodes)
 
     # pre_process the inputs
-    def _preproc_inputs(self, obs, g):
+    def _preproc_inputs(self, obs, ag, g):
         obs_norm = self.o_norm.normalize(obs)
+        ag_norm = self.g_norm.normalize(ag)
         g_norm = self.g_norm.normalize(g)
         # concatenate the stuffs
-        inputs = np.concatenate([obs_norm, g_norm])
+        inputs = np.concatenate([obs_norm, ag_norm, g_norm])
         inputs = torch.tensor(inputs, dtype=torch.float32).unsqueeze(0)
         if self.args.cuda:
             inputs = inputs.cuda()
@@ -147,12 +148,12 @@ class SACAgent:
         self._update_network()
 
         # soft update
-        if self.architecture == 'deepsets':
-            if self.total_iter % self.freq_target_update == 0:
+        if self.total_iter % self.freq_target_update == 0:
+            if self.architecture == 'deepsets':
                 self._soft_update_target_network(self.model.single_phi_target_critic, self.model.single_phi_critic)
                 self._soft_update_target_network(self.model.rho_target_critic, self.model.rho_critic)
-        else:
-            self._soft_update_target_network(self.critic_target_network, self.critic_network)
+            else:
+                self._soft_update_target_network(self.critic_target_network, self.critic_network)
 
     def _select_actions(self, state, no_noise=False):
         if not no_noise:
@@ -236,7 +237,7 @@ class SACAgent:
             critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_flat(self.actor_network, self.critic_network,
                                                                            self.critic_target_network, self.policy_optim, self.critic_optim,
                                                                            self.alpha, self.log_alpha, self.target_entropy, self.alpha_optim,
-                                                                           obs_norm, g_norm, obs_next_norm, actions, rewards, self.args)
+                                                                           obs_norm, ag_norm, g_norm, obs_next_norm, actions, rewards, self.args)
         elif self.architecture == 'deepsets':
             critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_deepsets(self.model, self.language,
                                                                                self.policy_optim, self.critic_optim, self.alpha, self.log_alpha,
