@@ -20,7 +20,7 @@ def get_args():
     parser.add_argument('--n-batches', type=int, default=40, help='the times to update the network')
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
     parser.add_argument('--automatic-buckets', type=bool, default=False, help='automatically generate buckets during training')
-    parser.add_argument('--num-buckets', type=int, default=2, help='number of buckets for automatic generation')
+    parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
 
     parser.add_argument('--symmetry-trick', type=bool, default=False, help='experimental stuff from Cédric')
     parser.add_argument('--combinations-trick', type=bool, default=False, help='test')

@@ -76,6 +76,9 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
             model_path=model_path, n_substeps=n_substeps, n_actions=4,
             initial_qpos=initial_qpos)
 
+        self.min_max_x = (self.initial_gripper_xpos[0] - self.obj_range, self.initial_gripper_xpos[0] + self.obj_range)
+        self.min_max_y = (self.initial_gripper_xpos[1] - self.obj_range, self.initial_gripper_xpos[1] + self.obj_range)
+
     # Heatmap Generation
     # ----------------------------
 
