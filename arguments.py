@@ -45,7 +45,7 @@ def get_args():
     parser.add_argument('--buffer-size', type=int, default=int(1e6), help='the size of the buffer')
     parser.add_argument('--replay-k', type=int, default=4, help='ratio to be replace')
     parser.add_argument('--clip-obs', type=float, default=5, help='the clip ratio')
-    parser.add_argument('--batch-size', type=int, default=1024, help='the sample batch size')
+    parser.add_argument('--batch-size', type=int, default=256, help='the sample batch size')
     parser.add_argument('--gamma', type=float, default=0.98, help='the discount factor')
     parser.add_argument('--alpha', type=float, default=0.2, help='entropy coefficient')
     parser.add_argument('--automatic_entropy_tuning', type=bool, default=True, help='Tune entropy')
