@@ -4,6 +4,8 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 from itertools import permutations, combinations
 import numpy as np
+from language.utils import OneHotEncoder, analyze_inst, Vocab
+from utils import get_instruction, get_instruction2
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
@@ -52,7 +54,6 @@ class RhoActor(nn.Module):
 
     def forward(self, x):
         x = F.relu(self.linear1(x))
-
         mean = self.mean_linear(x)
         log_std = self.log_std_linear(x)
         log_std = torch.clamp(log_std, min=LOG_SIG_MIN, max=LOG_SIG_MAX)
@@ -120,8 +121,6 @@ class DeepSetSAC:
         self.observation = None
         self.ag = None
         self.g = None
-        self.anchor_ag = None
-        self.anchor_g = None
         self.dim_body = 10
         self.dim_object = 15
         self.dim_goal = env_params['goal']
@@ -133,7 +132,19 @@ class DeepSetSAC:
         else:
             self.n_permutations = len([x for x in permutations(range(self.num_blocks), 2)])
 
-        self.symmetry_trick = args.symmetry_trick
+
+
+        if args.algo == 'continuous' or args.algo == 'language':
+            self.symmetry_trick = False
+            self.include_ag = False
+            self.continuous_trick = args.continuous_trick
+            if self.continuous_trick:
+                self.obj_ids = [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
+            self.combinations_trick = False
+        else:
+            self.include_ag = True
+            self.continuous_trick = False
+            self.symmetry_trick = args.symmetry_trick
         if args.symmetry_trick:
             self.first_inds = np.array([0, 1, 2, 3, 5, 7])
             self.second_inds = np.array([0, 1, 2, 4, 6, 8])
@@ -141,6 +152,57 @@ class DeepSetSAC:
         elif self.combinations_trick:
             self.dim_goal = 2
 
+        if args.algo == 'language':
+            self.language = True
+            self.instructions = get_instruction2()
+
+            split_instructions, max_seq_length, word_set = analyze_inst(self.instructions)
+            vocab = Vocab(word_set)
+            self.one_hot_encoder = OneHotEncoder(vocab, max_seq_length)
+            self.one_hot_language = dict(zip(self.instructions, [self.one_hot_encoder.encode(s) for s in split_instructions]))
+
+            self.policy_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
+                                                  hidden_size=100,
+                                                  num_layers=1,
+                                                  nonlinearity='tanh',
+                                                  bias=True,
+                                                  batch_first=True)
+
+            self.critic_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
+                                                  hidden_size=100,
+                                                  num_layers=1,
+                                                  nonlinearity='tanh',
+                                                  bias=True,
+                                                  batch_first=True)
+
+            # OLD language model
+            # self.language = True
+            # self.instruction_dict, self.g_str_to_inst = get_instruction()
+            # sentences = list(self.instruction_dict.values())
+            #
+            # set_sentences = set(sentences)
+            # split_instructions, max_seq_length, word_set = analyze_inst(set_sentences)
+            # vocab = Vocab(word_set)
+            # self.one_hot_encoder = OneHotEncoder(vocab, max_seq_length)
+            # self.one_hot_language = dict(zip(self.g_str_to_inst.keys(), [self.one_hot_encoder.encode(s) for s in split_instructions]))
+            #
+            # self.policy_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
+            #                                       hidden_size=100,
+            #                                       num_layers=1,
+            #                                       nonlinearity='tanh',
+            #                                       bias=True,
+            #                                       batch_first=True)
+            #
+            # self.critic_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
+            #                                       hidden_size=100,
+            #                                       num_layers=1,
+            #                                       nonlinearity='tanh',
+            #                                       bias=True,
+            #                                       batch_first=True)
+        else:
+            self.language = False
+
+        # double_critic_attention = double_critic_attention
         self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
 
         self.q1_pi_tensor = None
@@ -150,20 +212,30 @@ class DeepSetSAC:
         self.pi_tensor = None
         self.log_prob = None
 
-        # Define dimensions according to parameters use_attention
-        # if attention not used, then concatenate [g, ag] in input ==> dimension = 2 * dim_goal
-        dim_input_goals = 2 * self.dim_goal
+        # Define dimensions
+        if self.language:
+            dim_input_goals = 100
+        else:
+            if self.include_ag:
+                dim_input_goals = 2 * self.dim_goal
+            else:
+                dim_input_goals = self.dim_goal
 
-        dim_input_objects = 2 * (self.num_blocks + self.dim_object)
-
-        dim_phi_actor_input = dim_input_goals + self.dim_body + dim_input_objects
+        dim_input_objects = 2 * self.dim_object
+        if self.continuous_trick:
+            dim_phi_actor_input = 2*6 + self.dim_body + dim_input_objects
+        else:
+            dim_phi_actor_input = dim_input_goals + self.dim_body + dim_input_objects
 
         dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object))
 
         dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
 
-        dim_phi_critic_input = dim_input_goals + self.dim_body + dim_input_objects + self.dim_act
+        if self.continuous_trick:
+            dim_phi_critic_input = 6*2 + self.dim_body + dim_input_objects + self.dim_act
+        else:
+            dim_phi_critic_input = dim_input_goals + self.dim_body + dim_input_objects + self.dim_act
 
         dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act)
 
@@ -179,143 +251,20 @@ class DeepSetSAC:
         self.single_phi_target_critic = SinglePhiCritic(dim_phi_critic_input, 256, dim_phi_critic_output)
         self.rho_target_critic = RhoCritic(dim_rho_critic_input, dim_rho_critic_output)
 
-    def policy_forward_pass(self, obs, ag, g, anchor_ag=None, anchor_g=None, no_noise=False):
-        batch_size = obs.shape[0]
+    def policy_forward_pass(self, obs, ag, g, no_noise=False, language_goal=None):
         self.observation = obs
         self.ag = ag
         self.g = g
 
-        self.anchor_ag = anchor_ag
-        self.anchor_g = anchor_g
+        if self.language:
+            encodings = self.one_hot_language[language_goal]
+            # old
+            # encodings = np.array(self.one_hot_language[str(g)])
+            encodings = torch.tensor(encodings, dtype=torch.float32).unsqueeze(0)
+            goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
 
         obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
-        obs_objects = [torch.cat((torch.cat(obs_body.shape[0] * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
-                                  self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)),
-                                 dim=-1) for i in range(self.num_blocks)]
-
-        if self.symmetry_trick:
-            all_inputs = []
-            for i in range(self.num_blocks):
-                for j in range(self.num_blocks):
-                    if i < j:
-                        all_inputs.append(torch.cat([ag[:, self.first_inds], obs_body, self.g[:, self.first_inds], obs_objects[i], obs_objects[j]], dim=1))
-                        # print('First', i, j)
-                    elif j < i:
-                        all_inputs.append(torch.cat([ag[:, self.second_inds], obs_body, self.g[:, self.second_inds], obs_objects[i], obs_objects[j]], dim=1))
-                        # print('Second', i, j)
-
-            input_actor = torch.stack(all_inputs)
-
-        elif self.combinations_trick:
-            # Prepare lists
-            idxs_1_2 = []
-            idxs_1_3 = []
-            idxs_2_3 = []
-            idxs_objects_1_2 = []
-            idxs_objects_1_3 = []
-            idxs_objects_2_3 = []
-
-            # Get indexes of atomic goals and corresponding object tuple
-            for g_, ag_ in zip(self.anchor_g, self.anchor_ag):
-                if g_[3] == g_[5] or g_[3] == 1.:
-                    idxs_1_2.append(np.array([0, 3]))
-                    idxs_objects_1_2.append([0, 1])
-                else:
-                    idxs_1_2.append(np.array([0, 5]))
-                    idxs_objects_1_2.append([1, 0])
-
-                if g_[4] == g_[7] or g_[4] == 1.:
-                    idxs_1_3.append(np.array([1, 4]))
-                    idxs_objects_1_3.append([0, 2])
-                else:
-                    idxs_1_3.append(np.array([1, 7]))
-                    idxs_objects_1_3.append([2, 0])
-
-                if g_[6] == g_[8] or g_[6] == 1.:
-                    idxs_2_3.append(np.array([2, 6]))
-                    idxs_objects_2_3.append([1, 2])
-                else:
-                    idxs_2_3.append(np.array([2, 8]))
-                    idxs_objects_2_3.append([2, 1])
-
-            idxs_1_2 = torch.tensor(idxs_1_2).long()
-            idxs_1_3 = torch.tensor(idxs_1_3).long()
-            idxs_2_3 = torch.tensor(idxs_2_3).long()
-
-            # Gather 2 bits achieved goal
-            ag_1_2 = self.ag.gather(1, idxs_1_2)
-            ag_1_3 = self.ag.gather(1, idxs_1_3)
-            ag_2_3 = self.ag.gather(1, idxs_2_3)
-
-            # Gather 2 bits goal
-            g_1_2 = self.g.gather(1, idxs_1_2)
-            g_1_3 = self.g.gather(1, idxs_1_3)
-            g_2_3 = self.g.gather(1, idxs_2_3)
-
-            idxs_objects_1_2 = torch.tensor(idxs_objects_1_2).long()
-            idxs_objects_1_3 = torch.tensor(idxs_objects_1_3).long()
-            idxs_objects_2_3 = torch.tensor(idxs_objects_2_3).long()
-
-            obs_object_tensor = torch.stack(obs_objects)
-
-            objects_1_2 = [[], []]
-            objects_1_3 = [[], []]
-            objects_2_3 = [[], []]
-
-            # Loop over batch to see which objects to consider according to the retrieved object indexes above
-            for i in range(batch_size):
-                a = obs_object_tensor[idxs_objects_1_2[i, 0], i, :].unsqueeze(0)
-                objects_1_2[0].append(a)
-                b = obs_object_tensor[idxs_objects_1_2[i, 1], i, :].unsqueeze(0)
-                objects_1_2[1].append(b)
-
-                a = obs_object_tensor[idxs_objects_1_3[i, 0], i, :].unsqueeze(0)
-                objects_1_3[0].append(a)
-                b = obs_object_tensor[idxs_objects_1_3[i, 1], i, :].unsqueeze(0)
-                objects_1_3[1].append(b)
-
-                a = obs_object_tensor[idxs_objects_2_3[i, 0], i, :].unsqueeze(0)
-                objects_2_3[0].append(a)
-                b = obs_object_tensor[idxs_objects_2_3[i, 1], i, :].unsqueeze(0)
-                objects_2_3[1].append(b)
-
-            # Convert list of tensors to tensor
-            for entity in [objects_1_2, objects_1_3, objects_2_3]:
-                for i in [0, 1]:
-                    entity[i] = torch.stack(entity[i]).squeeze(1)
-
-            input_1_2 = torch.cat([ag_1_2, torch.cat([g_1_2, obs_body], dim=1), objects_1_2[0], objects_1_2[1]], dim=1)
-            input_1_3 = torch.cat([ag_1_3, torch.cat([g_1_3, obs_body], dim=1), objects_1_3[0], objects_1_3[1]], dim=1)
-            input_2_3 = torch.cat([ag_2_3, torch.cat([g_2_3, obs_body], dim=1), objects_2_3[0], objects_2_3[1]], dim=1)
-
-            input_actor = torch.stack([input_1_2, input_1_3, input_2_3])
-
-        else:
-            body_input_actor = torch.cat([self.g, obs_body], dim=1)
-            obj_input_actor = [obs_objects[i] for i in range(self.num_blocks)]
-
-            # Parallelization by stacking input tensors
-            input_actor = torch.stack([torch.cat([ag, body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
-
-        output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
-        # self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
-        if not no_noise:
-            self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
-        else:
-            _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
-
-    def forward_pass(self, obs, ag, g, anchor_ag=None, anchor_g=None, eval=False, actions=None):
-        batch_size = obs.shape[0]
-        self.observation = obs
-        self.ag = ag
-        self.g = g
-
-        self.anchor_ag = anchor_ag
-        self.anchor_g = anchor_g
-
-        obs_body = self.observation[:, :self.dim_body]
-        obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
-                       obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
+        obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.num_blocks)]
 
         if self.symmetry_trick:
@@ -324,137 +273,95 @@ class DeepSetSAC:
                 for j in range(self.num_blocks):
                     if i < j:
                         all_inputs.append(torch.cat([ag[:, self.first_inds], obs_body, self.g[:, self.first_inds], obs_objects[i], obs_objects[j]], dim=1))
-                        # print('First', i, j)
                     elif j < i:
                         all_inputs.append(torch.cat([ag[:, self.second_inds], obs_body, self.g[:, self.second_inds], obs_objects[i], obs_objects[j]], dim=1))
-                        # print('Second', i, j)
 
             input_actor = torch.stack(all_inputs)
 
-        elif self.combinations_trick:
-            # Prepare lists
-            # idxs_1_2 = []
-            # idxs_1_3 = []
-            # idxs_2_3 = []
-            # idxs_objects_1_2 = []
-            # idxs_objects_1_3 = []
-            # idxs_objects_2_3 = []
-
-            # Get indexes of atomic goals and corresponding object tuple
-            extractors = [torch.zeros((self.anchor_g.shape[1], 1)) for _ in range(self.anchor_g.shape[1])]
-            for i in range(len(extractors)):
-                extractors[i][i, :] = 1.
-
-            # The trick is to create selector matrices that, when multiplied with goals retrieves certain bits. Then the sign of the difference
-            # between bits gives which objet goes above the the other
-
-            idxs_bits = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
-            idxs_objects = [torch.empty(self.anchor_g.shape[0], 2) for _ in range(3)]
-
-            for i, ((o1, o2), (j, k)) in enumerate(zip([(0, 1), (0, 2), (1, 2)], [(3, 5), (4, 7), (6, 8)])):
-                stacked = torch.cat([extractors[j], extractors[k]], dim=1)
-                multiplied_matrix = torch.matmul(self.anchor_g, stacked.double())
-                selector = multiplied_matrix[:, 0] - multiplied_matrix[:, 1]
-
-                idxs_bits[i] = torch.tensor([i, k]).repeat(self.anchor_g.shape[0], 1).long()
-                idxs_bits[i][selector >= 0] = torch.Tensor([i, j]).long()
-
-                idxs_objects[i] = torch.tensor([o2, o1]).repeat(self.anchor_g.shape[0], 1).long()
-                idxs_objects[i][selector >= 0] = torch.Tensor([o1, o2]).long()
-
-            # for g_ in self.anchor_g:
-            #     if g_[3] == g_[5] or g_[3] == 1.:
-            #         idxs_1_2.append(np.array([0, 3]))
-            #         idxs_objects_1_2.append([0, 1])
-            #     else:
-            #         idxs_1_2.append(np.array([0, 5]))
-            #         idxs_objects_1_2.append([1, 0])
-            #
-            #     if g_[4] == g_[7] or g_[4] == 1.:
-            #         idxs_1_3.append(np.array([1, 4]))
-            #         idxs_objects_1_3.append([0, 2])
-            #     else:
-            #         idxs_1_3.append(np.array([1, 7]))
-            #         idxs_objects_1_3.append([2, 0])
-            #
-            #     if g_[6] == g_[8] or g_[6] == 1.:
-            #         idxs_2_3.append(np.array([2, 6]))
-            #         idxs_objects_2_3.append([1, 2])
-            #     else:
-            #         idxs_2_3.append(np.array([2, 8]))
-            #         idxs_objects_2_3.append([2, 1])
-
-            # idxs_1_2 = torch.tensor(idxs_1_2).long()
-            # idxs_1_3 = torch.tensor(idxs_1_3).long()
-            # idxs_2_3 = torch.tensor(idxs_2_3).long()
-
-            # Gather 2 bits achieved goal
-            ag_1_2 = self.ag.gather(1, idxs_bits[0])
-            ag_1_3 = self.ag.gather(1, idxs_bits[1])
-            ag_2_3 = self.ag.gather(1, idxs_bits[2])
-
-            # Gather 2 bits goal
-            g_1_2 = self.g.gather(1, idxs_bits[0])
-            g_1_3 = self.g.gather(1, idxs_bits[1])
-            g_2_3 = self.g.gather(1, idxs_bits[2])
-
-            # idxs_objects_1_2 = torch.tensor(idxs_objects_1_2).long()
-            # idxs_objects_1_3 = torch.tensor(idxs_objects_1_3).long()
-            # idxs_objects_2_3 = torch.tensor(idxs_objects_2_3).long()
-
-            obs_object_tensor = torch.stack(obs_objects)
-
-            obs_objects_pairs_list = []
-            for idxs_objects in idxs_objects:
-                permuted_idxs = idxs_objects.unsqueeze(0).permute(2, 1, 0)
-                permuted_idxs = permuted_idxs.repeat(1, 1, obs_object_tensor.shape[2])
-                obs_objects_pair = obs_object_tensor.gather(0, permuted_idxs)
-                obs_objects_pairs_list.append(obs_objects_pair)
-
-            # objects_1_2 = [[], []]
-            # objects_1_3 = [[], []]
-            # objects_2_3 = [[], []]
-
-            # # Loop over batch to see which objects to consider according to the retrieved object indexes above
-            # for i in range(batch_size):
-            #     a = obs_object_tensor[idxs_objects_1_2[i, 0], i, :].unsqueeze(0)
-            #     objects_1_2[0].append(a)
-            #     b = obs_object_tensor[idxs_objects_1_2[i, 1], i, :].unsqueeze(0)
-            #     objects_1_2[1].append(b)
-            #
-            #     a = obs_object_tensor[idxs_objects_1_3[i, 0], i, :].unsqueeze(0)
-            #     objects_1_3[0].append(a)
-            #     b = obs_object_tensor[idxs_objects_1_3[i, 1], i, :].unsqueeze(0)
-            #     objects_1_3[1].append(b)
-            #
-            #     a = obs_object_tensor[idxs_objects_2_3[i, 0], i, :].unsqueeze(0)
-            #     objects_2_3[0].append(a)
-            #     b = obs_object_tensor[idxs_objects_2_3[i, 1], i, :].unsqueeze(0)
-            #     objects_2_3[1].append(b)
-            #
-            # # Convert list of tensors to tensor
-            # for entity in [objects_1_2, objects_1_3, objects_2_3]:
-            #     for i in [0, 1]:
-            #         entity[i] = torch.stack(entity[i]).squeeze(1)
-
-            input_1_2 = torch.cat([ag_1_2, torch.cat([g_1_2, obs_body], dim=1), obs_objects_pairs_list[0][0, :, :],
-                                   obs_objects_pairs_list[0][1, :, :]], dim=1)
-            input_1_3 = torch.cat([ag_1_3, torch.cat([g_1_3, obs_body], dim=1), obs_objects_pairs_list[1][0, :, :],
-                                   obs_objects_pairs_list[1][1, :, :]], dim=1)
-            input_2_3 = torch.cat([ag_2_3, torch.cat([g_2_3, obs_body], dim=1), obs_objects_pairs_list[2][0, :, :],
-                                   obs_objects_pairs_list[2][1, :, :]], dim=1)
-
-            input_actor = torch.stack([input_1_2, input_1_3, input_2_3])
-
         else:
-            body_input = torch.cat([self.g, obs_body], dim=1)
-            obj_input = [obs_objects[i] for i in range(self.num_blocks)]
+            if self.language:
+                body_input_actor = torch.cat([goal_embeddings, obs_body], dim=1)
+            else:
+                body_input_actor = torch.cat([self.g, obs_body], dim=1)
+            obj_input_actor = [obs_objects[i] for i in range(self.num_blocks)]
 
             # Parallelization by stacking input tensors
-            input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
+
+            if self.continuous_trick:
+                all_inputs = []
+                for i in range(self.num_blocks):
+                    for j in range(self.num_blocks):
+                        if i != j:
+                            all_inputs.append(
+                                torch.cat([ag[:, self.obj_ids[i]], ag[:, self.obj_ids[j]], obs_body, self.g[:, self.obj_ids[i]],
+                                           self.g[:, self.obj_ids[j]], obs_objects[i], obs_objects[j]], dim=1))
+
+                input_actor = torch.stack(all_inputs)
+            else:
+                if not self.include_ag:
+                    input_actor = torch.stack([torch.cat([body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
+                else:
+                    input_actor = torch.stack([torch.cat([ag, body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
         # self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
+        if not no_noise:
+            self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
+        else:
+            _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
+
+    def forward_pass(self, obs, ag, g, eval=False, actions=None, language_goals=None):
+        batch_size = obs.shape[0]
+        self.observation = obs
+        self.ag = ag
+        self.g = g
+
+        if self.language:
+            encodings = np.array([self.one_hot_language[lg] for lg in language_goals])
+            # old
+            # encodings = np.array([self.one_hot_language[str(sg)] for sg in g])
+            encodings = torch.tensor(encodings, dtype=torch.float32)
+            goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
+        obs_body = self.observation[:, :self.dim_body]
+        obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
+                       for i in range(self.num_blocks)]
+
+        if self.symmetry_trick:
+            all_inputs = []
+            for i in range(self.num_blocks):
+                for j in range(self.num_blocks):
+                    if i < j:
+                        all_inputs.append(torch.cat([ag[:, self.first_inds], obs_body, self.g[:, self.first_inds], obs_objects[i], obs_objects[j]], dim=1))
+                    elif j < i:
+                        all_inputs.append(torch.cat([ag[:, self.second_inds], obs_body, self.g[:, self.second_inds], obs_objects[i], obs_objects[j]], dim=1))
+
+            input_actor = torch.stack(all_inputs)
+
+        else:
+            if self.language:
+                body_input = torch.cat([goal_embeddings, obs_body], dim=1)
+            else:
+                body_input = torch.cat([self.g, obs_body], dim=1)
+            obj_input = [obs_objects[i] for i in range(self.num_blocks)]
+
+            # Parallelization by stacking input tensors
+            if self.continuous_trick:
+                all_inputs = []
+                for i in range(self.num_blocks):
+                    for j in range(self.num_blocks):
+                        if i != j:
+                            all_inputs.append(
+                                torch.cat([ag[:, self.obj_ids[i]], ag[:, self.obj_ids[j]], obs_body, self.g[:, self.obj_ids[i]],
+                                           self.g[:, self.obj_ids[j]], obs_objects[i], obs_objects[j]], dim=1))
+
+                input_actor = torch.stack(all_inputs)
+            else:
+                if not self.include_ag:
+                    input_actor = torch.stack([torch.cat([body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
+                else:
+                    input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])            #input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in combinations(obj_input, 2)])
+
+        output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
         if not eval:
             self.pi_tensor, self.log_prob, _ = self.rho_actor.sample(output_phi_actor)
         else:

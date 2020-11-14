@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from language.utils import analyze_inst
 
 def idx2onehot(idx, n):
 
@@ -15,7 +14,7 @@ def idx2onehot(idx, n):
 
 class ContextVAE(nn.Module):
 
-    def __init__(self, nb_words, inner_sizes=[32], state_size=9, embedding_size=20, latent_size=9):
+    def __init__(self, nb_words, inner_sizes=[32], state_size=9, embedding_size=20, latent_size=9, binary=True):
 
         super().__init__()
 
@@ -38,10 +37,11 @@ class ContextVAE(nn.Module):
                                        bias=True,
                                        batch_first=True)
 
+
         encoder_layer_sizes = [state_size * 2 + embedding_size] + inner_sizes
         decoder_layer_sizes = [latent_size + state_size + embedding_size] + inner_sizes + [state_size]
         self.encoder = Encoder(encoder_layer_sizes, latent_size)
-        self.decoder = Decoder(decoder_layer_sizes)
+        self.decoder = Decoder(decoder_layer_sizes, binary=binary)
 
     def forward(self, initial_s, sentence, current_s):
 
@@ -99,7 +99,7 @@ class Encoder(nn.Module):
 
 class Decoder(nn.Module):
 
-    def __init__(self, layer_sizes):
+    def __init__(self, layer_sizes, binary):
 
         super().__init__()
 
@@ -111,7 +111,9 @@ class Decoder(nn.Module):
             if i + 2 < len(layer_sizes):
                 self.MLP.add_module(name="A{:d}".format(i), module=nn.ReLU())
             else:
-                self.MLP.add_module(name="sigmoid", module=nn.Sigmoid())
+                if binary:
+                    self.MLP.add_module(name="sigmoid", module=nn.Sigmoid())
+
 
     def forward(self, z):
 
