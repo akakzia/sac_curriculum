@@ -37,8 +37,8 @@ class her_sampler:
             # replace goal with achieved goal
             future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
             if self.language:
-                for i in range(n_replay):
-                    transitions['language_goal'][her_indexes[0][i]] = sentence_from_configuration(future_ag[i])
+                future_lg = np.array([sentence_from_configuration(future_ag[i]) for i in range(n_replay)])
+                transitions['language_goal'][her_indexes] = future_lg
                 transitions['r'] = np.expand_dims(compute_reward_language(transitions['ag_next'], transitions['language_goal']), 1)
             else:
                 transitions['g'][her_indexes] = future_ag

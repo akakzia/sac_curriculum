@@ -233,6 +233,8 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             'observation': obs.copy(),
             'achieved_goal': achieved_goal.copy(),
             'desired_goal': self.target_goal.copy(),
+            'achieved_goal_binary': achieved_goal.copy(),
+            'desired_goal_binary': self.target_goal.copy(),
         }
 
     def _viewer_setup(self):
