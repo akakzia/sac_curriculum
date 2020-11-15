@@ -43,7 +43,7 @@ class RolloutWorker:
                 observation_new, r, _, info = self.env.step(action)
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
-                ag_new_bin = observation['achieved_goal_binary']
+                ag_new_bin = observation_new['achieved_goal_binary']
 
 
                 # Append rollouts

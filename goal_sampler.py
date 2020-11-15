@@ -10,7 +10,7 @@ from mpi_utils import logger
 
 class GoalSampler:
     def __init__(self, args):
-
+        self.continuous = args.algo == 'continuous'
         self.curriculum_learning = args.curriculum_learning
         self.automatic_buckets = args.automatic_buckets
         self.num_buckets = args.num_buckets
@@ -160,7 +160,9 @@ class GoalSampler:
                 for e in all_episode_list:
                     if e['self_eval']:
                         oracle_id = self.g_str_to_oracle_id[str(e['g_binary'][0])]
-                        if str(e['g_binary'][0]) == str(e['ag_binary'][-1]):
+                        if not self.continuous and str(e['g_binary'][0]) == str(e['ag_binary'][-1]):
+                            success = 1
+                        elif self.continuous and (e['rewards'][-1] == 3.):
                             success = 1
                         else:
                             success = 0
