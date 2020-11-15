@@ -416,8 +416,15 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         self.sim.forward()
         obs = self._get_obs()
 
-        if np.random.uniform() < 0.5:
-            obs = self._grasp(obs, idx_grasp)
+        if biased_init and np.random.rand() < 0.5:
+            ids = list(range(self.num_blocks))
+            # do not grasp base of stack
+            if stack:
+                for s in stack[1:]:
+                    ids.remove(s)
+            idx_grasp = np.random.choice(ids)
+            self._grasp(idx_grasp)
+
         return obs
 
     def reset_goal(self, goal=None, init=None, biased_init=False):
@@ -813,3 +820,10 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
             # Extract information for sampling goals.
         self.initial_gripper_xpos = self.sim.data.get_site_xpos('robot0:grip').copy()
         self.height_offset = self.sim.data.get_site_xpos('object0')[2]
+
+    def _grasp(self, i):
+        obj = self.sim.data.get_joint_qpos('{}:joint'.format(self.object_names[i]))
+        obj[:3] = self.sim.data.get_site_xpos('robot0:grip')
+        self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), obj.copy())
+        self.sim.data.set_joint_qpos('robot0:r_gripper_finger_joint', 0.0240)
+        self.sim.data.set_joint_qpos('robot0:l_gripper_finger_joint', 0.0240)
