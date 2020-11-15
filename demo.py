@@ -83,8 +83,11 @@ if __name__ == '__main__':
     inits = [None] * len(eval_goals)
     all_results = []
     for i in range(num_eval):
-        episodes = rollout_worker.generate_rollout(inits, eval_goals, self_eval=True, true_eval=True, animated=True)
-        results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
+        episodes = rollout_worker.generate_rollout(eval_goals, self_eval=True, true_eval=True, animated=False)
+        if args.algo == 'continuous':
+            results = np.array([e['rewards'][-1] == 3. for e in episodes]).astype(np.int)
+        else:
+            results = np.array([str(e['g_binary'][0]) == str(e['ag_binary'][-1]) for e in episodes]).astype(np.int)
         all_results.append(results)
 
     results = np.array(all_results)

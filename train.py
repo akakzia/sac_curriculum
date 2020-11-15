@@ -146,7 +146,7 @@ def launch(args):
 
             # Extract the results
             if args.algo == 'continuous':
-                results = np.array([e['rewards'][1] == 3. for e in episodes]).astype(np.int)
+                results = np.array([e['rewards'][-1] == 3. for e in episodes]).astype(np.int)
             else:
                 results = np.array([str(e['g_binary'][0]) == str(e['ag_binary'][-1]) for e in episodes]).astype(np.int)
             rewards = np.array([e['rewards'][-1] for e in episodes])
