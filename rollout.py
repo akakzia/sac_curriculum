@@ -11,7 +11,7 @@ class RolloutWorker:
         self.goal_sampler = goal_sampler
         self.args = args
 
-    def generate_rollout(self, goals, self_eval, true_eval, biased_init=False, animated=False, language_goal=None):
+    def generate_rollout(self, goals, self_eval, true_eval, biased_init=False, animated=False):
 
         episodes = []
         for i in range(goals.shape[0]):
@@ -22,22 +22,17 @@ class RolloutWorker:
             g = observation['desired_goal']
             g_bin = observation['desired_goal_binary']
 
-            ep_obs, ep_ag, ep_ag_bin, ep_g, ep_g_bin, ep_actions, ep_success, ep_rewards, ep_achieved_instr = [], [], [], [], [], [], [], [], []
+            ep_obs, ep_ag, ep_ag_bin, ep_g, ep_g_bin, ep_actions, ep_success, ep_rewards = [], [], [], [], [], [], [], []
 
             # Start to collect samples
             for t in range(self.env_params['max_timesteps']):
                 # Run policy for one step
                 no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
                 if self.args.algo == 'language':
-                    language_achieved = sentence_from_configuration(ag, eval=true_eval)
                     # in the language condition, we need to sample a language goal
                     # here we sampled a configuration goal like in DECSTR, so we just use a language goal describing one of the predicates
-                    if language_goal is None:
-                        language_goal_ep = sentence_from_configuration(g, eval=true_eval)
-                    else:
-                        language_goal_ep = language_goal[i]
-                    action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal_ep,
-                                             language_achieved=language_achieved)
+                    language_goal = sentence_from_configuration(g, eval=true_eval)
+                    action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal)
                 else:
                     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
 
@@ -59,8 +54,6 @@ class RolloutWorker:
                 ep_g_bin.append(g_bin.copy())
                 ep_actions.append(action.copy())
                 ep_rewards.append(r)
-                if self.args.algo == 'language':
-                    ep_achieved_instr.append(language_achieved)
 
                 # Re-assign the observation
                 obs = obs_new
@@ -70,8 +63,6 @@ class RolloutWorker:
             ep_obs.append(obs.copy())
             ep_ag.append(ag.copy())
             ep_ag_bin.append(ag_bin.copy())
-            if self.args.algo == 'language':
-                ep_achieved_instr.append(language_achieved)
 
             # Gather everything
             episode = dict(obs=np.array(ep_obs).copy(),
@@ -84,8 +75,7 @@ class RolloutWorker:
                            self_eval=self_eval)
 
             if self.args.algo == 'language':
-                episode['language_goal'] = language_goal_ep
-                episode['achieved_instruction'] = np.array(ep_achieved_instr)
+                episode['language_goal'] = language_goal
 
             episodes.append(episode)
 

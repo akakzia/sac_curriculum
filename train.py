@@ -9,10 +9,9 @@ import random
 import torch
 from rollout import RolloutWorker
 from goal_sampler import GoalSampler
-from utils import init_storage, get_instruction2
+from utils import init_storage
 import time
 from mpi_utils import logger
-from language.build_dataset import sentence_from_configuration, NO_SYNONYMS
 
 def get_env_params(env):
     obs = env.reset()
@@ -51,14 +50,6 @@ def launch(args):
 
     # Initialize Goal Sampler:
     goal_sampler = GoalSampler(args)
-
-    if args.algo == 'language':
-        if NO_SYNONYMS:
-            language_goal = get_instruction2()
-        else:
-            language_goal = np.random.choice(get_instruction2(), size=35)
-    else:
-        language_goal = None
 
     # Initialize RL Agent
     if args.agent == "SAC":
@@ -147,21 +138,15 @@ def launch(args):
             if rank==0: logger.info('\tRunning eval ..')
             # Performing evaluations
             t_i = time.time()
-            if args.algo == 'language':
-                eval_goals = goal_sampler.valid_goals[:len(language_goal)]
-            else:
-                eval_goals = goal_sampler.valid_goals
+            eval_goals = goal_sampler.valid_goals
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        self_eval=True,  # this parameter is overridden by true_eval
                                                        true_eval=True,  # this is offline evaluations
-                                                       biased_init=False,
-                                                       language_goal=language_goal)
+                                                       biased_init=False)
 
             # Extract the results
             if args.algo == 'continuous':
                 results = np.array([e['rewards'][-1] == 3. for e in episodes]).astype(np.int)
-            elif args.algo == 'language':
-                results = np.array([e['language_goal'] in sentence_from_configuration(config=e['ag'][-1], all=True) for e in episodes]).astype(np.int)
             else:
                 results = np.array([str(e['g_binary'][0]) == str(e['ag_binary'][-1]) for e in episodes]).astype(np.int)
             rewards = np.array([e['rewards'][-1] for e in episodes])
