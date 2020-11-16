@@ -12,8 +12,8 @@ Here are the param for the training
 def get_args():
     parser = argparse.ArgumentParser()
     # the environment setting
-    parser.add_argument('--env-name', type=str, default='FetchManipulate3ObjectsContinuous-v0', help='the environment name')
-    parser.add_argument('--algo', type=str, default='continuous', help="'semantic', 'continuous', 'language'")
+    parser.add_argument('--env-name', type=str, default='FetchManipulate3Objects-v0', help='the environment name')
+    parser.add_argument('--algo', type=str, default='language', help="'semantic', 'continuous', 'language'")
     parser.add_argument('--agent', type=str, default='SAC', help='the agent name')
     parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
@@ -24,8 +24,10 @@ def get_args():
 
     parser.add_argument('--symmetry-trick', type=bool, default=False, help='experimental stuff from Cédric')
     parser.add_argument('--combinations-trick', type=bool, default=False, help='test')
-    parser.add_argument('--continuous-trick', type=bool, default=True, help='test')
+    parser.add_argument('--continuous-trick', type=bool, default=False, help='test')
     parser.add_argument('--multi-criteria-her', type=bool, default=False, help='test')
+
+    parser.add_argument('--embedding-size', type=int, default=20, help='embedding size of the encoded language instructions')
 
     parser.add_argument('--normalize_goal', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
     parser.add_argument('--start-biased-init', type=int, default=100, help='Number of epoch before biased initializations start')

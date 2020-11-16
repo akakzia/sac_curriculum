@@ -102,11 +102,11 @@ class SACAgent:
         self.buffer = MultiBuffer(env_params=self.env_params,
                                   buffer_size=self.args.buffer_size,
                                   sample_func=self.her_module.sample_her_transitions,
-                                  multi_head=self.args.multihead_buffer,
+                                  multi_head=self.args.multihead_buffer if not self.language else False,
                                   goal_sampler=self.goal_sampler
                                   )
 
-    def act(self, obs, ag, g, no_noise, language_goal=None):
+    def act(self, obs, ag, g, no_noise, language_goal=None, language_achieved=None):
         anchor_g = torch.Tensor(g).unsqueeze(0)
         with torch.no_grad():
             # normalize policy inputs
@@ -119,7 +119,8 @@ class SACAgent:
                 g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
             if self.architecture == 'deepsets':
                 obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
-                self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, anchor_g=anchor_g, no_noise=no_noise, language_goal=language_goal)
+                self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, anchor_g=anchor_g, no_noise=no_noise, language_goal=language_goal,
+                                               language_achieved=language_achieved)
                 action = self.model.pi_tensor.numpy()[0]
 
             else:
@@ -226,9 +227,11 @@ class SACAgent:
         if self.language:
             g_norm = transitions['g']
             language_goals = transitions['language_goal']
+            language_achieved = transitions['language_achieved']
         else:
             g_norm = self.g_norm.normalize(transitions['g'])
             language_goals = None
+            language_achieved = None
         ag_norm = self.g_norm.normalize(transitions['ag'])
         obs_next_norm = self.o_norm.normalize(transitions['obs_next'])
         ag_next_norm = self.g_norm.normalize(transitions['ag_next'])
@@ -245,7 +248,8 @@ class SACAgent:
             critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_deepsets(self.model, self.language,
                                                                                self.policy_optim, self.critic_optim, self.alpha, self.log_alpha,
                                                                                self.target_entropy, self.alpha_optim, obs_norm, ag_norm, g_norm,
-                                                                               obs_next_norm, ag_next_norm, anchor_g, actions, rewards, language_goals, self.args)
+                                                                               obs_next_norm, ag_next_norm, anchor_g, actions, rewards,
+                                                                                                language_goals, language_achieved, self.args)
         else:
             raise NotImplementedError
 
