@@ -146,16 +146,16 @@ class DeepSetSAC:
             vocab = Vocab(word_set)
             self.one_hot_encoder = OneHotEncoder(vocab, max_seq_length)
             self.one_hot_language = dict(zip(self.instructions, [self.one_hot_encoder.encode(s) for s in split_instructions]))
-
+            self.dim_latent = 20
             self.policy_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
-                                                  hidden_size=100,
+                                                  hidden_size=self.dim_latent,
                                                   num_layers=1,
                                                   nonlinearity='tanh',
                                                   bias=True,
                                                   batch_first=True)
 
             self.critic_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
-                                                  hidden_size=100,
+                                                  hidden_size=self.dim_latent,
                                                   num_layers=1,
                                                   nonlinearity='tanh',
                                                   bias=True,
@@ -200,7 +200,7 @@ class DeepSetSAC:
 
         # Define dimensions
         if self.language:
-            dim_input_goals = 100
+            dim_input_goals = self.dim_latent
         else:
             if self.include_ag:
                 dim_input_goals = 2 * self.dim_goal

@@ -12,6 +12,7 @@ from goal_sampler import GoalSampler
 from utils import init_storage
 import time
 from mpi_utils import logger
+from language.build_dataset import sentence_from_configuration
 
 
 def get_env_params(env):
@@ -147,7 +148,10 @@ def launch(args):
                                                        biased_init=False)
 
             # Extract the results
-            results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
+            if args.algo == 'language':
+                results = np.array([e['language_goal'] in sentence_from_configuration(config=e['ag'][-1], all=True) for e in episodes]).astype(np.int)
+            else:
+                results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
             all_results = MPI.COMM_WORLD.gather(results, root=0)
             time_dict['eval'] += time.time() - t_i
 

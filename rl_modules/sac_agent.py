@@ -224,7 +224,6 @@ class SACAgent:
         ag_norm = self.g_norm.normalize(transitions['ag'])
         obs_next_norm = self.o_norm.normalize(transitions['obs_next'])
         ag_next_norm = self.g_norm.normalize(transitions['ag_next'])
-        g_next_norm = self.g_norm.normalize(transitions['g_next'])
 
         if self.architecture == 'flat':
             critic_1_loss, critic_2_loss, actor_loss, self.alpha, alpha_loss, alpha_tlogs = update_flat(self.actor_network, self.critic_network,
