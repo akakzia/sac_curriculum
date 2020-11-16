@@ -56,7 +56,10 @@ class MultiBuffer:
         with self.lock:
             if not self.multi_head:
                 for key in self.buffer.keys():
-                    temp_buffers[key] = self.buffer[key]
+                    if key == 'language_goal':
+                        temp_buffers[key] = np.array([np.array(self.buffer[key][:self.current_size]) for _ in range(self.T)]).T
+                    else:
+                        temp_buffers[key] = self.buffer[key][:self.current_size]
             else:
                 # Compute goal id proportions with respect to LP probas
                 goal_ids = self.goal_sampler.build_batch(batch_size)
@@ -72,15 +75,10 @@ class MultiBuffer:
                         buffer_ids.append(np.random.choice(buffer_ids_g))
                 buffer_ids = np.array(buffer_ids)
                 for key in self.buffer.keys():
-                    if key == 'language_goal':
-                        temp_buffers[key] = np.array([np.array(self.buffer[key])[buffer_ids] for _ in range(self.T)])
-                    else:
-                        temp_buffers[key] = self.buffer[key][buffer_ids]
+                    temp_buffers[key] = self.buffer[key][buffer_ids]
         temp_buffers['obs_next'] = temp_buffers['obs'][:, 1:, :]
         temp_buffers['ag_next'] = temp_buffers['ag'][:, 1:, :]
 
-        if 'language_goal' in temp_buffers.keys():
-            temp_buffers['language_goal'] = temp_buffers['language_goal'].T
         # sample transitions
         transitions = self.sample_func(temp_buffers, batch_size)
         return transitions

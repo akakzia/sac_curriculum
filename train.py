@@ -94,6 +94,10 @@ def launch(args):
             # Sample goals
             t_i = time.time()
             goals, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False)
+            if args.algo == 'language':
+                language_goal_ep = np.random.choice(language_goal, size=args.num_rollouts_per_mpi)
+            else:
+                language_goal_ep = None
             time_dict['goal_sampler'] += time.time() - t_i
 
             # Control biased initializations
@@ -107,7 +111,8 @@ def launch(args):
             episodes = rollout_worker.generate_rollout(goals=goals,  # list of goal configurations
                                                        self_eval=self_eval,  # whether the agent performs self-evaluations
                                                        true_eval=False,  # these are not offline evaluation episodes
-                                                       biased_init=biased_init)  # whether initializations should be biased.
+                                                       biased_init=biased_init,
+                                                       language_goal=language_goal_ep)  # whether initializations should be biased.
             time_dict['rollout'] += time.time() - t_i
 
             # Goal Sampler updates

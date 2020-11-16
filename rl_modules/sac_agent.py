@@ -102,7 +102,7 @@ class SACAgent:
         self.buffer = MultiBuffer(env_params=self.env_params,
                                   buffer_size=self.args.buffer_size,
                                   sample_func=self.her_module.sample_her_transitions,
-                                  multi_head=self.args.multihead_buffer,
+                                  multi_head=self.args.multihead_buffer if not self.language else False,
                                   goal_sampler=self.goal_sampler
                                   )
 
