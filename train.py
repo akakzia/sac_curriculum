@@ -12,6 +12,7 @@ from goal_sampler import GoalSampler
 from utils import init_storage
 import time
 from mpi_utils import logger
+from language.build_dataset import sentence_from_configuration
 
 def get_env_params(env):
     obs = env.reset()
@@ -147,8 +148,10 @@ def launch(args):
             # Extract the results
             if args.algo == 'continuous':
                 results = np.array([e['rewards'][-1] == 3. for e in episodes]).astype(np.int)
+            elif args.algo == 'language':
+                results = np.array([e['language_goal'] in sentence_from_configuration(config=e['ag'][-1], all=True) for e in episodes]).astype(np.int)
             else:
-                results = np.array([str(e['g_binary'][0]) == str(e['ag_binary'][-1]) for e in episodes]).astype(np.int)
+                results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
             rewards = np.array([e['rewards'][-1] for e in episodes])
             all_results = MPI.COMM_WORLD.gather(results, root=0)
             all_rewards = MPI.COMM_WORLD.gather(rewards, root=0)

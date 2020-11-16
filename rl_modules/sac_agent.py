@@ -232,7 +232,6 @@ class SACAgent:
         ag_norm = self.g_norm.normalize(transitions['ag'])
         obs_next_norm = self.o_norm.normalize(transitions['obs_next'])
         ag_next_norm = self.g_norm.normalize(transitions['ag_next'])
-        g_next_norm = self.g_norm.normalize(transitions['g_next'])
 
         anchor_g = transitions['g']
 
