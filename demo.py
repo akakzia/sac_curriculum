@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from goal_sampler import GoalSampler
 import  random
 from mpi4py import MPI
+from language.build_dataset import sentence_from_configuration
 
 def get_env_params(env):
     obs = env.reset()
@@ -58,7 +59,12 @@ if __name__ == '__main__':
     all_results = []
     for i in range(num_eval):
         episodes = rollout_worker.generate_rollout(eval_goals, self_eval=True, true_eval=True, animated=True)
-        results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
+        if args.algo == 'language':
+            results = np.array([e['language_goal'] in sentence_from_configuration(e['ag'][-1], all=True) for e in episodes]).astype(np.int)
+        elif args.algo == 'continuous':
+            results = np.array([e['rewards'][-1] == 3. for e in episodes])
+        else:
+            results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
         all_results.append(results)
 
     results = np.array(all_results)
