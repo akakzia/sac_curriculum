@@ -161,15 +161,17 @@ class DeepSetSAC:
             self.one_hot_encoder = OneHotEncoder(vocab, max_seq_length)
             self.one_hot_language = dict(zip(self.instructions, [self.one_hot_encoder.encode(s) for s in split_instructions]))
 
+            self.embedding_size = args.embedding_size
+
             self.policy_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
-                                                  hidden_size=100,
+                                                  hidden_size=self.embedding_size,
                                                   num_layers=1,
                                                   nonlinearity='tanh',
                                                   bias=True,
                                                   batch_first=True)
 
             self.critic_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
-                                                  hidden_size=100,
+                                                  hidden_size=self.embedding_size,
                                                   num_layers=1,
                                                   nonlinearity='tanh',
                                                   bias=True,
@@ -214,7 +216,7 @@ class DeepSetSAC:
 
         # Define dimensions
         if self.language:
-            dim_input_goals = 100
+            dim_input_goals = 2 * self.embedding_size
         else:
             if self.include_ag:
                 dim_input_goals = 2 * self.dim_goal
@@ -227,7 +229,7 @@ class DeepSetSAC:
         else:
             dim_phi_actor_input = dim_input_goals + self.dim_body + dim_input_objects
 
-        dim_phi_actor_output = 3 * (self.dim_body + self.dim_object)
+        dim_phi_actor_output = 3 * dim_phi_actor_input
 
         dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
@@ -237,7 +239,7 @@ class DeepSetSAC:
         else:
             dim_phi_critic_input = dim_input_goals + self.dim_body + dim_input_objects + self.dim_act
 
-        dim_phi_critic_output = 3 * (self.dim_body + self.dim_object + self.dim_act)
+        dim_phi_critic_output = 3 * dim_phi_critic_input
 
         dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
@@ -251,7 +253,7 @@ class DeepSetSAC:
         self.single_phi_target_critic = SinglePhiCritic(dim_phi_critic_input, 256, dim_phi_critic_output)
         self.rho_target_critic = RhoCritic(dim_rho_critic_input, dim_rho_critic_output)
 
-    def policy_forward_pass(self, obs, ag, g, anchor_g=None, no_noise=False, language_goal=None):
+    def policy_forward_pass(self, obs, ag, g, anchor_g=None, no_noise=False, language_goal=None, language_achieved=None):
         self.observation = obs
         self.ag = ag
         self.g = g
@@ -264,6 +266,12 @@ class DeepSetSAC:
             # encodings = np.array(self.one_hot_language[str(g)])
             encodings = torch.tensor(encodings, dtype=torch.float32).unsqueeze(0)
             goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
+            # Test achieved goal instruction
+            achieved_encodings = self.one_hot_language[language_achieved]
+            # old
+            # encodings = np.array(self.one_hot_language[str(g)])
+            achieved_encodings = torch.tensor(achieved_encodings, dtype=torch.float32).unsqueeze(0)
+            achieved_goal_embeddings = self.policy_sentence_encoder.forward(achieved_encodings)[0][:, -1, :]
 
         obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
@@ -333,7 +341,7 @@ class DeepSetSAC:
 
         else:
             if self.language:
-                body_input_actor = torch.cat([goal_embeddings, obs_body], dim=1)
+                body_input_actor = torch.cat([achieved_goal_embeddings, goal_embeddings, obs_body], dim=1)
             else:
                 body_input_actor = torch.cat([self.g, obs_body], dim=1)
             obj_input_actor = [obs_objects[i] for i in range(self.num_blocks)]
@@ -363,7 +371,7 @@ class DeepSetSAC:
         else:
             _, self.log_prob, self.pi_tensor = self.rho_actor.sample(output_phi_actor)
 
-    def forward_pass(self, obs, ag, g, anchor_g=None, eval=False, actions=None, language_goals=None):
+    def forward_pass(self, obs, ag, g, anchor_g=None, eval=False, actions=None, language_goals=None, language_achieved=None):
         batch_size = obs.shape[0]
         self.observation = obs
         self.ag = ag
@@ -377,6 +385,12 @@ class DeepSetSAC:
             # encodings = np.array([self.one_hot_language[str(sg)] for sg in g])
             encodings = torch.tensor(encodings, dtype=torch.float32)
             goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
+            # Test achieved goal instruction
+            achieved_encodings = np.array([self.one_hot_language[la] for la in language_achieved])
+            # old
+            # encodings = np.array(self.one_hot_language[str(g)])
+            achieved_encodings = torch.tensor(achieved_encodings, dtype=torch.float32)
+            achieved_goal_embeddings = self.policy_sentence_encoder.forward(achieved_encodings)[0][:, -1, :]
         obs_body = self.observation[:, :self.dim_body]
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.num_blocks)]
@@ -445,7 +459,7 @@ class DeepSetSAC:
 
         else:
             if self.language:
-                body_input = torch.cat([goal_embeddings, obs_body], dim=1)
+                body_input = torch.cat([achieved_goal_embeddings, goal_embeddings, obs_body], dim=1)
             else:
                 body_input = torch.cat([self.g, obs_body], dim=1)
             obj_input = [obs_objects[i] for i in range(self.num_blocks)]
