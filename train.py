@@ -9,10 +9,10 @@ import random
 import torch
 from rollout import RolloutWorker
 from goal_sampler import GoalSampler
-from utils import init_storage
+from utils import init_storage, get_instruction2
 import time
 from mpi_utils import logger
-from language.build_dataset import sentence_from_configuration
+from language.build_dataset import sentence_from_configuration, NO_SYNONYMS
 
 def get_env_params(env):
     obs = env.reset()
@@ -51,6 +51,14 @@ def launch(args):
 
     # Initialize Goal Sampler:
     goal_sampler = GoalSampler(args)
+
+    if args.algo == 'language':
+        if NO_SYNONYMS:
+            language_goal = get_instruction2()
+        else:
+            language_goal = np.random.choice(get_instruction2(), size=35)
+    else:
+        language_goal = None
 
     # Initialize RL Agent
     if args.agent == "SAC":
@@ -139,11 +147,15 @@ def launch(args):
             if rank==0: logger.info('\tRunning eval ..')
             # Performing evaluations
             t_i = time.time()
-            eval_goals = goal_sampler.valid_goals
+            if args.algo == 'language':
+                eval_goals = goal_sampler.valid_goals[:len(language_goal)]
+            else:
+                eval_goals = goal_sampler.valid_goals
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        self_eval=True,  # this parameter is overridden by true_eval
                                                        true_eval=True,  # this is offline evaluations
-                                                       biased_init=False)
+                                                       biased_init=False,
+                                                       language_goal=language_goal)
 
             # Extract the results
             if args.algo == 'continuous':
