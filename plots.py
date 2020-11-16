@@ -22,9 +22,9 @@ colors = [[0, 0.447, 0.7410], [0.85, 0.325, 0.098], [0.466, 0.674, 0.188], [0.92
           [0.3010, 0.745, 0.933], [0.635, 0.078, 0.184]]
 
 
-RESULTS_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/results/'
-SAVE_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/results/plots/'
-TO_PLOT = ['jz', 'plafrim',  'tests', 'init_study', 'symmetry_bias', 'tests']
+RESULTS_PATH = '/home/ahakakzia/DECSTR/rebuttal/'
+SAVE_PATH = '/home/ahakakzia/DECSTR/rebuttal/'
+TO_PLOT = ['baselines']
 
 LINE = 'mean'
 ERR = 'std'
@@ -36,12 +36,11 @@ MARKERSIZE = 25
 ALPHA = 0.3
 ALPHA_TEST = 0.05
 MARKERS = ['o', 's', 'v', 'X', 'D', 'P', "*"]
-FREQ = 20
+FREQ = 10
 NB_BUCKETS = 5
 NB_EPS_PER_EPOCH = 2400
 NB_VALID_GOALS = 35
 line, err_min, err_plus = get_stat_func(line=LINE, err=ERR)
-
 COMPRESSOR = CompressPDF(4)
 # 0: '/default',
 # 1: '/prepress',
@@ -142,14 +141,14 @@ def plot_c_lp_p_sr(experiment_path, true_buckets=True):
             x_eps = np.arange(0, len(data_run) * NB_EPS_PER_EPOCH, NB_EPS_PER_EPOCH * FREQ) / 1000
             x_eps = np.arange(0, len(data_run), FREQ)
             x = np.arange(0, len(data_run), FREQ)
-            artists, axs = setup_n_figs(n=5,
-                                        xlabels=['Epochs'] * 5,
+            artists, axs = setup_n_figs(n=6,
+                                        xlabels=['Epochs'] * 6,
                                         # xlabels=['Episodes (x$10^3$)'] * 4,
-                                        ylabels=['SR', '#R', 'C', 'LP', 'P'],
-                                        xlims=[(0, x_eps[-1])] * 5,
-                                        ylims=[(0,1), (0, 2000), (0, 1), None, (0, 1)])
+                                        ylabels=['SR', '#R_config', 'R_continuous', 'C', 'LP', 'P'],
+                                        xlims=[(0, x_eps[-1])] * 6,
+                                        ylims=[(0,1), (0, 2000), (0, 3), (0, 1), None, (0, 1)])
             if true_buckets:
-                buckets = generate_goals(nb_objects=3, sym=1, asym=1)
+                buckets = generate_goals()
                 all_goals = generate_all_goals_in_goal_space().astype(np.float32)
                 valid_goals = []
                 for k in buckets.keys():
@@ -168,7 +167,9 @@ def plot_c_lp_p_sr(experiment_path, true_buckets=True):
                     bucket_ids[k] = np.array([g_str_to_oracle_id[str(np.array(g))] for g in buckets[k]])
                     id_in_valid = [int(np.argwhere(valid_goals_oracle_ids == i).flatten()) for i in bucket_ids[k]]
                     sr = np.mean([data_run['Eval_SR_{}'.format(i)] for i in id_in_valid], axis=0)
+                    av_reward = np.mean([data_run['Av_Rew_{}'.format(i)] for i in id_in_valid], axis=0)
                     axs[0].plot(x_eps, sr[x], color=colors[k], marker=MARKERS[k], markersize=MARKERSIZE//3, linewidth=LINEWIDTH//2)
+                    axs[2].plot(x_eps, av_reward[x], color=colors[k], marker=MARKERS[k], markersize=MARKERSIZE // 3, linewidth=LINEWIDTH // 2)
 
             else:
                 T = len(data_run['Eval_SR_1'])
@@ -188,9 +189,9 @@ def plot_c_lp_p_sr(experiment_path, true_buckets=True):
 
             counter = 0
             for i in range(NB_BUCKETS):
-                axs[2].plot(x_eps, data_run['B_{}_C'.format(i)][x], color=colors[i], marker=MARKERS[i], markersize=MARKERSIZE//3, linewidth=LINEWIDTH//2)
-                axs[3].plot(x_eps, data_run['B_{}_LP'.format(i)][x], color=colors[i], marker=MARKERS[i], markersize=MARKERSIZE//3, linewidth=LINEWIDTH//2)
-                axs[4].plot(x_eps, data_run['B_{}_p'.format(i)][x], color=colors[i], marker=MARKERS[i], markersize=MARKERSIZE//3, linewidth=LINEWIDTH//2)
+                axs[3].plot(x_eps, data_run['B_{}_C'.format(i)][x], color=colors[i], marker=MARKERS[i], markersize=MARKERSIZE//3, linewidth=LINEWIDTH//2)
+                axs[4].plot(x_eps, data_run['B_{}_LP'.format(i)][x], color=colors[i], marker=MARKERS[i], markersize=MARKERSIZE//3, linewidth=LINEWIDTH//2)
+                axs[5].plot(x_eps, data_run['B_{}_p'.format(i)][x], color=colors[i], marker=MARKERS[i], markersize=MARKERSIZE//3, linewidth=LINEWIDTH//2)
 
                 try:
                     p = np.array([data_run['#Rew_{}'.format(i)] for i in range(counter, counter + len(buckets[i]))])
