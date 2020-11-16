@@ -11,6 +11,7 @@ LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
 epsilon = 1e-6
 
+ONE_HOT = False
 
 # Initialize Policy weights
 def weights_init_(m):
@@ -153,7 +154,7 @@ class DeepSetSAC:
 
         if args.algo == 'language':
             self.language = True
-            self.embedding_size = args.embedding_size
+            self.embedding_size = 2 if ONE_HOT else args.embedding_size
             self.instructions = get_instruction2()
 
             split_instructions, max_seq_length, word_set = analyze_inst(self.instructions)
@@ -161,6 +162,8 @@ class DeepSetSAC:
             self.one_hot_encoder = OneHotEncoder(vocab, max_seq_length)
             self.one_hot_language = dict(zip(self.instructions, [self.one_hot_encoder.encode(s) for s in split_instructions]))
 
+            if ONE_HOT:
+                self.simple_encoder = dict(zip(self.instructions, [np.array([0, 1]),np.array([1, 0])]))
             self.policy_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
                                                   hidden_size=self.embedding_size,
                                                   num_layers=1,
@@ -221,13 +224,13 @@ class DeepSetSAC:
             else:
                 dim_input_goals = self.dim_goal
 
-        dim_input_objects = 2 * self.dim_object
+        dim_input_objects = 2 * (self.num_blocks + self.dim_object)
         if self.continuous_trick:
             dim_phi_actor_input = 2*6 + self.dim_body + dim_input_objects
         else:
             dim_phi_actor_input = dim_input_goals + self.dim_body + dim_input_objects
 
-        dim_phi_actor_output = 3 * (self.dim_body + self.dim_object)
+        dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object))
 
         dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
@@ -237,7 +240,7 @@ class DeepSetSAC:
         else:
             dim_phi_critic_input = dim_input_goals + self.dim_body + dim_input_objects + self.dim_act
 
-        dim_phi_critic_output = 3 * (self.dim_body + self.dim_object + self.dim_act)
+        dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act)
 
         dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
@@ -259,15 +262,19 @@ class DeepSetSAC:
         self.anchor_g = anchor_g
 
         if self.language:
-            encodings = self.one_hot_language[language_goal]
-            # old
-            # encodings = np.array(self.one_hot_language[str(g)])
-            encodings = torch.tensor(encodings, dtype=torch.float32).unsqueeze(0)
-            goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
+            if ONE_HOT:
+                goal_embeddings = torch.tensor(self.simple_encoder[language_goal], dtype=torch.float32).unsqueeze(0)
+            else:
+                encodings = self.one_hot_language[language_goal]
+                # old
+                # encodings = np.array(self.one_hot_language[str(g)])
+                encodings = torch.tensor(encodings, dtype=torch.float32).unsqueeze(0)
+                goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
 
         obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
-        obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
-                       for i in range(self.num_blocks)]
+        obs_objects = [torch.cat((torch.cat(obs_body.shape[0] * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
+                                  self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)),
+                                 dim=-1) for i in range(self.num_blocks)]
 
         if self.symmetry_trick:
             all_inputs = []
@@ -372,14 +379,18 @@ class DeepSetSAC:
         self.anchor_g = anchor_g
 
         if self.language:
-            encodings = np.array([self.one_hot_language[lg] for lg in language_goals])
-            # old
-            # encodings = np.array([self.one_hot_language[str(sg)] for sg in g])
-            encodings = torch.tensor(encodings, dtype=torch.float32)
-            goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
+            if ONE_HOT:
+                goal_embeddings = torch.tensor(np.array([self.simple_encoder[lg] for lg in language_goals]), dtype=torch.float32)
+            else:
+                encodings = np.array([self.one_hot_language[lg] for lg in language_goals])
+                # old
+                # encodings = np.array([self.one_hot_language[str(sg)] for sg in g])
+                encodings = torch.tensor(encodings, dtype=torch.float32)
+                goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
         obs_body = self.observation[:, :self.dim_body]
-        obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
-                       for i in range(self.num_blocks)]
+        obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
+                               obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
+                              for i in range(self.num_blocks)]
 
         if self.symmetry_trick:
             all_inputs = []
