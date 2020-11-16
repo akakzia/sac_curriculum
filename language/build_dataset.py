@@ -76,8 +76,8 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=
                 sentences += new_sentences
             else:
                 new_sentences = []
+                new_sentences.append('Remove {} from {}'.format(words[1], words[2]))
                 if not NO_SYNONYMS:
-                    new_sentences.append('Remove {} from {}'.format(words[1], words[2]))
                     new_sentences.append('Remove {} from_above {}'.format(words[1], words[2]))
                     new_sentences.append('Remove {} from_under {}'.format(words[2], words[1]))
                     new_sentences.append('Remove {} from_below {}'.format(words[2], words[1]))
