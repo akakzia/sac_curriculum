@@ -125,9 +125,12 @@ def get_instruction():
     return oracle_id_to_inst, g_str_to_inst
 
 def get_instruction2():
-    from language.build_dataset import NO_SYNONYMS
+    from language.build_dataset import NO_SYNONYMS, DEBUG
 
-    if NO_SYNONYMS:
+    if DEBUG:
+        return ['Put green close_to blue',
+                'Put green far_from blue']
+    elif NO_SYNONYMS:
         return ['Put blue above green',
                 'Put blue above red',
                 'Put green above blue',
