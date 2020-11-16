@@ -153,6 +153,7 @@ class DeepSetSAC:
 
         if args.algo == 'language':
             self.language = True
+            self.embedding_size = args.embedding_size
             self.instructions = get_instruction2()
 
             split_instructions, max_seq_length, word_set = analyze_inst(self.instructions)
@@ -161,14 +162,14 @@ class DeepSetSAC:
             self.one_hot_language = dict(zip(self.instructions, [self.one_hot_encoder.encode(s) for s in split_instructions]))
 
             self.policy_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
-                                                  hidden_size=100,
+                                                  hidden_size=self.embedding_size,
                                                   num_layers=1,
                                                   nonlinearity='tanh',
                                                   bias=True,
                                                   batch_first=True)
 
             self.critic_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
-                                                  hidden_size=100,
+                                                  hidden_size=self.embedding_size,
                                                   num_layers=1,
                                                   nonlinearity='tanh',
                                                   bias=True,
@@ -213,7 +214,7 @@ class DeepSetSAC:
 
         # Define dimensions
         if self.language:
-            dim_input_goals = 100
+            dim_input_goals = self.embedding_size
         else:
             if self.include_ag:
                 dim_input_goals = 2 * self.dim_goal
