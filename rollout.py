@@ -15,9 +15,7 @@ class RolloutWorker:
 
         episodes = []
         for i in range(goals.shape[0]):
-            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]),
-                                                        biased_init=biased_init)
-
+            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), biased_init=biased_init)
             obs = observation['observation']
             ag = observation['achieved_goal']
             ag_bin = observation['achieved_goal_binary']
@@ -28,7 +26,6 @@ class RolloutWorker:
 
             # Start to collect samples
             for t in range(self.env_params['max_timesteps']):
-
                 # Run policy for one step
                 no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
                 if self.args.algo == 'language':
@@ -39,14 +36,14 @@ class RolloutWorker:
                 else:
                     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
 
-                # Feed the actions into the environment
+                # feed the actions into the environment
                 if animated:
                     self.env.render()
 
                 observation_new, r, _, info = self.env.step(action)
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
-                ag_new_bin = observation['achieved_goal_binary']
+                ag_new_bin = observation_new['achieved_goal_binary']
 
 
                 # Append rollouts
@@ -83,3 +80,4 @@ class RolloutWorker:
             episodes.append(episode)
 
         return episodes
+

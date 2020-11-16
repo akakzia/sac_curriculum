@@ -11,11 +11,10 @@ def str_to_class(str):
 # Robotics
 # ----------------------------------------
 num_blocks = 3
-kwargs = {'reward_type': 'sparse'}
 
 register(id='FetchManipulate3Objects-v0',
          entry_point='env.envs:FetchManipulateEnv',
-         kwargs=kwargs,
+         kwargs={'reward_type': 'sparse'},
          max_episode_steps=100,)
 
 register(id='FetchManipulate3ObjectsContinuous-v0',

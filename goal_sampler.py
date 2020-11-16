@@ -10,10 +10,12 @@ from mpi_utils import logger
 
 class GoalSampler:
     def __init__(self, args):
-        self.curriculum_learning = args.curriculum_learning  # whether to perform curriculum learning
-        self.automatic_buckets = args.automatic_buckets  # whether to use automatically defined buckets (uses expert buckets if False)
-        self.num_buckets = args.num_buckets  # number of buckets to be used (if automatic_buckets is True)
-        self.queue_length = args.queue_length  # length of the queues tracking past successes and failures for LP updates
+        self.continuous = args.algo == 'continuous'
+        self.curriculum_learning = args.curriculum_learning
+        self.automatic_buckets = args.automatic_buckets
+        self.num_buckets = args.num_buckets
+        self.queue_length = args.queue_length
+        self.num_rollouts_per_mpi = args.num_rollouts_per_mpi
         self.rank = MPI.COMM_WORLD.Get_rank()
         self.self_eval_prob = args.self_eval_prob  # probability to perform self evaluation
         assert 0 <= self.self_eval_prob <= 1, "Self-evaluation probability must be in [0, 1]."
@@ -22,8 +24,6 @@ class GoalSampler:
         buckets = generate_goals()
         if not self.curriculum_learning: self.num_buckets = 0
         elif not self.automatic_buckets: self.num_buckets = len(buckets)
-
-        # Extract the list of all goals and valid goals from expert buckets
         all_goals = generate_all_goals_in_goal_space().astype(np.float32)
         valid_goals = []
         for k in buckets.keys():
@@ -74,14 +74,12 @@ class GoalSampler:
                 # Initialize tracking of discovered goals
                 self.discovered_goals = self.all_goals[np.array(self.discovered_goals_oracle_id)].tolist()
                 self.discovered_goals_str = [str(np.array(g)) for g in self.discovered_goals]
-                self.discovered_pairs_oracle_ids = []
 
         else:
             # Initialize tracking of discovered goals
             self.discovered_goals = []
             self.discovered_goals_str = []
             self.discovered_goals_oracle_id = []
-            self.discovered_pairs_oracle_ids = []
 
         self.init_stats()
 
@@ -89,14 +87,12 @@ class GoalSampler:
         # Sample goals
 
         if evaluation:
-            # if evaluation, sample random valid goals
-            goals = np.random.choice(self.valid_goals, size=2)
+            goals = np.random.choice(self.valid_goals, size=self.num_rollouts_per_mpi)
             self_eval = False
         else:
-            # If no goal has been discovered or if not all buckets are filled in the case of automatic buckets
-            # then sample a random configuration
-            cond = (self.curriculum_learning and self.automatic_buckets and len(self.discovered_goals) < self.num_buckets)
-            if len(self.discovered_goals) == 0 or cond:
+            # if no goal has been discovered or if not all buckets are filled in the case of automatic buckets
+            cond1 = (self.curriculum_learning and self.automatic_buckets and len(self.discovered_goals) < self.num_buckets)
+            if len(self.discovered_goals) == 0 or cond1:
                 # sample randomly in the goal space
                 goals = np.random.randint(0, 2, size=(n_goals, self.goal_dim)).astype(np.float32)
                 self_eval = False
@@ -149,7 +145,9 @@ class GoalSampler:
             if not self.curriculum_learning or self.automatic_buckets:
                 new_goal_found = False
                 for e in all_episode_list:
-                    # A goal is discovered if the last configuration is new.
+
+                    id_ag_end = self.g_str_to_oracle_id[str(e['ag_binary'][-1])]
+
                     if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
                         # Filter unvalid goals, although this should not really happen anyway.
                         if str(e['ag_binary'][-1]) not in self.valid_goals_str:
@@ -171,8 +169,9 @@ class GoalSampler:
                 for e in all_episode_list:
                     if e['self_eval']:
                         oracle_id = self.g_str_to_oracle_id[str(e['g_binary'][0])]
-                        # A self-evaluation is a success if the last configuration matches the targeted goal configuration
-                        if str(e['g_binary'][0]) == str(e['ag_binary'][-1]):
+                        if not self.continuous and str(e['g_binary'][0]) == str(e['ag_binary'][-1]):
+                            success = 1
+                        elif self.continuous and (e['rewards'][-1] == 3.):
                             success = 1
                         else:
                             success = 0
@@ -259,7 +258,21 @@ class GoalSampler:
 
         # only consider buckets filled with discovered goals
         if self.curriculum_learning:
-            buckets = np.random.choice(range(self.num_buckets), p=self.p, size=batch_size)
+            LP = self.LP
+            C = self.C
+            if np.sum((1 - C) * LP) == 0:
+                p = np.ones([self.num_buckets]) / self.num_buckets
+            else:
+                p = (1 - C) * LP / np.sum((1 - C) * LP)
+                # p = self.epsilon * np.ones([self.num_buckets]) / self.num_buckets + (1 - self.epsilon) * LP / LP.sum()
+                # p = (1 - np.power(C, beta)) * np.power(LP, nu) / np.sum((1 - np.power(C, beta)) * np.power(LP, nu))
+                # p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
+            if p.sum() > 1:
+                p[np.argmax(p)] -= p.sum() - 1
+            elif p.sum() < 1:
+                p[-1] = 1 - p[:-1].sum()
+            buckets = np.random.choice(range(self.num_buckets), p=p, size=batch_size)
+            # buckets = np.random.choice(range(self.num_buckets), p=p) * np.ones(batch_size)
             goal_ids = []
             for b in buckets:
                 if len(self.buckets[b]) > 0:

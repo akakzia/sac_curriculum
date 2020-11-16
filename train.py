@@ -13,7 +13,6 @@ from utils import init_storage
 import time
 from mpi_utils import logger
 
-
 def get_env_params(env):
     obs = env.reset()
 
@@ -31,7 +30,6 @@ def launch(args):
 
     # Make the environment
     env = gym.make(args.env_name)
-    args.object_inds = env.unwrapped.object_inds
 
     # set random seeds for reproducibility
     env.seed(args.seed + MPI.COMM_WORLD.Get_rank())
@@ -45,10 +43,10 @@ def launch(args):
     if rank == 0:
         logdir, model_path, bucket_path = init_storage(args)
         logger.configure(dir=logdir)
+        logger.info(vars(args))
 
     args.env_params = get_env_params(env)
 
-    logger.info(vars(args))
 
     # Initialize Goal Sampler:
     goal_sampler = GoalSampler(args)
@@ -147,7 +145,10 @@ def launch(args):
                                                        biased_init=False)
 
             # Extract the results
-            results = np.array([str(e['g_binary'][0]) == str(e['ag_binary'][-1]) for e in episodes]).astype(np.int)
+            if args.algo == 'continuous':
+                results = np.array([e['rewards'][-1] == 3. for e in episodes]).astype(np.int)
+            else:
+                results = np.array([str(e['g_binary'][0]) == str(e['ag_binary'][-1]) for e in episodes]).astype(np.int)
             rewards = np.array([e['rewards'][-1] for e in episodes])
             all_results = MPI.COMM_WORLD.gather(results, root=0)
             all_rewards = MPI.COMM_WORLD.gather(rewards, root=0)
