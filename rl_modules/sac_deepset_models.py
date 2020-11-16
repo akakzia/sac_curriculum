@@ -127,10 +127,11 @@ class DeepSetSAC:
         self.dim_act = env_params['action']
         self.num_blocks = 3
         self.combinations_trick = args.combinations_trick
-        if self.combinations_trick:
-            self.n_permutations = len([x for x in combinations(range(self.num_blocks), 2)])
-        else:
-            self.n_permutations = len([x for x in permutations(range(self.num_blocks), 2)])
+        # if self.combinations_trick:
+        #     self.n_permutations = len([x for x in combinations(range(self.num_blocks), 2)])
+        # else:
+        #     self.n_permutations = len([x for x in permutations(range(self.num_blocks), 2)])
+        self.n_permutations = 1
 
 
 
@@ -359,7 +360,8 @@ class DeepSetSAC:
                 input_actor = torch.stack(all_inputs)
             else:
                 if not self.include_ag:
-                    input_actor = torch.stack([torch.cat([body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
+                    # input_actor = torch.stack([torch.cat([body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
+                    input_actor = torch.stack([torch.cat([body_input_actor, obj_input_actor[1], obj_input_actor[2]], dim=1)])
                 else:
                     input_actor = torch.stack([torch.cat([ag, body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
 
@@ -474,7 +476,8 @@ class DeepSetSAC:
                 input_actor = torch.stack(all_inputs)
             else:
                 if not self.include_ag:
-                    input_actor = torch.stack([torch.cat([body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
+                    # input_actor = torch.stack([torch.cat([body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
+                    input_actor = torch.stack([torch.cat([body_input, obj_input[1], obj_input[2]], dim=1)])
                 else:
                     input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])            #input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in combinations(obj_input, 2)])
 
