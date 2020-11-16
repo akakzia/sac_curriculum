@@ -2,7 +2,7 @@ from language.get_data import get_data
 import numpy as np
 import env
 import gym
-from language.sentence_vae.utils import generate_goals, generate_all_goals_in_goal_space
+from language.utils import generate_goals, generate_all_goals_in_goal_space
 
 
 def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=False):

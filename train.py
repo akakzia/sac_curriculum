@@ -14,7 +14,6 @@ import time
 from mpi_utils import logger
 from language.build_dataset import sentence_from_configuration
 
-
 def get_env_params(env):
     obs = env.reset()
 
@@ -32,7 +31,6 @@ def launch(args):
 
     # Make the environment
     env = gym.make(args.env_name)
-    args.object_inds = env.unwrapped.object_inds
 
     # set random seeds for reproducibility
     env.seed(args.seed + MPI.COMM_WORLD.Get_rank())
@@ -46,10 +44,10 @@ def launch(args):
     if rank == 0:
         logdir, model_path, bucket_path = init_storage(args)
         logger.configure(dir=logdir)
+        logger.info(vars(args))
 
     args.env_params = get_env_params(env)
 
-    logger.info(vars(args))
 
     # Initialize Goal Sampler:
     goal_sampler = GoalSampler(args)
@@ -148,19 +146,24 @@ def launch(args):
                                                        biased_init=False)
 
             # Extract the results
-            if args.algo == 'language':
+            if args.algo == 'continuous':
+                results = np.array([e['rewards'][-1] == 3. for e in episodes]).astype(np.int)
+            elif args.algo == 'language':
                 results = np.array([e['language_goal'] in sentence_from_configuration(config=e['ag'][-1], all=True) for e in episodes]).astype(np.int)
             else:
                 results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
+            rewards = np.array([e['rewards'][-1] for e in episodes])
             all_results = MPI.COMM_WORLD.gather(results, root=0)
+            all_rewards = MPI.COMM_WORLD.gather(rewards, root=0)
             time_dict['eval'] += time.time() - t_i
 
             # Logs
             if rank == 0:
                 assert len(all_results) == args.num_workers  # MPI test
                 av_res = np.array(all_results).mean(axis=0)
+                av_rewards = np.array(all_rewards).mean(axis=0)
                 global_sr = np.mean(av_res)
-                log_and_save(goal_sampler, epoch, episode_count, av_res, global_sr, time_dict)
+                log_and_save(goal_sampler, epoch, episode_count, av_res, av_rewards, global_sr, time_dict)
 
                 # Saving policy models
                 if epoch % args.save_freq == 0:
@@ -169,8 +172,8 @@ def launch(args):
                 if rank==0: logger.info('\tEpoch #{}: SR: {}'.format(epoch, global_sr))
 
 
-def log_and_save( goal_sampler, epoch, episode_count, av_res, global_sr, time_dict):
-    goal_sampler.save(epoch, episode_count, av_res, global_sr, time_dict)
+def log_and_save( goal_sampler, epoch, episode_count, av_res, av_rew, global_sr, time_dict):
+    goal_sampler.save(epoch, episode_count, av_res, av_rew, global_sr, time_dict)
     for k, l in goal_sampler.stats.items():
         logger.record_tabular(k, l[-1])
     logger.dump_tabular()

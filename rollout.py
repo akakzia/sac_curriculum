@@ -15,20 +15,17 @@ class RolloutWorker:
 
         episodes = []
         for i in range(goals.shape[0]):
-            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]),
-                                                        biased_init=biased_init)
-
+            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), biased_init=biased_init)
             obs = observation['observation']
             ag = observation['achieved_goal']
             ag_bin = observation['achieved_goal_binary']
             g = observation['desired_goal']
             g_bin = observation['desired_goal_binary']
 
-            ep_obs, ep_ag, ep_ag_bin, ep_g, ep_g_bin, ep_actions, ep_success = [], [], [], [], [], [], []
+            ep_obs, ep_ag, ep_ag_bin, ep_g, ep_g_bin, ep_actions, ep_success, ep_rewards = [], [], [], [], [], [], [], []
 
             # Start to collect samples
             for t in range(self.env_params['max_timesteps']):
-
                 # Run policy for one step
                 no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
                 if self.args.algo == 'language':
@@ -39,14 +36,14 @@ class RolloutWorker:
                 else:
                     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
 
-                # Feed the actions into the environment
+                # feed the actions into the environment
                 if animated:
                     self.env.render()
 
-                observation_new, _, _, info = self.env.step(action)
+                observation_new, r, _, info = self.env.step(action)
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
-                ag_new_bin = observation['achieved_goal_binary']
+                ag_new_bin = observation_new['achieved_goal_binary']
 
 
                 # Append rollouts
@@ -56,6 +53,7 @@ class RolloutWorker:
                 ep_g.append(g.copy())
                 ep_g_bin.append(g_bin.copy())
                 ep_actions.append(action.copy())
+                ep_rewards.append(r)
 
                 # Re-assign the observation
                 obs = obs_new
@@ -73,6 +71,7 @@ class RolloutWorker:
                            ag=np.array(ep_ag).copy(),
                            g_binary=np.array(ep_g_bin).copy(),
                            ag_binary=np.array(ep_ag_bin).copy(),
+                           rewards=np.array(ep_rewards).copy(),
                            self_eval=self_eval)
 
             if self.args.algo == 'language':
@@ -81,3 +80,4 @@ class RolloutWorker:
             episodes.append(episode)
 
         return episodes
+
