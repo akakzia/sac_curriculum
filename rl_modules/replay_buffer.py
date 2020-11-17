@@ -67,7 +67,6 @@ class MultiBuffer:
             if self.energy_bias:
                 energy = self.buffer['energy'][:self.current_size].astype(np.bool)
                 ind_energy = np.argwhere(energy).flatten()
-                print(ind_energy.size)
                 if ind_energy.size * self.T < 10 * batch_size:
                     for key in self.buffer.keys():
                         if key == 'language_goal':
