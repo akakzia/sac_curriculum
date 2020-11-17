@@ -4,8 +4,6 @@ import env
 import gym
 from language.utils import generate_goals, generate_all_goals_in_goal_space
 
-NO_SYNONYMS = True
-DEBUG = True
 
 def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=False):
 
@@ -26,7 +24,7 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=
     negative_close_sentences = []
     positive_above_sentences = []
     negative_above_sentences = []
-    for i in [2]:#range(len(predicates)):
+    for i in range(len(predicates)):
         p = predicates[i]
         words = p.split('_')
         for j in range(len(words)):
@@ -39,53 +37,47 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=
             if positive:
                 new_sentences = []
                 new_sentences.append('Put {} close_to {}'.format(words[1], words[2]))
-                if not NO_SYNONYMS and not DEBUG:
-                    new_sentences.append('Get {} close_to {}'.format(words[1], words[2]))
-                    new_sentences.append('Put {} close_to {}'.format(words[2], words[1]))
-                    new_sentences.append('Get {} close_to {}'.format(words[2], words[1]))
-                    new_sentences.append('Get {} and {} close_from each_other'.format(words[1], words[2]))
-                    new_sentences.append('Get {} and {} close_from each_other'.format(words[2], words[1]))
-                    new_sentences.append('Bring {} and {} together'.format(words[1], words[2]))
-                    new_sentences.append('Bring {} and {} together'.format(words[2], words[1]))
+                new_sentences.append('Get {} close_to {}'.format(words[1], words[2]))
+                new_sentences.append('Put {} close_to {}'.format(words[2], words[1]))
+                new_sentences.append('Get {} close_to {}'.format(words[2], words[1]))
+                new_sentences.append('Get {} and {} close_from each_other'.format(words[1], words[2]))
+                new_sentences.append('Get {} and {} close_from each_other'.format(words[2], words[1]))
+                new_sentences.append('Bring {} and {} together'.format(words[1], words[2]))
+                new_sentences.append('Bring {} and {} together'.format(words[2], words[1]))
                 new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
                 positive_close_sentences += new_sentences
                 sentences += new_sentences
             else:
                 new_sentences = []
                 new_sentences.append('Put {} far_from {}'.format(words[1], words[2]))
-                if not NO_SYNONYMS and not DEBUG:
-                    new_sentences.append('Get {} far_from {}'.format(words[1], words[2]))
-                    new_sentences.append('Put {} far_from {}'.format(words[2], words[1]))
-                    new_sentences.append('Get {} far_from {}'.format(words[2], words[1]))
-                    new_sentences.append('Get {} and {} far_from each_other'.format(words[1], words[2]))
-                    new_sentences.append('Get {} and {} far_from each_other'.format(words[2], words[1]))
-                    new_sentences.append('Bring {} and {} apart'.format(words[1], words[2]))
-                    new_sentences.append('Bring {} and {} apart'.format(words[2], words[1]))
+                new_sentences.append('Get {} far_from {}'.format(words[1], words[2]))
+                new_sentences.append('Put {} far_from {}'.format(words[2], words[1]))
+                new_sentences.append('Get {} far_from {}'.format(words[2], words[1]))
+                new_sentences.append('Get {} and {} far_from each_other'.format(words[1], words[2]))
+                new_sentences.append('Get {} and {} far_from each_other'.format(words[2], words[1]))
+                new_sentences.append('Bring {} and {} apart'.format(words[1], words[2]))
+                new_sentences.append('Bring {} and {} apart'.format(words[2], words[1]))
                 new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
                 negative_close_sentences += new_sentences
                 sentences += new_sentences
         elif words[0] == 'above':
             if positive:
                 new_sentences = []
-                if not DEBUG:
-                    new_sentences.append('Put {} above {}'.format(words[1], words[2]))
-                    if not NO_SYNONYMS:
-                        new_sentences.append('Put {} on_top_of {}'.format(words[1], words[2]))
-                        new_sentences.append('Put {} under {}'.format(words[2], words[1]))
-                        new_sentences.append('Put {} below {}'.format(words[2], words[1]))
-                    new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
-                    positive_above_sentences += new_sentences
-                    sentences += new_sentences
+                new_sentences.append('Put {} above {}'.format(words[1], words[2]))
+                new_sentences.append('Put {} on_top_of {}'.format(words[1], words[2]))
+                new_sentences.append('Put {} under {}'.format(words[2], words[1]))
+                new_sentences.append('Put {} below {}'.format(words[2], words[1]))
+                new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
+                positive_above_sentences += new_sentences
+                sentences += new_sentences
             else:
                 new_sentences = []
-                if not DEBUG:
-                    new_sentences.append('Remove {} from {}'.format(words[1], words[2]))
-                    if not NO_SYNONYMS:
-                        new_sentences.append('Remove {} from_above {}'.format(words[1], words[2]))
-                        new_sentences.append('Remove {} from_under {}'.format(words[2], words[1]))
-                        new_sentences.append('Remove {} from_below {}'.format(words[2], words[1]))
-                        new_sentences.append('Put {} and {} on_the_same_plane'.format(words[1], words[2]))
-                        new_sentences.append('Put {} and {} on_the_same_plane'.format(words[2], words[1]))
+                new_sentences.append('Remove {} from {}'.format(words[1], words[2]))
+                new_sentences.append('Remove {} from_above {}'.format(words[1], words[2]))
+                new_sentences.append('Remove {} from_under {}'.format(words[2], words[1]))
+                new_sentences.append('Remove {} from_below {}'.format(words[2], words[1]))
+                new_sentences.append('Put {} and {} on_the_same_plane'.format(words[1], words[2]))
+                new_sentences.append('Put {} and {} on_the_same_plane'.format(words[2], words[1]))
                 new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
                 negative_above_sentences += new_sentences
                 sentences += new_sentences
