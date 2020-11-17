@@ -6,15 +6,17 @@ the replay buffer here is basically from the openai baselines code
 
 """
 
+ENERGY_BIAS = False
 
 
 class MultiBuffer:
-    def __init__(self, env_params, buffer_size, sample_func, multi_head, goal_sampler):
+    def __init__(self, env_params, buffer_size, sample_func, multi_head, goal_sampler, energy_bias):
         self.env_params = env_params
         self.T = env_params['max_timesteps']
         self.size = buffer_size // self.T
         self.multi_head = multi_head
         self.goal_sampler = goal_sampler
+        self.energy_bias = ENERGY_BIAS
 
         # memory management
         self.sample_func = sample_func
@@ -26,7 +28,8 @@ class MultiBuffer:
                        'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
                        'g': np.empty([self.size, self.T, self.env_params['goal']]),
                        'actions': np.empty([self.size, self.T, self.env_params['action']]),
-                       'language_goal': [None for _ in range(self.size)]
+                       'language_goal': [None for _ in range(self.size)],
+                       'energy': np.empty([self.size])
                        }
         self.goal_ids = np.zeros([self.size])  # contains id of achieved goal (discovery rank)
         self.goal_ids.fill(np.nan)
@@ -49,12 +52,37 @@ class MultiBuffer:
                 self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
                 if 'language_goal' in e.keys():
                     self.buffer['language_goal'][idxs[i]] = e['language_goal']
+                if len(set([str(ag) for ag in e['ag']])) > 1:
+                    self.buffer['energy'][idxs[i]] = 1
+                else:
+                    self.buffer['energy'][idxs[i]] = 0
 
     # sample the data from the replay buffer
     def sample(self, batch_size):
         temp_buffers = {}
         with self.lock:
-            if not self.multi_head:
+            if self.energy_bias:
+                energy = self.buffer['energy'][:self.current_size].astype(np.bool)
+                ind_energy = np.argwhere(energy).flatten()
+                print(ind_energy.size)
+                if ind_energy.size * self.T < 10 * batch_size:
+                    for key in self.buffer.keys():
+                        if key == 'language_goal':
+                            temp_buffers[key] = np.array([np.array(self.buffer[key][:self.current_size]) for _ in range(self.T)]).T
+                            temp_buffers[key] = temp_buffers[key].astype('object')
+                        elif key != 'energy':
+                            temp_buffers[key] = self.buffer[key][:self.current_size]
+                else:
+                    ind_not_energy = np.argwhere(~energy).flatten()
+                    buffer_ids = np.concatenate([ind_energy, np.random.choice(ind_not_energy, size=ind_energy.size, replace=False)])
+                    for key in self.buffer.keys():
+                        if key == 'language_goal':
+                            temp_buffers[key] = np.array([np.array(self.buffer[key][buffer_ids]) for _ in range(self.T)]).T
+                            temp_buffers[key] = temp_buffers[key].astype('object')
+                        elif key != 'energy':
+                            temp_buffers[key] = self.buffer[key][buffer_ids]
+
+            elif not self.multi_head:
                 for key in self.buffer.keys():
                     if key == 'language_goal':
                         temp_buffers[key] = np.array([np.array(self.buffer[key][:self.current_size]) for _ in range(self.T)]).T
