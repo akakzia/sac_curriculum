@@ -136,19 +136,19 @@ def get_instruction2():
                 'Put green above blue',
                 'Put green above red',
                 'Put green close_to blue',
-                'Put green far_from blue',
+                # 'Put green far_from blue',
                 'Put red above blue',
                 'Put red above green',
                 'Put red close_to blue',
-                'Put red close_to green',
-                'Put red far_from blue',
-                'Put red far_from green',
-                'Remove blue from green',
-                'Remove blue from red',
-                'Remove green from blue',
-                'Remove green from red',
-                'Remove red from blue',
-                'Remove red from green']
+                'Put red close_to green',]
+                # 'Put red far_from blue',
+                # 'Put red far_from green',]
+                # 'Remove blue from green',
+                # 'Remove blue from red',
+                # 'Remove green from blue',
+                # 'Remove green from red',
+                # 'Remove red from blue',
+                # 'Remove red from green']
     else:
         return ['Bring blue and green apart',
                 'Bring blue and green together',
