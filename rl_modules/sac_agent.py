@@ -7,6 +7,7 @@ from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from rl_modules.sac_deepset_models import DeepSetSAC
 from updates import update_flat, update_deepsets
+from rl_modules.sac_deepset_models import UNIQUE_ENCODER
 
 
 """
@@ -64,9 +65,15 @@ class SACAgent:
             self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
                                                  list(self.model.rho_actor.parameters()),
                                                  lr=self.args.lr_actor)
-            self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
-                                                 list(self.model.rho_critic.parameters()),
-                                                 lr=self.args.lr_critic)
+            if args.algo == 'language' and UNIQUE_ENCODER:
+                self.critic_optim = torch.optim.Adam(list(self.model.critic_sentence_encoder.parameters()) +
+                                                     list(self.model.single_phi_critic.parameters()) +
+                                                     list(self.model.rho_critic.parameters()),
+                                                     lr=self.args.lr_critic)
+            else:
+                self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
+                                                     list(self.model.rho_critic.parameters()),
+                                                     lr=self.args.lr_critic)
 
         else:
             raise NotImplementedError
