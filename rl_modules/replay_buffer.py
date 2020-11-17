@@ -58,6 +58,7 @@ class MultiBuffer:
                 for key in self.buffer.keys():
                     if key == 'language_goal':
                         temp_buffers[key] = np.array([np.array(self.buffer[key][:self.current_size]) for _ in range(self.T)]).T
+                        temp_buffers[key] = temp_buffers[key].astype('object')
                     else:
                         temp_buffers[key] = self.buffer[key][:self.current_size]
             else:

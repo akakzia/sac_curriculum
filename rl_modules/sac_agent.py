@@ -183,7 +183,8 @@ class SACAgent:
                        'ag_next': np.expand_dims(mb_ag_next, 0),
                        }
         if 'language_goal' in episode.keys():
-            buffer_temp['language_goal'] = np.array([episode['language_goal'] for _ in range(mb_g.shape[0])]).reshape(1, -1)
+            buffer_temp['language_goal'] = np.array([episode['language_goal'] for _ in range(mb_g.shape[0])], dtype='object').reshape(1, -1)
+
         transitions = self.her_module.sample_her_transitions(buffer_temp, num_transitions)
         obs, g = transitions['obs'], transitions['g']
         # pre process the obs and g

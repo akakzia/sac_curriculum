@@ -12,6 +12,7 @@ LOG_SIG_MIN = -20
 epsilon = 1e-6
 
 ONE_HOT = False
+UNIQUE_ENCODER = True
 
 # Initialize Policy weights
 def weights_init_(m):
@@ -127,11 +128,11 @@ class DeepSetSAC:
         self.dim_act = env_params['action']
         self.num_blocks = 3
         self.combinations_trick = args.combinations_trick
-        # if self.combinations_trick:
-        #     self.n_permutations = len([x for x in combinations(range(self.num_blocks), 2)])
-        # else:
-        #     self.n_permutations = len([x for x in permutations(range(self.num_blocks), 2)])
-        self.n_permutations = 1
+        if self.combinations_trick:
+            self.n_permutations = len([x for x in combinations(range(self.num_blocks), 2)])
+        else:
+            self.n_permutations = len([x for x in permutations(range(self.num_blocks), 2)])
+        # self.n_permutations = 1
 
 
 
@@ -155,8 +156,10 @@ class DeepSetSAC:
 
         if args.algo == 'language':
             self.language = True
-            self.embedding_size = 2 if ONE_HOT else args.embedding_size
             self.instructions = get_instruction2()
+            self.nb_instructions = len(self.instructions)
+            self.embedding_size = self.nb_instructions if ONE_HOT else args.embedding_size
+
 
             split_instructions, max_seq_length, word_set = analyze_inst(self.instructions)
             vocab = Vocab(word_set)
@@ -164,13 +167,20 @@ class DeepSetSAC:
             self.one_hot_language = dict(zip(self.instructions, [self.one_hot_encoder.encode(s) for s in split_instructions]))
 
             if ONE_HOT:
-                self.simple_encoder = dict(zip(self.instructions, [np.array([0, 1]),np.array([1, 0])]))
-            self.policy_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
-                                                  hidden_size=self.embedding_size,
-                                                  num_layers=1,
-                                                  nonlinearity='tanh',
-                                                  bias=True,
-                                                  batch_first=True)
+                onehots = []
+                for i in range(self.nb_instructions):
+                    zeros = np.zeros([self.nb_instructions])
+                    zeros[i] = 1
+                    onehots.append(zeros)
+                self.simple_encoder = dict(zip(self.instructions, onehots))
+
+            if not UNIQUE_ENCODER:
+                self.policy_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
+                                                      hidden_size=self.embedding_size,
+                                                      num_layers=1,
+                                                      nonlinearity='tanh',
+                                                      bias=True,
+                                                      batch_first=True)
 
             self.critic_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
                                                   hidden_size=self.embedding_size,
@@ -270,7 +280,13 @@ class DeepSetSAC:
                 # old
                 # encodings = np.array(self.one_hot_language[str(g)])
                 encodings = torch.tensor(encodings, dtype=torch.float32).unsqueeze(0)
-                goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
+                # goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
+                if UNIQUE_ENCODER:
+                    with torch.no_grad():
+                        goal_embeddings = self.critic_sentence_encoder.forward(encodings)[0][:, -1, :]
+                else:
+                    goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
+
 
         obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
         obs_objects = [torch.cat((torch.cat(obs_body.shape[0] * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
@@ -360,8 +376,7 @@ class DeepSetSAC:
                 input_actor = torch.stack(all_inputs)
             else:
                 if not self.include_ag:
-                    # input_actor = torch.stack([torch.cat([body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
-                    input_actor = torch.stack([torch.cat([body_input_actor, obj_input_actor[1], obj_input_actor[2]], dim=1)])
+                    input_actor = torch.stack([torch.cat([body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
                 else:
                     input_actor = torch.stack([torch.cat([ag, body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
 
@@ -388,7 +403,12 @@ class DeepSetSAC:
                 # old
                 # encodings = np.array([self.one_hot_language[str(sg)] for sg in g])
                 encodings = torch.tensor(encodings, dtype=torch.float32)
-                goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
+                if UNIQUE_ENCODER:
+                    with torch.no_grad():
+                        goal_embeddings = self.critic_sentence_encoder.forward(encodings)[0][:, -1, :]
+                else:
+                    goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
+
         obs_body = self.observation[:, :self.dim_body]
         obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
                                obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
@@ -464,22 +484,10 @@ class DeepSetSAC:
             obj_input = [obs_objects[i] for i in range(self.num_blocks)]
 
             # Parallelization by stacking input tensors
-            if self.continuous_trick:
-                all_inputs = []
-                for i in range(self.num_blocks):
-                    for j in range(self.num_blocks):
-                        if i != j:
-                            all_inputs.append(
-                                torch.cat([ag[:, self.obj_ids[i]], ag[:, self.obj_ids[j]], obs_body, self.g[:, self.obj_ids[i]],
-                                           self.g[:, self.obj_ids[j]], obs_objects[i], obs_objects[j]], dim=1))
-
-                input_actor = torch.stack(all_inputs)
+            if not self.include_ag:
+                input_actor = torch.stack([torch.cat([body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
             else:
-                if not self.include_ag:
-                    # input_actor = torch.stack([torch.cat([body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
-                    input_actor = torch.stack([torch.cat([body_input, obj_input[1], obj_input[2]], dim=1)])
-                else:
-                    input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])            #input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in combinations(obj_input, 2)])
+                input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])            #input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in combinations(obj_input, 2)])
 
         output_phi_actor = self.single_phi_actor(input_actor).sum(dim=0)
         if not eval:
