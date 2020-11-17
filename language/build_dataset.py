@@ -6,6 +6,7 @@ from language.utils import generate_goals, generate_all_goals_in_goal_space
 
 NO_SYNONYMS = True
 DEBUG = False
+REMOVE_NEG = True
 
 def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=False):
 
@@ -52,15 +53,16 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=
                 sentences += new_sentences
             else:
                 new_sentences = []
-                # new_sentences.append('Put {} far_from {}'.format(words[1], words[2]))
-                # if not NO_SYNONYMS and not DEBUG:
-                #     new_sentences.append('Get {} far_from {}'.format(words[1], words[2]))
-                #     new_sentences.append('Put {} far_from {}'.format(words[2], words[1]))
-                #     new_sentences.append('Get {} far_from {}'.format(words[2], words[1]))
-                #     new_sentences.append('Get {} and {} far_from each_other'.format(words[1], words[2]))
-                #     new_sentences.append('Get {} and {} far_from each_other'.format(words[2], words[1]))
-                #     new_sentences.append('Bring {} and {} apart'.format(words[1], words[2]))
-                #     new_sentences.append('Bring {} and {} apart'.format(words[2], words[1]))
+                if not REMOVE_NEG:
+                    new_sentences.append('Put {} far_from {}'.format(words[1], words[2]))
+                    if not NO_SYNONYMS and not DEBUG:
+                        new_sentences.append('Get {} far_from {}'.format(words[1], words[2]))
+                        new_sentences.append('Put {} far_from {}'.format(words[2], words[1]))
+                        new_sentences.append('Get {} far_from {}'.format(words[2], words[1]))
+                        new_sentences.append('Get {} and {} far_from each_other'.format(words[1], words[2]))
+                        new_sentences.append('Get {} and {} far_from each_other'.format(words[2], words[1]))
+                        new_sentences.append('Bring {} and {} apart'.format(words[1], words[2]))
+                        new_sentences.append('Bring {} and {} apart'.format(words[2], words[1]))
                 new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
                 negative_close_sentences += new_sentences
                 sentences += new_sentences
@@ -78,14 +80,14 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=
                     sentences += new_sentences
             else:
                 new_sentences = []
-                # if not DEBUG:
-                #     new_sentences.append('Remove {} from {}'.format(words[1], words[2]))
-                #     if not NO_SYNONYMS:
-                #         new_sentences.append('Remove {} from_above {}'.format(words[1], words[2]))
-                #         new_sentences.append('Remove {} from_under {}'.format(words[2], words[1]))
-                #         new_sentences.append('Remove {} from_below {}'.format(words[2], words[1]))
-                #         new_sentences.append('Put {} and {} on_the_same_plane'.format(words[1], words[2]))
-                #         new_sentences.append('Put {} and {} on_the_same_plane'.format(words[2], words[1]))
+                if not DEBUG and not REMOVE_NEG:
+                    new_sentences.append('Remove {} from {}'.format(words[1], words[2]))
+                    if not NO_SYNONYMS:
+                        new_sentences.append('Remove {} from_above {}'.format(words[1], words[2]))
+                        new_sentences.append('Remove {} from_under {}'.format(words[2], words[1]))
+                        new_sentences.append('Remove {} from_below {}'.format(words[2], words[1]))
+                        new_sentences.append('Put {} and {} on_the_same_plane'.format(words[1], words[2]))
+                        new_sentences.append('Put {} and {} on_the_same_plane'.format(words[2], words[1]))
                 new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
                 negative_above_sentences += new_sentences
                 sentences += new_sentences
@@ -101,8 +103,11 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=
     elif balanced_sampling:
         sentences_sets = [positive_close_sentences, negative_close_sentences, positive_above_sentences, negative_above_sentences]
         indices = [i for i in range(4) if len(sentences_sets[i])>0]
-        ind = np.random.choice(indices)
-        return np.random.choice(sentences_sets[ind])
+        if len(indices) == 0:
+            return None
+        else:
+            ind = np.random.choice(indices)
+            return np.random.choice(sentences_sets[ind])
 
     else:
         return np.random.choice(sentences)
