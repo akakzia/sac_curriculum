@@ -229,7 +229,11 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
         achieved_goal = np.squeeze(achieved_goal)
 
-        obs = np.concatenate([obs, achieved_goal])
+        distances = np.array([(ob[0][:3] - ob[1][:3])**2 for ob in itertools.combinations(objects_positions, 2)]).flatten()
+
+        obs = np.concatenate([obs, distances])
+
+        # obs = np.concatenate([obs, achieved_goal])
 
         return {
             'observation': obs.copy(),
