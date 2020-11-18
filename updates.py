@@ -192,6 +192,7 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
                                   language_goals=language_goals)
     qf1_loss = F.mse_loss(qf1, next_q_value)
     qf2_loss = F.mse_loss(qf2, next_q_value)
+    qf_loss = qf1_loss + qf2_loss
 
     # the actor loss
     pi, log_pi = model.pi_tensor, model.log_prob
@@ -208,13 +209,7 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
 
     # update the critic_network
     critic_optim.zero_grad()
-    qf1_loss.backward(retain_graph=True)
-    sync_grads(model.single_phi_critic)
-    sync_grads(model.rho_critic)
-    critic_optim.step()
-
-    critic_optim.zero_grad()
-    qf2_loss.backward()
+    qf_loss.backward()
     sync_grads(model.single_phi_critic)
     sync_grads(model.rho_critic)
     critic_optim.step()
