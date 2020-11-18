@@ -6,7 +6,7 @@ the replay buffer here is basically from the openai baselines code
 
 """
 
-ENERGY_BIAS = False
+ENERGY_BIAS = True
 
 
 class MultiBuffer:
@@ -71,20 +71,22 @@ class MultiBuffer:
                 ind_energy = np.argwhere(energy).flatten()
                 if ind_energy.size * self.T < 10 * batch_size:
                     for key in self.buffer.keys():
-                        if key == 'language_goal':
-                            temp_buffers[key] = np.array([np.array(self.buffer[key][:self.current_size]) for _ in range(self.T)]).T
-                            temp_buffers[key] = temp_buffers[key].astype('object')
-                        elif key != 'energy':
+                        # if key == 'language_goal':
+                        #     temp_buffers[key] = np.array([np.array(self.buffer[key][:self.current_size]) for _ in range(self.T)]).T
+                        #     temp_buffers[key] = temp_buffers[key].astype('object')
+                        if key != 'energy':
                             temp_buffers[key] = self.buffer[key][:self.current_size]
                 else:
                     ind_not_energy = np.argwhere(~energy).flatten()
                     buffer_ids = np.concatenate([ind_energy, np.random.choice(ind_not_energy, size=ind_energy.size, replace=False)])
                     for key in self.buffer.keys():
-                        if key == 'language_goal':
-                            temp_buffers[key] = np.array([np.array(self.buffer[key][buffer_ids]) for _ in range(self.T)]).T
-                            temp_buffers[key] = temp_buffers[key].astype('object')
-                        elif key != 'energy':
+                        if key != 'energy':
                             temp_buffers[key] = self.buffer[key][buffer_ids]
+                        # if key == 'language_goal':
+                        #     temp_buffers[key] = np.array([np.array(self.buffer[key][buffer_ids]) for _ in range(self.T)]).T
+                        #     temp_buffers[key] = temp_buffers[key].astype('object')
+                        # elif key != 'energy':
+                        #     temp_buffers[key] = self.buffer[key][buffer_ids]
 
             elif not self.multi_head:
                 for key in self.buffer.keys():
