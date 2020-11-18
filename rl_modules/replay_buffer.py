@@ -6,7 +6,7 @@ the replay buffer here is basically from the openai baselines code
 
 """
 
-ENERGY_BIAS = True
+ENERGY_BIAS = False
 
 
 class MultiBuffer:
