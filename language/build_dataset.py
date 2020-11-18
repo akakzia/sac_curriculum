@@ -5,21 +5,23 @@ import gym
 from language.utils import generate_goals, generate_all_goals_in_goal_space
 
 NO_SYNONYMS = True
-DEBUG = False
-REMOVE_NEG = True
+DEBUG = True
+REMOVE_NEG = False
 
 def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=False):
 
-
-    predicates = ['close_0_1',
-                  'close_0_2',
-                  'close_1_2',
-                  'above_0_1',
-                  'above_1_0',
-                  'above_0_2',
-                  'above_2_0',
-                  'above_1_2',
-                  'above_2_1']
+    if DEBUG:
+        predicates = ['close_0_1', 'above_0_1', 'above_1_0']
+    else:
+        predicates = ['close_0_1',
+                      'close_0_2',
+                      'close_1_2',
+                      'above_0_1',
+                      'above_1_0',
+                      'above_0_2',
+                      'above_2_0',
+                      'above_1_2',
+                      'above_2_1']
     colors = {'0':'red', '1':'green', '2':'blue'}
 
     sentences = []

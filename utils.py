@@ -128,8 +128,10 @@ def get_instruction2():
     from language.build_dataset import NO_SYNONYMS, DEBUG, REMOVE_NEG
 
     if DEBUG:
-        return ['Put green close_to blue',
-                'Put green far_from blue']
+        return ['Put red far_from green',
+                'Put red close_to green',
+                'Put red above green',
+                'Put green above red']
     elif NO_SYNONYMS and REMOVE_NEG:
         return ['Put blue above green',
                 'Put blue above red',
