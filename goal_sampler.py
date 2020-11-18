@@ -1,11 +1,12 @@
 from collections import deque
 import numpy as np
-from utils import  generate_all_goals_in_goal_space, generate_goals
+from utils import  generate_all_goals_in_goal_space, generate_goals, language_to_id
 from mpi4py import MPI
 import os
 import pickle
 import pandas as pd
 from mpi_utils import logger
+from language.build_dataset import sentence_from_configuration
 
 
 class GoalSampler:
@@ -136,8 +137,10 @@ class GoalSampler:
 
             # Update reward and target counts
             for e in all_episode_list:
-                reached_oracle_id = self.g_str_to_oracle_id[str(e['ag_binary'][-1])]
-                target_oracle_id = self.g_str_to_oracle_id[str(e['g_binary'][0])]
+                # reached_oracle_id = self.g_str_to_oracle_id[str(e['ag_binary'][-1])]
+                # target_oracle_id = self.g_str_to_oracle_id[str(e['g_binary'][0])]
+                reached_oracle_id = language_to_id[sentence_from_configuration(e['ag'][-1])]
+                target_oracle_id = e['lg_ids'][-1]
                 self.rew_counters[reached_oracle_id] += 1
                 self.target_counters[target_oracle_id] += 1
 
@@ -331,15 +334,17 @@ class GoalSampler:
                 else:
                     self.stats['{}_in_bucket'.format(g_id)].append(0)
             try:
+                self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[g_id])
+                self.stats['#Target_{}'.format(g_id)].append(self.target_counters[g_id])
+            except:
+                self.stats['#Rew_{}'.format(g_id)].append(np.nan)
+                self.stats['#Target_{}'.format(g_id)].append(np.nan)
+            try:
                 self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
                 self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id])
-                self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
-                self.stats['#Target_{}'.format(g_id)].append(self.target_counters[oracle_id])
             except:
                 self.stats['Eval_SR_{}'.format(g_id)].append(np.nan)
                 self.stats['Av_Rew_{}'.format(g_id)].append(np.nan)
-                self.stats['#Rew_{}'.format(g_id)].append(np.nan)
-                self.stats['#Target_{}'.format(g_id)].append(np.nan)
         for i in range(self.num_buckets):
             self.stats['B_{}_LP'.format(i)].append(self.LP[i])
             self.stats['B_{}_C'.format(i)].append(self.C[i])

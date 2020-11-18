@@ -1,12 +1,14 @@
 import threading
 import numpy as np
+from language.build_dataset import sentence_from_configuration
+from utils import language_to_id
 
 """
 the replay buffer here is basically from the openai baselines code
 
 """
 
-ENERGY_BIAS = False
+ENERGY_BIAS = True
 
 
 class MultiBuffer:
@@ -57,7 +59,9 @@ class MultiBuffer:
                     # self.buffer['language_goal'][idxs[i]] = e['language_goal']
                     self.buffer['lg_ids'][idxs[i]] = e['lg_ids']
                 if self.energy_bias:
-                    if len(set([str(ag) for ag in e['ag']])) > 1:
+                    # if len(set([str(ag) for ag in e['ag']])) > 1:
+                    a_lg = [language_to_id[sentence_from_configuration(ag)] for ag in e['ag']]
+                    if sum(a_lg) / len(a_lg) != a_lg[0]: # if achieved lg changed
                         self.buffer['energy'][idxs[i]] = 1
                     else:
                         self.buffer['energy'][idxs[i]] = 0

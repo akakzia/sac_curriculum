@@ -11,8 +11,8 @@ LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
 epsilon = 1e-6
 
-ONE_HOT = False
-UNIQUE_ENCODER = True
+ONE_HOT = True
+UNIQUE_ENCODER = False
 
 # Initialize Policy weights
 def weights_init_(m):
@@ -174,7 +174,7 @@ class DeepSetSAC:
                     onehots.append(zeros)
                 self.simple_encoder = dict(zip(self.instructions, onehots))
 
-            if not UNIQUE_ENCODER:
+            elif not UNIQUE_ENCODER:
                 self.policy_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
                                                       hidden_size=self.embedding_size,
                                                       num_layers=1,
