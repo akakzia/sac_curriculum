@@ -8,6 +8,7 @@ from her_modules.her import her_sampler
 from rl_modules.sac_deepset_models import DeepSetSAC
 from updates import update_flat, update_deepsets
 from rl_modules.sac_deepset_models import UNIQUE_ENCODER
+from utils import id_to_language
 
 
 """
@@ -190,8 +191,10 @@ class SACAgent:
                        'obs_next': np.expand_dims(mb_obs_next, 0),
                        'ag_next': np.expand_dims(mb_ag_next, 0),
                        }
-        if 'language_goal' in episode.keys():
-            buffer_temp['language_goal'] = np.array([episode['language_goal'] for _ in range(mb_g.shape[0])], dtype='object').reshape(1, -1)
+        # if 'language_goal' in episode.keys():
+        #     buffer_temp['language_goal'] = np.array([episode['language_goal'] for _ in range(mb_g.shape[0])], dtype='object').reshape(1, -1)
+        if 'lg_ids' in episode.keys():
+            buffer_temp['lg_ids'] = np.expand_dims(episode['lg_ids'], 0)
 
         transitions = self.her_module.sample_her_transitions(buffer_temp, num_transitions)
         obs, g = transitions['obs'], transitions['g']
@@ -234,7 +237,9 @@ class SACAgent:
         obs_norm = self.o_norm.normalize(transitions['obs'])
         if self.language:
             g_norm = transitions['g']
-            language_goals = transitions['language_goal']
+            lg_ids = transitions['lg_ids']
+            language_goals = np.array([id_to_language[lg_id] for lg_id in lg_ids])
+            # language_goals = transitions['language_goal']
         else:
             g_norm = self.g_norm.normalize(transitions['g'])
             language_goals = None

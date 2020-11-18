@@ -28,7 +28,8 @@ class MultiBuffer:
                        'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
                        'g': np.empty([self.size, self.T, self.env_params['goal']]),
                        'actions': np.empty([self.size, self.T, self.env_params['action']]),
-                       'language_goal': [None for _ in range(self.size)],
+                       'lg_ids': np.empty([self.size, self.T]).astype(np.int),
+                       # 'language_goal': [None for _ in range(self.size)],
                        }
         if self.energy_bias:
             self.buffer['energy'] = np.empty([self.size])
@@ -53,7 +54,8 @@ class MultiBuffer:
                 self.buffer['actions'][idxs[i]] = e['act']
                 self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
                 if 'language_goal' in e.keys():
-                    self.buffer['language_goal'][idxs[i]] = e['language_goal']
+                    # self.buffer['language_goal'][idxs[i]] = e['language_goal']
+                    self.buffer['lg_ids'][idxs[i]] = e['lg_ids']
                 if self.energy_bias:
                     if len(set([str(ag) for ag in e['ag']])) > 1:
                         self.buffer['energy'][idxs[i]] = 1
@@ -86,11 +88,12 @@ class MultiBuffer:
 
             elif not self.multi_head:
                 for key in self.buffer.keys():
-                    if key == 'language_goal':
-                        temp_buffers[key] = np.array([np.array(self.buffer[key][:self.current_size]) for _ in range(self.T)]).T
-                        temp_buffers[key] = temp_buffers[key].astype('object')
-                    else:
-                        temp_buffers[key] = self.buffer[key][:self.current_size]
+                    temp_buffers[key] = self.buffer[key][:self.current_size]
+                    # if key == 'language_goal':
+                    #     temp_buffers[key] = np.array([np.array(self.buffer[key][:self.current_size]) for _ in range(self.T)]).T
+                    #     temp_buffers[key] = temp_buffers[key].astype('object')
+                    # else:
+                    #     temp_buffers[key] = self.buffer[key][:self.current_size]
             else:
                 # Compute goal id proportions with respect to LP probas
                 goal_ids = self.goal_sampler.build_batch(batch_size)

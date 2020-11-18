@@ -415,3 +415,7 @@ class CompressPDF:
             return False
 
 
+INSTRUCTIONS = get_instruction2()
+
+language_to_id = dict(zip(INSTRUCTIONS, range(len(INSTRUCTIONS))))
+id_to_language = dict(zip(range(len(INSTRUCTIONS)), INSTRUCTIONS))

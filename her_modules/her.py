@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.linalg import block_diag
 from language.build_dataset import sentence_from_configuration
+from utils import id_to_language, language_to_id
 
 
 class her_sampler:
@@ -41,8 +42,8 @@ class her_sampler:
                 future_lg = np.array([sentence_from_configuration(future_ag[i]) for i in range(n_replay)])
                 inds = np.argwhere(future_lg != None).flatten()
                 new_her_indexes = her_indexes[0][inds]
-                transitions['language_goal'][new_her_indexes] = future_lg[inds]
-                transitions['r'] = np.expand_dims(compute_reward_language(transitions['ag_next'], transitions['language_goal']), 1)
+                transitions['lg_ids'][new_her_indexes] = np.array([language_to_id[future_lg[i]] for i in inds])
+                transitions['r'] = np.expand_dims(compute_reward_language(transitions['ag_next'], transitions['lg_ids']), 1)
             else:
                 transitions['g'][her_indexes] = future_ag
                 # to get the params to re-compute reward
@@ -76,6 +77,7 @@ class her_sampler:
         return transitions
 
 
-def compute_reward_language(ags, lgs):
+def compute_reward_language(ags, lg_ids):
+    lgs = [id_to_language[lg_id] for lg_id in lg_ids]
     r = np.array([lg in sentence_from_configuration(ag, all=True) for ag, lg in zip(ags, lgs)]).astype(np.float32)
     return r

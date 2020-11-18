@@ -1,5 +1,6 @@
 import numpy as np
 from language.build_dataset import sentence_from_configuration
+from utils import language_to_id
 
 class RolloutWorker:
     def __init__(self, env, policy, goal_sampler, args):
@@ -22,22 +23,30 @@ class RolloutWorker:
             g = observation['desired_goal']
             g_bin = observation['desired_goal_binary']
 
+            # in the language condition, we need to sample a language goal
+            # here we sampled a configuration goal like in DECSTR, so we just use a language goal describing one of the predicates
+            if self.args.algo == 'language':
+                if language_goal is None:
+                    language_goal_ep = sentence_from_configuration(g, eval=true_eval)
+                else:
+                    language_goal_ep = language_goal[i]
+                lg_id = language_to_id[language_goal_ep]
+            else:
+                language_goal_ep = None
+                lg_id = None
+
             ep_obs, ep_ag, ep_ag_bin, ep_g, ep_g_bin, ep_actions, ep_success, ep_rewards = [], [], [], [], [], [], [], []
+            ep_lg_id = []
 
             # Start to collect samples
             for t in range(self.env_params['max_timesteps']):
                 # Run policy for one step
                 no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
-                if self.args.algo == 'language':
-                    # in the language condition, we need to sample a language goal
-                    # here we sampled a configuration goal like in DECSTR, so we just use a language goal describing one of the predicates
-                    if language_goal is None:
-                        language_goal_ep = sentence_from_configuration(g, eval=true_eval)
-                    else:
-                        language_goal_ep = language_goal[i]
-                    action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal_ep)
-                else:
-                    action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
+                # if self.args.algo == 'language':
+                #     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal_ep)
+                # else:
+                #     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
+                action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal_ep)
 
                 # feed the actions into the environment
                 if animated:
@@ -57,6 +66,7 @@ class RolloutWorker:
                 ep_g_bin.append(g_bin.copy())
                 ep_actions.append(action.copy())
                 ep_rewards.append(r)
+                ep_lg_id.append(lg_id)
 
                 # Re-assign the observation
                 obs = obs_new
@@ -75,6 +85,7 @@ class RolloutWorker:
                            g_binary=np.array(ep_g_bin).copy(),
                            ag_binary=np.array(ep_ag_bin).copy(),
                            rewards=np.array(ep_rewards).copy(),
+                           lg_ids=np.array(ep_lg_id).copy(),
                            self_eval=self_eval)
 
             if self.args.algo == 'language':
