@@ -4,9 +4,9 @@ import env
 import gym
 from language.utils import generate_goals, generate_all_goals_in_goal_space
 
-NO_SYNONYMS = True
-DEBUG = False
-REMOVE_NEG = True
+NO_SYNONYMS = False
+DEBUG = True
+REMOVE_NEG = False
 
 def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=False):
 
@@ -27,7 +27,11 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=
     negative_close_sentences = []
     positive_above_sentences = []
     negative_above_sentences = []
-    for i in range(len(predicates)):
+    if DEBUG:
+        a_list = [2]
+    else:
+        a_list = range(len(predicates))
+    for i in a_list:
         p = predicates[i]
         words = p.split('_')
         for j in range(len(words)):

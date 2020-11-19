@@ -49,7 +49,7 @@ def launch(args):
     args.env_params = get_env_params(env)
 
     language_goals = get_instruction2()
-    print('List of instructions:', language_goals)
+    print('List of instructions ({}):'.format(len(language_goals)), language_goals)
 
     # Initialize RL Agent
     policy = SACAgent(language_goals, args, env.compute_reward)

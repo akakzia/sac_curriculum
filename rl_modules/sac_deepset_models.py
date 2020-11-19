@@ -10,8 +10,6 @@ LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
 epsilon = 1e-6
 
-ONE_HOT = False
-
 # Initialize Policy weights
 def weights_init_(m):
     if isinstance(m, nn.Linear):
@@ -223,7 +221,7 @@ class DeepSetSAC:
 
         self.instructions = instructions
         self.nb_instructions = len(self.instructions)
-        self.embedding_size = self.nb_instructions if ONE_HOT else args.embedding_size
+        self.embedding_size = args.embedding_size
 
         split_instructions, max_seq_length, word_set = analyze_inst(self.instructions)
         vocab = Vocab(word_set)
