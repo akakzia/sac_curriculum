@@ -53,16 +53,15 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=
                 sentences += new_sentences
             else:
                 new_sentences = []
-                if not REMOVE_NEG:
-                    new_sentences.append('Put {} far_from {}'.format(words[1], words[2]))
-                    if not NO_SYNONYMS and not DEBUG:
-                        new_sentences.append('Get {} far_from {}'.format(words[1], words[2]))
-                        new_sentences.append('Put {} far_from {}'.format(words[2], words[1]))
-                        new_sentences.append('Get {} far_from {}'.format(words[2], words[1]))
-                        new_sentences.append('Get {} and {} far_from each_other'.format(words[1], words[2]))
-                        new_sentences.append('Get {} and {} far_from each_other'.format(words[2], words[1]))
-                        new_sentences.append('Bring {} and {} apart'.format(words[1], words[2]))
-                        new_sentences.append('Bring {} and {} apart'.format(words[2], words[1]))
+                new_sentences.append('Put {} far_from {}'.format(words[1], words[2]))
+                if not NO_SYNONYMS and not DEBUG:
+                    new_sentences.append('Get {} far_from {}'.format(words[1], words[2]))
+                    new_sentences.append('Put {} far_from {}'.format(words[2], words[1]))
+                    new_sentences.append('Get {} far_from {}'.format(words[2], words[1]))
+                    new_sentences.append('Get {} and {} far_from each_other'.format(words[1], words[2]))
+                    new_sentences.append('Get {} and {} far_from each_other'.format(words[2], words[1]))
+                    new_sentences.append('Bring {} and {} apart'.format(words[1], words[2]))
+                    new_sentences.append('Bring {} and {} apart'.format(words[2], words[1]))
                 new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
                 negative_close_sentences += new_sentences
                 sentences += new_sentences

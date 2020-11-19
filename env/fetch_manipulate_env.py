@@ -229,14 +229,12 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
         achieved_goal = np.squeeze(achieved_goal)
 
-        obs = np.concatenate([obs, achieved_goal])
 
         return {
             'observation': obs.copy(),
             'achieved_goal': achieved_goal.copy(),
-            'desired_goal': self.target_goal.copy(),
             'achieved_goal_binary': achieved_goal.copy(),
-            'desired_goal_binary': self.target_goal.copy()}
+        }
 
     def _viewer_setup(self):
         body_id = self.sim.model.body_name2id('robot0:gripper_link')
@@ -254,7 +252,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
     def reset(self):
         # Usual reset overriden by reset_goal, that specifies a goal
-        return self.reset_goal(np.zeros([9]), False)
+        return self.reset_goal(False)
 
     def _generate_valid_goal(self):
         raise NotImplementedError
@@ -286,7 +284,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.initial_gripper_xpos = self.sim.data.get_site_xpos('robot0:grip').copy()
         self.height_offset = self.sim.data.get_site_xpos('object0')[2]
 
-    def reset_goal(self, goal, biased_init=False):
+    def reset_goal(self, biased_init=False):
         """
         This function resets the environment and target the goal given as input
         Args:
@@ -294,7 +292,6 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             biased_init: Whether or not to initialize the blocks in non-trivial configuration
         """
 
-        self.target_goal = goal
 
         self.sim.set_state(self.initial_state)
 

@@ -18,7 +18,7 @@ def get_env_params(env):
     obs = env.reset()
 
     # close the environment
-    params = {'obs': obs['observation'].shape[0], 'goal': obs['desired_goal'].shape[0],
+    params = {'obs': obs['observation'].shape[0],
               'action': env.action_space.shape[0], 'action_max': env.action_space.high[0],
               'max_timesteps': env._max_episode_steps}
     return params
@@ -48,27 +48,16 @@ def launch(args):
 
     args.env_params = get_env_params(env)
 
-
-    # Initialize Goal Sampler:
-    goal_sampler = GoalSampler(args)
-
-    if args.algo == 'language':
-        if NO_SYNONYMS:
-            language_goal = get_instruction2()
-        else:
-            language_goal = np.random.choice(get_instruction2(), size=35)
-    else:
-        language_goal = None
+    language_goals = get_instruction2()
+    print('List of instructions:', language_goals)
 
     # Initialize RL Agent
-    if args.agent == "SAC":
-        policy = SACAgent(args, env.compute_reward, goal_sampler)
-    else:
-        raise NotImplementedError
+    policy = SACAgent(language_goals, args, env.compute_reward)
 
     # Initialize Rollout Worker
-    rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
+    rollout_worker = RolloutWorker(env, policy, args)
 
+    logclass = Logger(language_goals)
     # Main interaction loop
     episode_count = 0
     for epoch in range(args.n_epochs):
@@ -93,11 +82,8 @@ def launch(args):
 
             # Sample goals
             t_i = time.time()
-            goals, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False)
-            if args.algo == 'language':
-                language_goal_ep = np.random.choice(language_goal, size=args.num_rollouts_per_mpi)
-            else:
-                language_goal_ep = None
+            language_goal_ep = np.random.choice(language_goals, size=args.num_rollouts_per_mpi)
+            self_eval = False
             time_dict['goal_sampler'] += time.time() - t_i
 
             # Control biased initializations
@@ -108,17 +94,10 @@ def launch(args):
 
             # Environment interactions
             t_i = time.time()
-            episodes = rollout_worker.generate_rollout(goals=goals,  # list of goal configurations
-                                                       self_eval=self_eval,  # whether the agent performs self-evaluations
-                                                       true_eval=False,  # these are not offline evaluation episodes
+            episodes = rollout_worker.generate_rollout(true_eval=False,  # these are not offline evaluation episodes
                                                        biased_init=biased_init,
                                                        language_goal=language_goal_ep)  # whether initializations should be biased.
             time_dict['rollout'] += time.time() - t_i
-
-            # Goal Sampler updates
-            t_i = time.time()
-            episodes = goal_sampler.update(episodes, episode_count)
-            time_dict['gs_update'] += time.time() - t_i
 
             # Storing episodes
             t_i = time.time()
@@ -138,13 +117,6 @@ def launch(args):
             time_dict['policy_train'] += time.time() - t_i
             episode_count += args.num_rollouts_per_mpi * args.num_workers
 
-        # Updating Learning Progress
-        t_i = time.time()
-        if goal_sampler.curriculum_learning and rank == 0:
-            goal_sampler.update_LP()
-        goal_sampler.sync()
-
-        time_dict['lp_update'] += time.time() - t_i
         time_dict['epoch'] += time.time() -t_init
         time_dict['total'] = time.time() - t_total_init
 
@@ -152,48 +124,60 @@ def launch(args):
             if rank==0: logger.info('\tRunning eval ..')
             # Performing evaluations
             t_i = time.time()
-            if args.algo == 'language':
-                eval_goals = goal_sampler.valid_goals[:len(language_goal)]
-            else:
-                eval_goals = goal_sampler.valid_goals
-            episodes = rollout_worker.generate_rollout(goals=eval_goals,
-                                                       self_eval=True,  # this parameter is overridden by true_eval
-                                                       true_eval=True,  # this is offline evaluations
+
+            episodes = rollout_worker.generate_rollout(true_eval=True,  # this is offline evaluations
                                                        biased_init=False,
-                                                       language_goal=language_goal)
+                                                       language_goal=language_goals)
 
             # Extract the results
-            if args.algo == 'continuous':
-                results = np.array([e['rewards'][-1] == 3. for e in episodes]).astype(np.int)
-            elif args.algo == 'language':
-                results = np.array([e['language_goal'] in sentence_from_configuration(config=e['ag'][-1], all=True) for e in episodes]).astype(np.int)
-            else:
-                results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
-            rewards = np.array([e['rewards'][-1] for e in episodes])
+            results = np.array([e['language_goal'] in sentence_from_configuration(config=e['ag'][-1], all=True) for e in episodes]).astype(np.int)
+
             all_results = MPI.COMM_WORLD.gather(results, root=0)
-            all_rewards = MPI.COMM_WORLD.gather(rewards, root=0)
             time_dict['eval'] += time.time() - t_i
 
             # Logs
             if rank == 0:
                 assert len(all_results) == args.num_workers  # MPI test
                 av_res = np.array(all_results).mean(axis=0)
-                av_rewards = np.array(all_rewards).mean(axis=0)
                 global_sr = np.mean(av_res)
-                log_and_save(goal_sampler, epoch, episode_count, av_res, av_rewards, global_sr, time_dict)
+                logclass.save(epoch, episode_count, av_res, global_sr, time_dict)
+                for k, l in logclass.stats.items():
+                    logger.record_tabular(k, l[-1])
+                logger.dump_tabular()
 
                 # Saving policy models
                 if epoch % args.save_freq == 0:
                     policy.save(model_path, epoch)
-                    goal_sampler.save_bucket_contents(bucket_path, epoch)
                 if rank==0: logger.info('\tEpoch #{}: SR: {}'.format(epoch, global_sr))
 
 
-def log_and_save( goal_sampler, epoch, episode_count, av_res, av_rew, global_sr, time_dict):
-    goal_sampler.save(epoch, episode_count, av_res, av_rew, global_sr, time_dict)
-    for k, l in goal_sampler.stats.items():
-        logger.record_tabular(k, l[-1])
-    logger.dump_tabular()
+class Logger():
+    def __init__(self, language_goals):
+        self.stats = dict()
+        self.nb_goals = len(language_goals)
+        for i in range(self.nb_goals):
+            self.stats['Eval_SR_{}'.format(i)] = []  # track the offline success rate of each valid goal
+
+        self.stats['epoch'] = []
+        self.stats['episodes'] = []
+        self.stats['global_sr'] = []
+        # Track the time spent in each function
+        keys = ['goal_sampler', 'rollout', 'gs_update', 'store', 'norm_update',
+                  'policy_train', 'lp_update', 'eval', 'epoch', 'total']
+        for k in keys:
+            self.stats['t_{}'.format(k)] = []
+
+    def save(self, epoch, episode_count, av_res, global_sr, time_dict):
+        self.stats['epoch'].append(epoch)
+        self.stats['episodes'].append(episode_count)
+        self.stats['global_sr'].append(global_sr)
+        for k in time_dict.keys():
+            self.stats['t_{}'.format(k)].append(time_dict[k])
+        for g_id in range(self.nb_goals):
+            self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
+
+
+
 
 
 if __name__ == '__main__':
