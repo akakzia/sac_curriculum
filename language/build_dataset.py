@@ -37,8 +37,14 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=
                 words[j] = colors[words[j]]
             except:
                 pass
-        positive = config[i] == 1
+        # positive = config[i] == 1
         if words[0] == 'close':
+            if words[1] == 'red' and words[2] == 'green':
+                positive = config[0] == 1
+            elif words[1] == 'red' and words[2] == 'blue':
+                positive = config[1] == 1
+            else:
+                positive = config[2] == 1
             if positive:
                 new_sentences = []
                 new_sentences.append('Put {} close_to {}'.format(words[1], words[2]))
@@ -69,17 +75,32 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=
                 negative_close_sentences += new_sentences
                 sentences += new_sentences
         elif words[0] == 'above':
+            if words[1] == 'red':
+                if words[2] == 'green':
+                    positive = config[3] == 1
+                else:
+                    positive = config[5] == 1
+            elif words[1] == 'green':
+                if words[2] == 'red':
+                    positive = config[4] == 1
+                else:
+                    positive = config[7] == 1
+            else:
+                if words[2] == 'red':
+                    positive = config[6] == 1
+                else:
+                    positive = config[8] == 1
             if positive:
                 new_sentences = []
-                if not DEBUG:
-                    new_sentences.append('Put {} above {}'.format(words[1], words[2]))
-                    if not NO_SYNONYMS:
-                        new_sentences.append('Put {} on_top_of {}'.format(words[1], words[2]))
-                        new_sentences.append('Put {} under {}'.format(words[2], words[1]))
-                        new_sentences.append('Put {} below {}'.format(words[2], words[1]))
-                    new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
-                    positive_above_sentences += new_sentences
-                    sentences += new_sentences
+                # if not DEBUG:
+                new_sentences.append('Put {} above {}'.format(words[1], words[2]))
+                if not NO_SYNONYMS:
+                    new_sentences.append('Put {} on_top_of {}'.format(words[1], words[2]))
+                    new_sentences.append('Put {} under {}'.format(words[2], words[1]))
+                    new_sentences.append('Put {} below {}'.format(words[2], words[1]))
+                new_sentences = list(set(new_sentences) - set(['Put green on_top_of red', 'Put blue far_from red']))
+                positive_above_sentences += new_sentences
+                sentences += new_sentences
             else:
                 new_sentences = []
                 if not DEBUG and not REMOVE_NEG:
@@ -112,7 +133,8 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=
             return np.random.choice(sentences_sets[ind])
 
     else:
-        return np.random.choice(sentences)
+        return sentences[-1] # in order to take above if there are two
+        # return np.random.choice(sentences)
 
 
 def label_transitions(transitions, predicates, colors, n='all'):
