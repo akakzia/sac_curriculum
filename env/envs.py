@@ -45,7 +45,7 @@ class FetchManipulateEnvAtomic(fetch_manipulate_env_atomic.FetchManipulateEnvAto
 
 
 class FetchManipulateEnvContinuous(fetch_manipulate_env_continuous.FetchManipulateEnvContinuous, utils.EzPickle):
-    def __init__(self, reward_type='sparse'):
+    def __init__(self, reward_type='incremental'):
         initial_qpos = {
             'robot0:slide0': 0.405,
             'robot0:slide1': 0.48,
