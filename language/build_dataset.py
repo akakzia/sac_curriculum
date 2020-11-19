@@ -7,11 +7,12 @@ from language.utils import generate_goals, generate_all_goals_in_goal_space
 NO_SYNONYMS = True
 DEBUG = True
 REMOVE_NEG = False
+BALANCED = False # prioritize above > close > far
 
-def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=False):
+def sentence_from_configuration(config, all=False, balanced_sampling=BALANCED, eval=False):
 
     if DEBUG:
-        predicates = ['close_0_1', 'above_0_1', 'above_1_0']
+        predicates = ['close_0_1', 'above_0_1', 'above_1_0', 'close_0_2', 'above_0_2', 'above_2_0', 'close_1_2', 'above_1_2', 'above_2_1']
     else:
         predicates = ['close_0_1',
                       'close_0_2',
@@ -133,7 +134,13 @@ def sentence_from_configuration(config, all=False, balanced_sampling=True, eval=
             return np.random.choice(sentences_sets[ind])
 
     else:
-        return sentences[-1] # in order to take above if there are two
+        # Ordre de priorité : above > close > far
+        if len(positive_above_sentences) > 0:
+            return np.random.choice(positive_above_sentences)
+        elif len(positive_close_sentences) > 0:
+            return np.random.choice(positive_close_sentences)
+        else:
+            return np.random.choice(sentences)
         # return np.random.choice(sentences)
 
 
