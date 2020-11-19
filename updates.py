@@ -212,6 +212,7 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
     qf_loss.backward()
     sync_grads(model.single_phi_critic)
     sync_grads(model.rho_critic)
+    sync_grads(model.critic_sentence_encoder)
     critic_optim.step()
 
     alpha_loss, alpha_tlogs = update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)

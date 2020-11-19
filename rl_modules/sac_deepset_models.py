@@ -11,8 +11,8 @@ LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
 epsilon = 1e-6
 
-ONE_HOT = True
-UNIQUE_ENCODER = False
+ONE_HOT = False
+UNIQUE_ENCODER = True
 
 # Initialize Policy weights
 def weights_init_(m):
@@ -183,6 +183,13 @@ class DeepSetSAC:
                                                       batch_first=True)
 
             self.critic_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
+                                                  hidden_size=self.embedding_size,
+                                                  num_layers=1,
+                                                  nonlinearity='tanh',
+                                                  bias=True,
+                                                  batch_first=True)
+
+            self.target_critic_sentence_encoder = nn.RNN(input_size=len(word_set) + 1,
                                                   hidden_size=self.embedding_size,
                                                   num_layers=1,
                                                   nonlinearity='tanh',
@@ -407,6 +414,8 @@ class DeepSetSAC:
                 encodings = torch.tensor(encodings, dtype=torch.float32)
                 if UNIQUE_ENCODER:
                     goal_embeddings = self.critic_sentence_encoder.forward(encodings)[0][:, -1, :]
+                    with torch.no_grad():
+                        goal_embeddings_target = self.target_critic_sentence_encoder.forward(encodings)[0][:, -1, :]
                 else:
                     goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
 
@@ -481,6 +490,7 @@ class DeepSetSAC:
         else:
             if self.language:
                 body_input = torch.cat([goal_embeddings, obs_body], dim=1)
+                body_input_target = torch.cat([goal_embeddings_target, obs_body], dim=1)
             else:
                 body_input = torch.cat([self.g, obs_body], dim=1)
             obj_input = [obs_objects[i] for i in range(self.num_blocks)]
@@ -489,6 +499,7 @@ class DeepSetSAC:
             if not self.include_ag:
                 # input_actor = torch.stack([torch.cat([body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
                 input_actor = torch.stack([torch.cat([body_input, obs_objects[0], obs_objects[1]], dim=1)])
+                input_actor_target = torch.stack([torch.cat([body_input_target, obs_objects[0], obs_objects[1]], dim=1)])
             else:
                 input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
 
@@ -501,13 +512,16 @@ class DeepSetSAC:
         # The critic part
         repeat_pol_actions = self.pi_tensor.repeat(self.n_permutations, 1, 1)
         input_critic = torch.cat([input_actor, repeat_pol_actions], dim=-1)
+        input_critic_target = torch.cat([input_actor_target, repeat_pol_actions], dim=-1)
         if actions is not None:
             repeat_actions = actions.repeat(self.n_permutations, 1, 1)
             input_critic_with_act = torch.cat([input_actor, repeat_actions], dim=-1)
+            input_target_critic_with_act = torch.cat([input_actor_target, repeat_actions], dim=-1)
             input_critic = torch.cat([input_critic, input_critic_with_act], dim=0)
+            input_critic_target = torch.cat([input_critic_target, input_target_critic_with_act], dim=0)
 
         with torch.no_grad():
-            output_phi_target_critic_1, output_phi_target_critic_2 = self.single_phi_target_critic(input_critic[:self.n_permutations])
+            output_phi_target_critic_1, output_phi_target_critic_2 = self.single_phi_target_critic(input_critic_target[:self.n_permutations])
             output_phi_target_critic_1 = output_phi_target_critic_1.sum(dim=0)
             output_phi_target_critic_2 = output_phi_target_critic_2.sum(dim=0)
             self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.rho_target_critic(output_phi_target_critic_1, output_phi_target_critic_2)

@@ -57,11 +57,14 @@ class SACAgent:
             sync_networks(self.model.rho_critic)
             sync_networks(self.model.single_phi_actor)
             sync_networks(self.model.single_phi_critic)
+            sync_networks(self.model.critic_sentence_encoder)
 
             hard_update(self.model.single_phi_target_critic, self.model.single_phi_critic)
             hard_update(self.model.rho_target_critic, self.model.rho_critic)
+            hard_update(self.model.target_critic_sentence_encoder, self.model.critic_sentence_encoder)
             sync_networks(self.model.single_phi_target_critic)
             sync_networks(self.model.rho_target_critic)
+            sync_networks(self.model.target_critic_sentence_encoder)
             # create the optimizer
             self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
                                                  list(self.model.rho_actor.parameters()),
@@ -162,6 +165,7 @@ class SACAgent:
             if self.architecture == 'deepsets':
                 self._soft_update_target_network(self.model.single_phi_target_critic, self.model.single_phi_critic)
                 self._soft_update_target_network(self.model.rho_target_critic, self.model.rho_critic)
+                self._soft_update_target_network(self.model.target_critic_sentence_encoder, self.model.critic_sentence_encoder)
             else:
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)
 
