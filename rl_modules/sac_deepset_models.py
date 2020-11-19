@@ -246,7 +246,7 @@ class DeepSetSAC:
         if self.continuous_trick:
             dim_phi_actor_input = 2*6 + self.dim_body + dim_input_objects
         else:
-            dim_phi_actor_input = dim_input_goals + self.dim_body + dim_input_objects #+ 3 # for distances
+            dim_phi_actor_input = dim_input_goals + self.dim_body + dim_input_objects + 3 # for distances
 
         # dim_phi_actor_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object))
         dim_phi_actor_output = 3 * dim_phi_actor_input
@@ -257,7 +257,7 @@ class DeepSetSAC:
         if self.continuous_trick:
             dim_phi_critic_input = 6*2 + self.dim_body + dim_input_objects + self.dim_act
         else:
-            dim_phi_critic_input = dim_input_goals + self.dim_body + dim_input_objects + self.dim_act #+ 3 # for distances
+            dim_phi_critic_input = dim_input_goals + self.dim_body + dim_input_objects + self.dim_act + 3 # for distances
 
         # dim_phi_critic_output = 3 * (self.dim_body + (self.num_blocks + self.dim_object) + self.dim_act)
         dim_phi_critic_output = 3 * dim_phi_critic_input
@@ -295,7 +295,7 @@ class DeepSetSAC:
                 else:
                     goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
 
-        # obs_distances = self.observation.narrow(-1, start=55, length=3) # dx, dy, dz between green and red
+        obs_distances = self.observation.narrow(-1, start=55, length=3) # dx, dy, dz between green and red
         obs_body = self.observation.narrow(-1, start=0, length=self.dim_body)
         obs_objects = [torch.cat((torch.cat(obs_body.shape[0] * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
                                   self.observation.narrow(-1, start=self.dim_object*i + self.dim_body, length=self.dim_object)),
@@ -385,7 +385,8 @@ class DeepSetSAC:
             else:
                 if not self.include_ag:
                     # input_actor = torch.stack([torch.cat([body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
-                    input_actor = torch.stack([torch.cat([body_input_actor, obj_input_actor[0], obj_input_actor[1]], dim=1)])
+                    input_actor = torch.stack([torch.cat([body_input_actor, obj_input_actor[0], obj_input_actor[1],
+                                                          obs_distances], dim=1)])
                 else:
                     input_actor = torch.stack([torch.cat([ag, body_input_actor, x[0], x[1]], dim=1) for x in permutations(obj_input_actor, 2)])
 
@@ -419,7 +420,7 @@ class DeepSetSAC:
                 else:
                     goal_embeddings = self.policy_sentence_encoder.forward(encodings)[0][:, -1, :]
 
-        # obs_distances = self.observation.narrow(-1, start=55, length=3)
+        obs_distances = self.observation.narrow(-1, start=55, length=3)
         obs_body = self.observation[:, :self.dim_body]
         obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.num_blocks),
                                obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
@@ -498,8 +499,8 @@ class DeepSetSAC:
             # Parallelization by stacking input tensors
             if not self.include_ag:
                 # input_actor = torch.stack([torch.cat([body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
-                input_actor = torch.stack([torch.cat([body_input, obs_objects[0], obs_objects[1]], dim=1)])
-                input_actor_target = torch.stack([torch.cat([body_input_target, obs_objects[0], obs_objects[1]], dim=1)])
+                input_actor = torch.stack([torch.cat([body_input, obs_objects[0], obs_objects[1], obs_distances], dim=1)])
+                input_actor_target = torch.stack([torch.cat([body_input_target, obs_objects[0], obs_objects[1], obs_distances], dim=1)])
             else:
                 input_actor = torch.stack([torch.cat([ag, body_input, x[0], x[1]], dim=1) for x in permutations(obj_input, 2)])
 
