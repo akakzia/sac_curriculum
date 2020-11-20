@@ -131,7 +131,18 @@ def get_instruction2():
         return ['Put red far_from green',
                 'Put red close_to green',
                 'Put red above green',
-                'Put green above red']
+                'Put green above red',
+
+                'Put red far_from blue',
+                'Put red close_to blue',
+                'Put red above blue',
+                'Put blue above red',
+
+                'Put green far_from blue',
+                'Put green close_to blue',
+                'Put green above blue',
+                'Put blue above green',
+                ]
     elif NO_SYNONYMS and REMOVE_NEG:
         return ['Put blue above green',
                 'Put blue above red',
