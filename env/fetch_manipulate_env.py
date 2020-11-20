@@ -307,8 +307,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
                 stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
                 z_stack = [0.525, 0.475, 0.425]
             else:
-                # stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
-                stack = list(np.random.choice([i for i in range(2)], 2, replace=False))
+                stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
                 z_stack = [0.475, 0.425]
 
             pos_stack = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
