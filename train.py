@@ -53,10 +53,7 @@ def launch(args):
     goal_sampler = GoalSampler(args)
 
     if args.algo == 'language':
-        if NO_SYNONYMS:
-            language_goal = get_instruction2()
-        else:
-            language_goal = np.random.choice(get_instruction2(), size=35)
+        language_goal = get_instruction2()
     else:
         language_goal = None
 

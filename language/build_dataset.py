@@ -5,7 +5,7 @@ import gym
 from language.utils import generate_goals, generate_all_goals_in_goal_space
 
 NO_SYNONYMS = True
-DEBUG = True
+DEBUG = False
 REMOVE_NEG = False
 BALANCED = False # prioritize above > close > far
 
@@ -136,7 +136,9 @@ def sentence_from_configuration(config, all=False, balanced_sampling=BALANCED, e
     else:
         # Ordre de priorité : above > close > far
         if len(positive_above_sentences) > 0:
-            return np.random.choice(positive_above_sentences)
+            # if above, then with equal proba take the close or the above sentence
+            i = np.random.choice(np.arange(len(positive_above_sentences)))
+            return np.random.choice([positive_above_sentences[i], positive_close_sentences[i]])
         elif len(positive_close_sentences) > 0:
             return np.random.choice(positive_close_sentences)
         else:
