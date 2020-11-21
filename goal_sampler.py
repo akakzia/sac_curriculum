@@ -6,7 +6,7 @@ import os
 import pickle
 import pandas as pd
 from mpi_utils import logger
-from language.build_dataset import sentence_from_configuration
+from language.build_dataset import sentence_from_configuration, NO_SYNONYMS
 
 
 class GoalSampler:
@@ -289,21 +289,25 @@ class GoalSampler:
 
     def init_stats(self):
         self.stats = dict()
-        for i in range(self.valid_goals.shape[0]):
-            self.stats['{}_in_bucket'.format(i)] = []  # track the bucket allocation of each valid goal
+        if NO_SYNONYMS:
+            n = 12
+        else:
+            n = 102
+        for i in range(n):
+            # self.stats['{}_in_bucket'.format(i)] = []  # track the bucket allocation of each valid goal
             self.stats['Eval_SR_{}'.format(i)] = []  # track the offline success rate of each valid goal
-            self.stats['Av_Rew_{}'.format(i)] = []  # track the offline average reward of each valid goal
+            # self.stats['Av_Rew_{}'.format(i)] = []  # track the offline average reward of each valid goal
             self.stats['#Rew_{}'.format(i)] = []  # track the number of rewards obtained by each valid goal (last_ag = g)
             self.stats['#Target_{}'.format(i)] = []  # track the number of times each goal was used as a target.
 
-        for i in range(self.num_buckets):
-            self.stats['B_{}_LP'.format(i)] = []
-            self.stats['B_{}_C'.format(i)] = []
-            self.stats['B_{}_p'.format(i)] = []
+        # for i in range(self.num_buckets):
+            # self.stats['B_{}_LP'.format(i)] = []
+            # self.stats['B_{}_C'.format(i)] = []
+            # self.stats['B_{}_p'.format(i)] = []
         self.stats['epoch'] = []
         self.stats['episodes'] = []
         self.stats['global_sr'] = []
-        self.stats['nb_discovered'] = []
+        # self.stats['nb_discovered'] = []
         # Track the time spent in each function
         keys = ['goal_sampler', 'rollout', 'gs_update', 'store', 'norm_update',
                   'policy_train', 'lp_update', 'eval', 'epoch', 'total']
@@ -316,23 +320,28 @@ class GoalSampler:
         self.stats['global_sr'].append(global_sr)
         for k in time_dict.keys():
             self.stats['t_{}'.format(k)].append(time_dict[k])
-        self.stats['nb_discovered'].append(len(self.discovered_goals_oracle_id))
-        for g_id, oracle_id in enumerate(self.valid_goals_oracle_ids):
-            if self.curriculum_learning:
-                found = False
-                for k in self.buckets.keys():
-                    if oracle_id in self.buckets[k]:
-                        self.stats['{}_in_bucket'.format(g_id)].append(k)
-                        found = True
-                        break
-                if not found:
-                    self.stats['{}_in_bucket'.format(g_id)].append(np.nan)
-            else:
-                # set bucket 1 if discovered, 0 otherwise
-                if oracle_id in self.discovered_goals_oracle_id:
-                    self.stats['{}_in_bucket'.format(g_id)].append(1)
-                else:
-                    self.stats['{}_in_bucket'.format(g_id)].append(0)
+        # self.stats['nb_discovered'].append(len(self.discovered_goals_oracle_id))
+        # for g_id, oracle_id in enumerate(self.valid_goals_oracle_ids):
+            # if self.curriculum_learning:
+            #     found = False
+            #     for k in self.buckets.keys():
+            #         if oracle_id in self.buckets[k]:
+            #             self.stats['{}_in_bucket'.format(g_id)].append(k)
+            #             found = True
+            #             break
+            #     if not found:
+            #         self.stats['{}_in_bucket'.format(g_id)].append(np.nan)
+            # else:
+            #     # set bucket 1 if discovered, 0 otherwise
+            #     if oracle_id in self.discovered_goals_oracle_id:
+            #         self.stats['{}_in_bucket'.format(g_id)].append(1)
+            #     else:
+            #         self.stats['{}_in_bucket'.format(g_id)].append(0)
+        if NO_SYNONYMS:
+            n = 12
+        else:
+            n = 102
+        for g_id in range(n):
             try:
                 self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[g_id])
                 self.stats['#Target_{}'.format(g_id)].append(self.target_counters[g_id])
@@ -341,14 +350,14 @@ class GoalSampler:
                 self.stats['#Target_{}'.format(g_id)].append(np.nan)
             try:
                 self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
-                self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id])
+                # self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id])
             except:
                 self.stats['Eval_SR_{}'.format(g_id)].append(np.nan)
-                self.stats['Av_Rew_{}'.format(g_id)].append(np.nan)
-        for i in range(self.num_buckets):
-            self.stats['B_{}_LP'.format(i)].append(self.LP[i])
-            self.stats['B_{}_C'.format(i)].append(self.C[i])
-            self.stats['B_{}_p'.format(i)].append(self.p[i])
+                # self.stats['Av_Rew_{}'.format(g_id)].append(np.nan)
+        # for i in range(self.num_buckets):
+        #     self.stats['B_{}_LP'.format(i)].append(self.LP[i])
+        #     self.stats['B_{}_C'.format(i)].append(self.C[i])
+        #     self.stats['B_{}_p'.format(i)].append(self.p[i])
 
     def save_bucket_contents(self, bucket_path, epoch):
         # save the contents of buckets

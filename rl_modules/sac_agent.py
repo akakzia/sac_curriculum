@@ -275,7 +275,8 @@ class SACAgent:
         elif self.args.architecture == 'deepsets':
             torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
                         self.model.single_phi_actor.state_dict(), self.model.single_phi_critic.state_dict(),
-                        self.model.rho_actor.state_dict(), self.model.rho_critic.state_dict()],
+                        self.model.rho_actor.state_dict(), self.model.rho_critic.state_dict(),
+                        self.model.critic_sentence_encoder.state_dict()],
                        model_path + '/model_{}.pt'.format(epoch))
         else:
             raise NotImplementedError
@@ -283,11 +284,12 @@ class SACAgent:
     def load(self, model_path, args):
 
         if args.architecture == 'deepsets':
-            o_mean, o_std, g_mean, g_std, phi_a, phi_c, rho_a, rho_c = torch.load(model_path, map_location=lambda storage, loc: storage)
+            o_mean, o_std, g_mean, g_std, phi_a, phi_c, rho_a, rho_c, enc = torch.load(model_path, map_location=lambda storage, loc: storage)
             self.model.single_phi_actor.load_state_dict(phi_a)
             self.model.single_phi_critic.load_state_dict(phi_c)
             self.model.rho_actor.load_state_dict(rho_a)
             self.model.rho_critic.load_state_dict(rho_c)
+            self.model.critic_sentence_encoder.load_state_dict(enc)
             self.o_norm.mean = o_mean
             self.o_norm.std = o_std
             self.g_norm.mean = g_mean

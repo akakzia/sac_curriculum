@@ -10,6 +10,8 @@ from goal_sampler import GoalSampler
 import  random
 from mpi4py import MPI
 from language.build_dataset import sentence_from_configuration
+from arguments import get_args
+from utils import get_instruction2
 
 def get_env_params(env):
     obs = env.reset()
@@ -20,13 +22,14 @@ def get_env_params(env):
     return params
 
 if __name__ == '__main__':
-    num_eval = 10
-    path = './trained_model/'
-    model_path = path + 'model2.pt'
+    num_eval = 1
+    path = '/home/ahakakzia/'
+    model_path = path + 'model_170.pt'
 
-    with open(path + 'config.json', 'r') as f:
-        params = json.load(f)
-    args = SimpleNamespace(**params)
+    # with open(path + 'config.json', 'r') as f:
+    #     params = json.load(f)
+    # args = SimpleNamespace(**params)
+    args = get_args()
 
     # Make the environment
     env = gym.make(args.env_name)
@@ -55,10 +58,14 @@ if __name__ == '__main__':
     rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
 
     eval_goals = goal_sampler.valid_goals
+    if args.algo == 'language':
+        language_goal = get_instruction2()
+    else:
+        language_goal = None
     inits = [None] * len(eval_goals)
     all_results = []
     for i in range(num_eval):
-        episodes = rollout_worker.generate_rollout(eval_goals, self_eval=True, true_eval=True, animated=True)
+        episodes = rollout_worker.generate_rollout(eval_goals, self_eval=True, true_eval=True, animated=True, language_goal=language_goal)
         if args.algo == 'language':
             results = np.array([e['language_goal'] in sentence_from_configuration(e['ag'][-1], all=True) for e in episodes]).astype(np.int)
         elif args.algo == 'continuous':

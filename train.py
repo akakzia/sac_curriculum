@@ -150,7 +150,8 @@ def launch(args):
             # Performing evaluations
             t_i = time.time()
             if args.algo == 'language':
-                eval_goals = goal_sampler.valid_goals[:len(language_goal)]
+                ids = np.random.choice(np.arange(35), size=len(language_goal))
+                eval_goals = goal_sampler.valid_goals[ids]
             else:
                 eval_goals = goal_sampler.valid_goals
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
