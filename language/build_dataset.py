@@ -4,7 +4,7 @@ import env
 import gym
 from language.utils import generate_goals, generate_all_goals_in_goal_space
 
-NO_SYNONYMS = True
+NO_SYNONYMS = False
 DEBUG = False
 REMOVE_NEG = False
 BALANCED = False # prioritize above > close > far
