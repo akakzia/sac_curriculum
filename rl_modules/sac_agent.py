@@ -5,7 +5,7 @@ from rl_modules.replay_buffer import MultiBuffer
 from rl_modules.sac_models import QNetworkFlat, GaussianPolicyFlat
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
-from rl_modules.sac_deepset_models import DeepSetSAC
+from rl_modules.sac_deepset_models import DeepSetLanguage
 from updates import update_flat, update_deepsets
 from rl_modules.sac_deepset_models import UNIQUE_ENCODER
 from utils import id_to_language
@@ -51,33 +51,45 @@ class SACAgent:
             self.policy_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
             self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
         elif self.architecture == 'deepsets':
-            self.model = DeepSetSAC(self.env_params, args)
+            self.model = DeepSetLanguage(self.env_params, args)
             # sync the networks across the CPUs
-            sync_networks(self.model.rho_actor)
-            sync_networks(self.model.rho_critic)
-            sync_networks(self.model.single_phi_actor)
-            sync_networks(self.model.single_phi_critic)
-            sync_networks(self.model.critic_sentence_encoder)
+            sync_networks(self.model.critic)
+            sync_networks(self.model.actor)
+            hard_update(self.model.critic_target, self.model.critic)
+            sync_networks(self.model.critic_target)
 
-            hard_update(self.model.single_phi_target_critic, self.model.single_phi_critic)
-            hard_update(self.model.rho_target_critic, self.model.rho_critic)
-            hard_update(self.model.target_critic_sentence_encoder, self.model.critic_sentence_encoder)
-            sync_networks(self.model.single_phi_target_critic)
-            sync_networks(self.model.rho_target_critic)
-            sync_networks(self.model.target_critic_sentence_encoder)
             # create the optimizer
-            self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
-                                                 list(self.model.rho_actor.parameters()),
+            self.policy_optim = torch.optim.Adam(list(self.model.actor.parameters()),
                                                  lr=self.args.lr_actor)
-            if args.algo == 'language' and UNIQUE_ENCODER:
-                self.critic_optim = torch.optim.Adam(list(self.model.critic_sentence_encoder.parameters()) +
-                                                     list(self.model.single_phi_critic.parameters()) +
-                                                     list(self.model.rho_critic.parameters()),
-                                                     lr=self.args.lr_critic)
-            else:
-                self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
-                                                     list(self.model.rho_critic.parameters()),
-                                                     lr=self.args.lr_critic)
+            self.critic_optim = torch.optim.Adam(list(self.model.critic.parameters()),
+                                                 lr=self.args.lr_critic)
+            # self.model = DeepSetSAC(self.env_params, args)
+            # # sync the networks across the CPUs
+            # sync_networks(self.model.rho_actor)
+            # sync_networks(self.model.rho_critic)
+            # sync_networks(self.model.single_phi_actor)
+            # sync_networks(self.model.single_phi_critic)
+            # sync_networks(self.model.critic_sentence_encoder)
+            #
+            # hard_update(self.model.single_phi_target_critic, self.model.single_phi_critic)
+            # hard_update(self.model.rho_target_critic, self.model.rho_critic)
+            # hard_update(self.model.target_critic_sentence_encoder, self.model.critic_sentence_encoder)
+            # sync_networks(self.model.single_phi_target_critic)
+            # sync_networks(self.model.rho_target_critic)
+            # sync_networks(self.model.target_critic_sentence_encoder)
+            # # create the optimizer
+            # self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
+            #                                      list(self.model.rho_actor.parameters()),
+            #                                      lr=self.args.lr_actor)
+            # if args.algo == 'language' and UNIQUE_ENCODER:
+            #     self.critic_optim = torch.optim.Adam(list(self.model.critic_sentence_encoder.parameters()) +
+            #                                          list(self.model.single_phi_critic.parameters()) +
+            #                                          list(self.model.rho_critic.parameters()),
+            #                                          lr=self.args.lr_critic)
+            # else:
+            #     self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
+            #                                          list(self.model.rho_critic.parameters()),
+            #                                          lr=self.args.lr_critic)
 
         else:
             raise NotImplementedError
@@ -131,7 +143,7 @@ class SACAgent:
                 g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
             if self.architecture == 'deepsets':
                 obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
-                self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, anchor_g=anchor_g, no_noise=no_noise, language_goal=language_goal)
+                self.model.policy_forward_pass(obs_tensor, no_noise=no_noise, language_goal=language_goal)
                 action = self.model.pi_tensor.numpy()[0]
 
             else:
@@ -163,9 +175,7 @@ class SACAgent:
         # soft update
         if self.total_iter % self.freq_target_update == 0:
             if self.architecture == 'deepsets':
-                self._soft_update_target_network(self.model.single_phi_target_critic, self.model.single_phi_critic)
-                self._soft_update_target_network(self.model.rho_target_critic, self.model.rho_critic)
-                self._soft_update_target_network(self.model.target_critic_sentence_encoder, self.model.critic_sentence_encoder)
+                self._soft_update_target_network(self.model.critic_target, self.model.critic)
             else:
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)
 
@@ -274,9 +284,7 @@ class SACAgent:
                        model_path + '/model_{}.pt'.format(epoch))
         elif self.args.architecture == 'deepsets':
             torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
-                        self.model.single_phi_actor.state_dict(), self.model.single_phi_critic.state_dict(),
-                        self.model.rho_actor.state_dict(), self.model.rho_critic.state_dict(),
-                        self.model.critic_sentence_encoder.state_dict()],
+                        self.model.actor.state_dict(), self.model.critic.state_dict()],
                        model_path + '/model_{}.pt'.format(epoch))
         else:
             raise NotImplementedError

@@ -181,15 +181,14 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
         r_tensor = r_tensor.cuda()
 
     with torch.no_grad():
-        model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor, anchor_g=anchor_g_tensor, language_goals=language_goals)
+        model.forward_pass(obs_next_norm_tensor, language_goals=language_goals)
         actions_next, log_pi_next = model.pi_tensor, model.log_prob
         qf1_next_target, qf2_next_target = model.target_q1_pi_tensor, model.target_q2_pi_tensor
         min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * log_pi_next
         next_q_value = r_tensor + args.gamma * min_qf_next_target
 
     # the q loss
-    qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, anchor_g=anchor_g_tensor, actions=actions_tensor,
-                                  language_goals=language_goals)
+    qf1, qf2 = model.forward_pass(obs_norm_tensor, actions=actions_tensor, language_goals=language_goals)
     qf1_loss = F.mse_loss(qf1, next_q_value)
     qf2_loss = F.mse_loss(qf2, next_q_value)
     qf_loss = qf1_loss + qf2_loss
@@ -203,16 +202,18 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
     # start to update the network
     policy_optim.zero_grad()
     policy_loss.backward(retain_graph=True)
-    sync_grads(model.single_phi_actor)
-    sync_grads(model.rho_actor)
+    # sync_grads(model.single_phi_actor)
+    # sync_grads(model.rho_actor)
+    sync_grads(model.actor)
     policy_optim.step()
 
     # update the critic_network
     critic_optim.zero_grad()
     qf_loss.backward()
-    sync_grads(model.single_phi_critic)
-    sync_grads(model.rho_critic)
-    sync_grads(model.critic_sentence_encoder)
+    # sync_grads(model.single_phi_critic)
+    # sync_grads(model.rho_critic)
+    # sync_grads(model.critic_sentence_encoder)
+    sync_grads(model.critic)
     critic_optim.step()
 
     alpha_loss, alpha_tlogs = update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args)
