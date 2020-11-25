@@ -60,7 +60,7 @@ if __name__ == '__main__':
     # set random seeds for reproduce
     # args.seed = np.random.randint(1e6)
     # rs = np.random.RandomState(seed=42)
-    with open('random_state.pkl', 'rb') as f:
+    with open('../random_state.pkl', 'rb') as f:
         rs = pkl.load(f)
     seed = rs.randint(1e6)
     env.seed(seed)
@@ -104,5 +104,5 @@ if __name__ == '__main__':
     # for e, b in zip(episodes, buckets):
     #     e['bucket'] = b
     print('Av Success Rate: {}'.format(results.mean()))
-    with open('../rebuttal_continuous_2.pkl', 'wb') as f:
+    with open('../rebuttal_continuous_final.pkl', 'wb') as f:
         pkl.dump(all_episodes, f)

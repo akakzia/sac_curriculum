@@ -307,7 +307,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
         self.binary_goal = goal
 
         # self.target_goal, goals, number_of_goals_along_stack = self._sample_goal(return_extra_info=True)
-        self.target_goal = self.sample_continuous_goal_from_binary_goal(goal)
+        # self.target_goal = self.sample_continuous_goal_from_binary_goal(goal)
 
         # if number_of_goals_along_stack == 0 or not self.allow_blocks_on_stack:
         #     number_of_blocks_along_stack = 0
@@ -353,6 +353,7 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
 
         # If evaluation mode, generate blocks on the table with no stacks
         if not biased_init:
+            positions = []
             for i, obj_name in enumerate(self.object_names):
                 object_qpos = self.sim.data.get_joint_qpos('{}:joint'.format(obj_name))
                 assert object_qpos.shape == (7,)
@@ -362,7 +363,20 @@ class FetchManipulateEnvContinuous(robot_env.RobotEnv):
                                                                                      size=2)
                 object_qpos[:2] = object_xpos
 
+                positions.append(object_qpos[:3])
+
                 self.sim.data.set_joint_qpos('{}:joint'.format(obj_name), object_qpos)
+
+            min_distance = 1000
+            positions = np.array(positions)
+            for i in range(100):
+                temp = self.sample_continuous_goal_from_binary_goal(goal)
+                current_distance = 0
+                for k in range(3):
+                    current_distance += np.linalg.norm(positions[k, :] - temp[3 * k:3 * (k + 1)])
+                if current_distance < min_distance:
+                    min_distance = current_distance
+                    self.target_goal = temp
 
             self.sim.forward()
             obs = self._get_obs()
