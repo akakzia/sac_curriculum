@@ -91,7 +91,8 @@ if __name__ == '__main__':
     all_episodes = []
     for i in range(num_eval):
         episodes = rollout_worker.generate_rollout(eval_goals, self_eval=True, true_eval=True, animated=False)
-        print(i)
+        if MPI.rank == 0:
+            print(i)
         if args.algo == 'continuous':
             results = np.array([e['rewards'][-1] == 3. for e in episodes]).astype(np.int)
         else:
@@ -101,8 +102,10 @@ if __name__ == '__main__':
 
     results = np.array(all_results)
     all_episodes = np.array(all_episodes)
+    all_episodes = MPI.COMM_WORLD.gather(all_episodes, root=0)
     # for e, b in zip(episodes, buckets):
     #     e['bucket'] = b
-    print('Av Success Rate: {}'.format(results.mean()))
-    with open('../rebuttal_continuous_final.pkl', 'wb') as f:
-        pkl.dump(all_episodes, f)
+    if MPI.rank == 0:
+        print('Av Success Rate: {}'.format(results.mean()))
+        with open('../rebuttal_continuous_final.pkl', 'wb') as f:
+            pkl.dump(all_episodes, f)
