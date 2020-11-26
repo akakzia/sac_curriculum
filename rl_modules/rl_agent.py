@@ -6,6 +6,7 @@ from rl_modules.networks import QNetworkFlat, GaussianPolicyFlat
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from rl_modules.language_models import DeepSetLanguage
+from rl_modules.continuous_models import DeepSetContinuous
 from updates import update_flat, update_deepsets
 from utils import id_to_language
 
@@ -51,7 +52,12 @@ class RLAgent:
             self.policy_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
             self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
         elif self.architecture == 'deepsets':
-            self.model = DeepSetLanguage(self.env_params, args)
+            if args.algo == 'language':
+                self.model = DeepSetLanguage(self.env_params, args)
+            elif args.algo == 'continuous':
+                self.model = DeepSetContinuous(self.env_params, args)
+            else:
+                raise NotImplementedError
             # sync the networks across the CPUs
             sync_networks(self.model.critic)
             sync_networks(self.model.actor)
@@ -63,33 +69,6 @@ class RLAgent:
                                                  lr=self.args.lr_actor)
             self.critic_optim = torch.optim.Adam(list(self.model.critic.parameters()),
                                                  lr=self.args.lr_critic)
-            # self.model = DeepSetSAC(self.env_params, args)
-            # # sync the networks across the CPUs
-            # sync_networks(self.model.rho_actor)
-            # sync_networks(self.model.rho_critic)
-            # sync_networks(self.model.single_phi_actor)
-            # sync_networks(self.model.single_phi_critic)
-            # sync_networks(self.model.critic_sentence_encoder)
-            #
-            # hard_update(self.model.single_phi_target_critic, self.model.single_phi_critic)
-            # hard_update(self.model.rho_target_critic, self.model.rho_critic)
-            # hard_update(self.model.target_critic_sentence_encoder, self.model.critic_sentence_encoder)
-            # sync_networks(self.model.single_phi_target_critic)
-            # sync_networks(self.model.rho_target_critic)
-            # sync_networks(self.model.target_critic_sentence_encoder)
-            # # create the optimizer
-            # self.policy_optim = torch.optim.Adam(list(self.model.single_phi_actor.parameters()) +
-            #                                      list(self.model.rho_actor.parameters()),
-            #                                      lr=self.args.lr_actor)
-            # if args.algo == 'language' and UNIQUE_ENCODER:
-            #     self.critic_optim = torch.optim.Adam(list(self.model.critic_sentence_encoder.parameters()) +
-            #                                          list(self.model.single_phi_critic.parameters()) +
-            #                                          list(self.model.rho_critic.parameters()),
-            #                                          lr=self.args.lr_critic)
-            # else:
-            #     self.critic_optim = torch.optim.Adam(list(self.model.single_phi_critic.parameters()) +
-            #                                          list(self.model.rho_critic.parameters()),
-            #                                          lr=self.args.lr_critic)
 
         else:
             raise NotImplementedError
@@ -142,7 +121,12 @@ class RLAgent:
                 g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
             if self.architecture == 'deepsets':
                 obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
-                self.model.policy_forward_pass(obs_tensor, no_noise=no_noise, language_goal=language_goal)
+                if self.args.algo == 'language':
+                    self.model.policy_forward_pass(obs_tensor, no_noise=no_noise, language_goal=language_goal)
+                elif self.args.algo == 'continuous':
+                    self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
+                else:
+                    raise NotImplementedError
                 action = self.model.pi_tensor.numpy()[0]
 
             else:

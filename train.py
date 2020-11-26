@@ -8,6 +8,7 @@ from rl_modules.rl_agent import RLAgent
 import random
 import torch
 from rollout import RolloutWorker
+from temporary_lg_goal_sampler import LanguageGoalSampler
 from goal_sampler import GoalSampler
 from utils import init_storage, get_instruction
 import time
@@ -30,6 +31,11 @@ def launch(args):
     t_total_init = time.time()
 
     # Make the environment
+    if args.algo == 'continuous':
+        args.env_name = 'FetchManipulate3ObjectsContinuous-v0'
+        args.multi_criteria_her = True
+    else:
+        args.env_name = 'FetchManipulate3Objects-v0'
     env = gym.make(args.env_name)
 
     # set random seeds for reproducibility
@@ -48,13 +54,13 @@ def launch(args):
 
     args.env_params = get_env_params(env)
 
-    # Initialize Goal Sampler:
-    goal_sampler = GoalSampler(args)
 
     if args.algo == 'language':
         language_goal = get_instruction()
+        goal_sampler = LanguageGoalSampler(args)
     else:
         language_goal = None
+        goal_sampler = GoalSampler(args)
 
     # Initialize RL Agent
     if args.agent == "SAC":
