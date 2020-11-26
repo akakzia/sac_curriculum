@@ -176,7 +176,7 @@ class DeepSetLanguage:
             return self.critic.forward(obs, actions, language_goals)
         else:
             with torch.no_grad():
-                self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.critic.forward(obs, self.pi_tensor, language_goals)
+                self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.critic_target.forward(obs, self.pi_tensor, language_goals)
             self.q1_pi_tensor, self.q2_pi_tensor = None, None
 
 
