@@ -2,12 +2,11 @@ import torch
 import numpy as np
 from mpi_utils.mpi_utils import sync_networks
 from rl_modules.replay_buffer import MultiBuffer
-from rl_modules.sac_models import QNetworkFlat, GaussianPolicyFlat
+from rl_modules.networks import QNetworkFlat, GaussianPolicyFlat
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
-from rl_modules.sac_deepset_models import DeepSetLanguage
+from rl_modules.language_models import DeepSetLanguage
 from updates import update_flat, update_deepsets
-from rl_modules.sac_deepset_models import UNIQUE_ENCODER
 from utils import id_to_language
 
 
@@ -19,7 +18,8 @@ def hard_update(target, source):
     for target_param, param in zip(target.parameters(), source.parameters()):
         target_param.data.copy_(param.data)
 
-class SACAgent:
+
+class RLAgent:
     def __init__(self, args, compute_rew, goal_sampler):
 
         self.args = args

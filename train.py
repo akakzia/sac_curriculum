@@ -4,15 +4,15 @@ import env
 import gym
 import os
 from arguments import get_args
-from rl_modules.sac_agent import SACAgent
+from rl_modules.rl_agent import RLAgent
 import random
 import torch
 from rollout import RolloutWorker
 from goal_sampler import GoalSampler
-from utils import init_storage, get_instruction2
+from utils import init_storage, get_instruction
 import time
 from mpi_utils import logger
-from language.build_dataset import sentence_from_configuration, NO_SYNONYMS
+from language.build_dataset import sentence_from_configuration
 
 def get_env_params(env):
     obs = env.reset()
@@ -48,18 +48,17 @@ def launch(args):
 
     args.env_params = get_env_params(env)
 
-
     # Initialize Goal Sampler:
     goal_sampler = GoalSampler(args)
 
     if args.algo == 'language':
-        language_goal = get_instruction2()
+        language_goal = get_instruction()
     else:
         language_goal = None
 
     # Initialize RL Agent
     if args.agent == "SAC":
-        policy = SACAgent(args, env.compute_reward, goal_sampler)
+        policy = RLAgent(args, env.compute_reward, goal_sampler)
     else:
         raise NotImplementedError
 

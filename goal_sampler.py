@@ -6,7 +6,7 @@ import os
 import pickle
 import pandas as pd
 from mpi_utils import logger
-from language.build_dataset import sentence_from_configuration, NO_SYNONYMS
+from language.build_dataset import sentence_from_configuration
 
 
 class GoalSampler:
@@ -289,10 +289,7 @@ class GoalSampler:
 
     def init_stats(self):
         self.stats = dict()
-        if NO_SYNONYMS:
-            n = 12
-        else:
-            n = 102
+        n = 102
         for i in range(n):
             # self.stats['{}_in_bucket'.format(i)] = []  # track the bucket allocation of each valid goal
             self.stats['Eval_SR_{}'.format(i)] = []  # track the offline success rate of each valid goal
@@ -337,10 +334,7 @@ class GoalSampler:
             #         self.stats['{}_in_bucket'.format(g_id)].append(1)
             #     else:
             #         self.stats['{}_in_bucket'.format(g_id)].append(0)
-        if NO_SYNONYMS:
-            n = 12
-        else:
-            n = 102
+        n = 102
         for g_id in range(n):
             try:
                 self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[g_id])
