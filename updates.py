@@ -202,17 +202,12 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
     # start to update the network
     policy_optim.zero_grad()
     policy_loss.backward(retain_graph=True)
-    # sync_grads(model.single_phi_actor)
-    # sync_grads(model.rho_actor)
     sync_grads(model.actor)
     policy_optim.step()
 
     # update the critic_network
     critic_optim.zero_grad()
     qf_loss.backward()
-    # sync_grads(model.single_phi_critic)
-    # sync_grads(model.rho_critic)
-    # sync_grads(model.critic_sentence_encoder)
     sync_grads(model.critic)
     critic_optim.step()
 
