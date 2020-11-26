@@ -46,13 +46,14 @@ class LanguageCritic(nn.Module):
         encodings = torch.tensor(np.array([self.one_hot_language[lg] for lg in language_goals]), dtype=torch.float32)
         l_emb = self.critic_sentence_encoder.forward(encodings)[0][:, -1, :]
 
+        obs_distances = obs.narrow(-1, start=55, length=3)
         obs_body = obs[:, :self.dim_body]
         obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.nb_objects),
                                   obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
                        for i in range(self.nb_objects)]
 
         # Parallelization by stacking input tensors
-        inp = torch.stack([torch.cat([l_emb, obs_body, act, x[0], x[1]], dim=1) for x in permutations(obs_objects, 2)])
+        inp = torch.stack([torch.cat([l_emb, obs_body, act, x[0], x[1], obs_distances], dim=1) for x in permutations(obs_objects, 2)])
 
         output_phi_critic_1, output_phi_critic_2 = self.single_phi_critic(inp)
         output_phi_critic_1 = output_phi_critic_1.sum(dim=0)
@@ -85,13 +86,14 @@ class LanguageActor(nn.Module):
         batch_size = obs.shape[0]
         assert batch_size == l_emb.shape[0]
 
+        obs_distances = obs.narrow(-1, start=55, length=3)
         obs_body = obs[:, :self.dim_body]
         obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.nb_objects),
                                   obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
                        for i in range(self.nb_objects)]
 
         # Parallelization by stacking input tensors
-        inp = torch.stack([torch.cat([l_emb, obs_body, x[0], x[1]], dim=1) for x in permutations(obs_objects, 2)])
+        inp = torch.stack([torch.cat([l_emb, obs_body, x[0], x[1], obs_distances], dim=1) for x in permutations(obs_objects, 2)])
 
         output_phi_actor = self.single_phi_actor(inp)
         output_phi_actor = output_phi_actor.sum(dim=0)
@@ -141,7 +143,7 @@ class DeepSetLanguage:
         self.log_prob = None
 
         dim_input_objects = 2 * (self.num_blocks + self.dim_object)
-        dim_phi_actor_input = self.embedding_size + self.dim_body + dim_input_objects
+        dim_phi_actor_input = self.embedding_size + self.dim_body + dim_input_objects + 3
         dim_phi_actor_output = 3 * dim_phi_actor_input
         dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
