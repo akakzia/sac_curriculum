@@ -5,8 +5,6 @@ from rl_modules.replay_buffer import MultiBuffer
 from rl_modules.networks import QNetworkFlat, GaussianPolicyFlat
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
-from rl_modules.language_models import DeepSetLanguage
-from rl_modules.continuous_models import DeepSetContinuous
 from updates import update_flat, update_deepsets
 from utils import id_to_language
 
@@ -53,11 +51,14 @@ class RLAgent:
             self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
         elif self.architecture == 'deepsets':
             if args.algo == 'language':
+                from rl_modules.language_models import DeepSetLanguage
                 self.model = DeepSetLanguage(self.env_params, args)
             elif args.algo == 'continuous':
+                from rl_modules.continuous_models import DeepSetContinuous
                 self.model = DeepSetContinuous(self.env_params, args)
             else:
-                raise NotImplementedError
+                from rl_modules.semantic_models import DeepSetSemantic
+                self.model = DeepSetSemantic(self.env_params, args)
             # sync the networks across the CPUs
             sync_networks(self.model.critic)
             sync_networks(self.model.actor)
@@ -126,7 +127,7 @@ class RLAgent:
                 elif self.args.algo == 'continuous':
                     self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
                 else:
-                    raise NotImplementedError
+                    self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, anchor_g, no_noise=no_noise)
                 action = self.model.pi_tensor.numpy()[0]
 
             else:

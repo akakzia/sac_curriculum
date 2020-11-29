@@ -12,7 +12,7 @@ Here are the param for the training
 def get_args():
     parser = argparse.ArgumentParser()
     # the environment setting
-    parser.add_argument('--algo', type=str, default='continuous', help="'semantic', 'continuous', 'language'")
+    parser.add_argument('--algo', type=str, default='semantic', help="'semantic', 'continuous', 'language'")
     parser.add_argument('--agent', type=str, default='SAC', help='the agent name')
     parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
@@ -22,7 +22,7 @@ def get_args():
     parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
 
     parser.add_argument('--symmetry-trick', type=bool, default=False, help='experimental stuff from Cédric')
-    parser.add_argument('--combinations-trick', type=bool, default=False, help='test')
+    parser.add_argument('--combinations-trick', type=bool, default=True, help='test')
     parser.add_argument('--continuous-trick', type=bool, default=False, help='test')
     parser.add_argument('--multi-criteria-her', type=bool, default=False, help='test')
 
