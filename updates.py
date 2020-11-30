@@ -186,7 +186,7 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
         elif args.algo == 'continuous':
             model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor)
         else:
-            model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor, anchor_g_tensor)
+            model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor)
         actions_next, log_pi_next = model.pi_tensor, model.log_prob
         qf1_next_target, qf2_next_target = model.target_q1_pi_tensor, model.target_q2_pi_tensor
         min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * log_pi_next
@@ -198,7 +198,7 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
     elif args.algo == 'continuous':
         qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, actions=actions_tensor)
     else:
-        qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, anchor_g_tensor, actions=actions_tensor)
+        qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, actions=actions_tensor)
     qf1_loss = F.mse_loss(qf1, next_q_value)
     qf2_loss = F.mse_loss(qf2, next_q_value)
     qf_loss = qf1_loss + qf2_loss

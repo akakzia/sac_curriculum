@@ -141,7 +141,7 @@ class RLAgent:
                 elif self.args.algo == 'continuous':
                     self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
                 else:
-                    self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, anchor_g, no_noise=no_noise)
+                    self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
                 action = self.model.pi_tensor.numpy()[0]
 
             else:
