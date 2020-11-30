@@ -24,7 +24,7 @@ def get_args():
     parser.add_argument('--symmetry-trick', type=bool, default=False, help='experimental stuff from Cédric')
     parser.add_argument('--combinations-trick', type=bool, default=True, help='test')
     parser.add_argument('--continuous-trick', type=bool, default=False, help='test')
-    parser.add_argument('--multi-criteria-her', type=bool, default=False, help='test')
+    parser.add_argument('--multi-criteria-her', type=bool, default=True, help='test')
 
     parser.add_argument('--embedding-size', type=int, default=20, help='embedding size of the encoded language instructions')
 
@@ -64,7 +64,7 @@ def get_args():
     parser.add_argument('--queue-length', type=int, default=1800, help='The window size when computing competence')
 
     # Deep sets arguments
-    parser.add_argument('--architecture', type=str, default='deepsets', help='The architecture of the networks')
+    parser.add_argument('--architecture', type=str, default='gnn', help='The architecture of the networks')
 
     parser.add_argument('--n-test-rollouts', type=int, default=1, help='the number of tests')
     parser.add_argument('--clip-range', type=float, default=5, help='the clip range')

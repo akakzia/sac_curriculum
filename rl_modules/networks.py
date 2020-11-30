@@ -188,3 +188,33 @@ class RhoCriticDeepSet(nn.Module):
         x2 = self.linear6(x2)
 
         return x1, x2
+
+
+class GnnAttention(nn.Module):
+    def __init__(self, inp, hid, out):
+        super(GnnAttention, self).__init__()
+        self.linear1 = nn.Linear(inp, hid)
+        self.linear2 = nn.Linear(hid, out)
+
+        self.apply(weights_init_)
+
+    def forward(self, inp):
+        x = F.relu(self.linear1(inp))
+        x = F.gumbel_softmax(self.linear2(x), hard=True)
+
+        return x
+
+
+class GnnMessagePassing(nn.Module):
+    def __init__(self, inp, out):
+        super(GnnMessagePassing, self).__init__()
+        self.linear1 = nn.Linear(inp, 256)
+        self.linear2 = nn.Linear(256, out)
+
+        self.apply(weights_init_)
+
+    def forward(self, inp):
+        x = F.relu(self.linear1(inp))
+        x = F.relu(self.linear2(x))
+
+        return x

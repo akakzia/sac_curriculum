@@ -70,6 +70,20 @@ class RLAgent:
                                                  lr=self.args.lr_actor)
             self.critic_optim = torch.optim.Adam(list(self.model.critic.parameters()),
                                                  lr=self.args.lr_critic)
+        elif self.architecture == 'gnn':
+            from rl_modules.gnn_models import GnnSemantic
+            self.model = GnnSemantic(self.env_params, args)
+            # sync the networks across the CPUs
+            sync_networks(self.model.critic)
+            sync_networks(self.model.actor)
+            hard_update(self.model.critic_target, self.model.critic)
+            sync_networks(self.model.critic_target)
+
+            # create the optimizer
+            self.policy_optim = torch.optim.Adam(list(self.model.actor.parameters()),
+                                                 lr=self.args.lr_actor)
+            self.critic_optim = torch.optim.Adam(list(self.model.critic.parameters()),
+                                                 lr=self.args.lr_critic)
 
         else:
             raise NotImplementedError
@@ -120,7 +134,7 @@ class RLAgent:
                 g_norm = g
             else:
                 g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
-            if self.architecture == 'deepsets':
+            if self.architecture == 'gnn':
                 obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
                 if self.args.algo == 'language':
                     self.model.policy_forward_pass(obs_tensor, no_noise=no_noise, language_goal=language_goal)
@@ -158,7 +172,7 @@ class RLAgent:
 
         # soft update
         if self.total_iter % self.freq_target_update == 0:
-            if self.architecture == 'deepsets':
+            if self.architecture == 'gnn':
                 self._soft_update_target_network(self.model.critic_target, self.model.critic)
             else:
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)
@@ -252,7 +266,7 @@ class RLAgent:
                                                                            self.critic_target_network, self.policy_optim, self.critic_optim,
                                                                            self.alpha, self.log_alpha, self.target_entropy, self.alpha_optim,
                                                                            obs_norm, ag_norm, g_norm, obs_next_norm, actions, rewards, self.args)
-        elif self.architecture == 'deepsets':
+        elif self.architecture == 'gnn':
             critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_deepsets(self.model, self.language,
                                                                                self.policy_optim, self.critic_optim, self.alpha, self.log_alpha,
                                                                                self.target_entropy, self.alpha_optim, obs_norm, ag_norm, g_norm,
@@ -266,7 +280,7 @@ class RLAgent:
             torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
                         self.actor_network.state_dict(), self.critic_network.state_dict()],
                        model_path + '/model_{}.pt'.format(epoch))
-        elif self.args.architecture == 'deepsets':
+        elif self.args.architecture == 'gnn':
             torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std,
                         self.model.actor.state_dict(), self.model.critic.state_dict()],
                        model_path + '/model_{}.pt'.format(epoch))
