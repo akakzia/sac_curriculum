@@ -18,7 +18,7 @@ def get_args():
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
     parser.add_argument('--n-batches', type=int, default=30, help='the times to update the network')
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
-    parser.add_argument('--automatic-buckets', type=bool, default=False, help='automatically generate buckets during training')
+    parser.add_argument('--automatic-buckets', type=bool, default=True, help='automatically generate buckets during training')
     parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
 
     parser.add_argument('--symmetry-trick', type=bool, default=False, help='experimental stuff from Cédric')
@@ -29,7 +29,7 @@ def get_args():
     parser.add_argument('--embedding-size', type=int, default=20, help='embedding size of the encoded language instructions')
 
     parser.add_argument('--normalize_goal', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
-    parser.add_argument('--start-biased-init', type=int, default=100, help='Number of epoch before biased initializations start')
+    parser.add_argument('--start-biased-init', type=int, default=10, help='Number of epoch before biased initializations start')
     parser.add_argument('--self-eval-prob', type=float, default=0.1, help='Probability to perform self-evaluation')
 
     parser.add_argument('--evaluations', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
