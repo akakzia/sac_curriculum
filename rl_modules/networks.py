@@ -208,13 +208,13 @@ class GnnAttention(nn.Module):
 class GnnMessagePassing(nn.Module):
     def __init__(self, inp, out):
         super(GnnMessagePassing, self).__init__()
-        self.linear1 = nn.Linear(inp, out)
-        # self.linear2 = nn.Linear(256, out)
+        self.linear1 = nn.Linear(inp, 256)
+        self.linear2 = nn.Linear(256, out)
 
         self.apply(weights_init_)
 
     def forward(self, inp):
         x = F.relu(self.linear1(inp))
-        # x = F.relu(self.linear2(x))
+        x = F.relu(self.linear2(x))
 
         return x
