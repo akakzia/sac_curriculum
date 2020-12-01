@@ -113,9 +113,9 @@ class PhiActorDeepSet(nn.Module):
 class RhoActorDeepSet(nn.Module):
     def __init__(self, inp, out, action_space=None):
         super(RhoActorDeepSet, self).__init__()
-        self.linear1 = nn.Linear(inp, 256)
-        self.mean_linear = nn.Linear(256, out)
-        self.log_std_linear = nn.Linear(256, out)
+        self.linear1 = nn.Linear(inp, 128)
+        self.mean_linear = nn.Linear(128, out)
+        self.log_std_linear = nn.Linear(128, out)
 
         self.apply(weights_init_)
 
@@ -172,11 +172,11 @@ class PhiCriticDeepSet(nn.Module):
 class RhoCriticDeepSet(nn.Module):
     def __init__(self, inp, out):
         super(RhoCriticDeepSet, self).__init__()
-        self.linear1 = nn.Linear(inp, 256)
-        self.linear3 = nn.Linear(256, out)
+        self.linear1 = nn.Linear(inp, 128)
+        self.linear3 = nn.Linear(128, out)
 
-        self.linear4 = nn.Linear(inp, 256)
-        self.linear6 = nn.Linear(256, out)
+        self.linear4 = nn.Linear(inp, 128)
+        self.linear6 = nn.Linear(128, out)
 
         self.apply(weights_init_)
 
@@ -208,13 +208,13 @@ class GnnAttention(nn.Module):
 class GnnMessagePassing(nn.Module):
     def __init__(self, inp, out):
         super(GnnMessagePassing, self).__init__()
-        self.linear1 = nn.Linear(inp, 256)
-        self.linear2 = nn.Linear(256, out)
+        self.linear1 = nn.Linear(inp, out)
+        # self.linear2 = nn.Linear(256, out)
 
         self.apply(weights_init_)
 
     def forward(self, inp):
         x = F.relu(self.linear1(inp))
-        x = F.relu(self.linear2(x))
+        # x = F.relu(self.linear2(x))
 
         return x
