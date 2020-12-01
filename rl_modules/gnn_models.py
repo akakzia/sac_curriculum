@@ -21,7 +21,7 @@ class GnnCritic(nn.Module):
         self.dim_object = dim_object
 
         self.mp_critic = GnnMessagePassing(dim_mp_input, dim_mp_output)
-        self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 128, dim_phi_critic_output)
+        self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 256, dim_phi_critic_output)
         self.rho_critic = RhoCriticDeepSet(dim_rho_critic_input, dim_rho_critic_output)
 
         self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
@@ -74,7 +74,7 @@ class GnnActor(nn.Module):
         self.dim_body = dim_body
         self.dim_object = dim_object
 
-        self.phi_actor = PhiActorDeepSet(dim_phi_actor_input, 128, dim_phi_actor_output)
+        self.phi_actor = PhiActorDeepSet(dim_phi_actor_input, 256, dim_phi_actor_output)
         self.rho_actor = RhoActorDeepSet(dim_rho_actor_input, dim_rho_actor_output)
 
         self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
