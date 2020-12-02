@@ -133,12 +133,12 @@ class GnnSemantic:
         dim_mp_output = 3 * dim_mp_input
 
         dim_phi_actor_input = self.dim_body + (self.nb_objects + self.dim_object) + dim_mp_output
-        dim_phi_actor_output = dim_phi_actor_input
+        dim_phi_actor_output = 3 * dim_phi_actor_input
         dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
 
         dim_phi_critic_input = self.dim_body + (self.nb_objects + self.dim_object) + dim_mp_output + self.dim_act
-        dim_phi_critic_output = dim_phi_critic_input
+        dim_phi_critic_output = 3 * dim_phi_critic_input
         dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
 
