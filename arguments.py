@@ -58,7 +58,7 @@ def get_args():
     parser.add_argument('--latent-dim', type=int, default=10, help='Dimension of latent for goal encoder')
 
     # Curriculum learning arguments
-    parser.add_argument('--curriculum-learning', type=bool, default=True, help='Use LP-based curriculum learning')
+    parser.add_argument('--curriculum-learning', type=bool, default=False, help='Use LP-based curriculum learning')
     parser.add_argument('--curriculum-eps', type=float, default=0.3, help='Prob of sampling random goal in curriculum')
     parser.add_argument('--multihead-buffer', type=bool, default=True, help='use a multihead replay buffer in curriculum')
     parser.add_argument('--queue-length', type=int, default=1800, help='The window size when computing competence')
