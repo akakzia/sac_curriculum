@@ -154,24 +154,18 @@ def launch(args):
             if rank==0: logger.info('\tRunning eval ..')
             # Performing evaluations
             t_i = time.time()
-            if args.algo == 'language':
-                ids = np.random.choice(np.arange(35), size=len(language_goal))
-                eval_goals = goal_sampler.valid_goals[ids]
-            else:
-                eval_goals = goal_sampler.valid_goals
+            # Eval for all possible number of masks
+            ids = np.random.choice(np.arange(len(goal_sampler.discovered_goals)), size=goal_sampler.goal_dim)
+            eval_goals = np.array(goal_sampler.discovered_goals)[ids]
+            num_constraints = np.arange(1, goal_sampler.goal_dim+1)
+            eval_goals = goal_sampler.apply_constraints(eval_goals, num_constraints)
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        self_eval=True,  # this parameter is overridden by true_eval
                                                        true_eval=True,  # this is offline evaluations
                                                        biased_init=False,
                                                        language_goal=language_goal)
 
-            # Extract the results
-            if args.algo == 'continuous':
-                results = np.array([e['rewards'][-1] == 3. for e in episodes]).astype(np.int)
-            elif args.algo == 'language':
-                results = np.array([e['language_goal'] in sentence_from_configuration(config=e['ag'][-1], all=True) for e in episodes]).astype(np.int)
-            else:
-                results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
+            results = np.array([e['rewards'][-1] / c for e, c in zip(episodes, num_constraints)])
             rewards = np.array([e['rewards'][-1] for e in episodes])
             all_results = MPI.COMM_WORLD.gather(results, root=0)
             all_rewards = MPI.COMM_WORLD.gather(rewards, root=0)
@@ -188,7 +182,7 @@ def launch(args):
                 # Saving policy models
                 if epoch % args.save_freq == 0:
                     policy.save(model_path, epoch)
-                    goal_sampler.save_bucket_contents(bucket_path, epoch)
+                    # goal_sampler.save_bucket_contents(bucket_path, epoch)
                 if rank==0: logger.info('\tEpoch #{}: SR: {}'.format(epoch, global_sr))
 
 
