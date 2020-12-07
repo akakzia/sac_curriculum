@@ -151,7 +151,7 @@ class GoalSampler:
                             self.discovered_goals_oracle_id.append(id_ag_end)
 
                 # update buckets
-                if self.automatic_buckets and new_goal_found:
+                if self.automatic_buckets and new_goal_found and self.curriculum_learning:
                     self.update_buckets()
                     self.update_LP()
 
