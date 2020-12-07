@@ -10,7 +10,9 @@ from goal_sampler import GoalSampler
 import  random
 from mpi4py import MPI
 from language.build_dataset import sentence_from_configuration
-from utils import get_instruction2
+from utils import get_instruction
+from arguments import get_args
+import pickle as pkl
 
 def get_env_params(env):
     obs = env.reset()
@@ -22,12 +24,19 @@ def get_env_params(env):
 
 if __name__ == '__main__':
     num_eval = 1
-    path = '/home/ahakakzia/language_baseline/1/'
-    model_path = path + 'model_530.pt'
+    path = '/home/ahakakzia/'
+    model_path = path + 'model_200.pt'
 
-    with open(path + 'config.json', 'r') as f:
-        params = json.load(f)
-    args = SimpleNamespace(**params)
+    # with open(path + 'config.json', 'r') as f:
+    #     params = json.load(f)
+    # args = SimpleNamespace(**params)
+    args = get_args()
+
+    if args.algo == 'continuous':
+        args.env_name = 'FetchManipulate3ObjectsContinuous-v0'
+        args.multi_criteria_her = True
+    else:
+        args.env_name = 'FetchManipulate3Objects-v0'
 
     # Make the environment
     env = gym.make(args.env_name)
@@ -57,7 +66,7 @@ if __name__ == '__main__':
 
     eval_goals = goal_sampler.valid_goals
     if args.algo == 'language':
-        language_goal = get_instruction2()
+        language_goal = get_instruction()
         eval_goals = np.array([goal_sampler.valid_goals[0] for _ in range(len(language_goal))])
     else:
         language_goal = None
