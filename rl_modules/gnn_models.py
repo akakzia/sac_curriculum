@@ -24,7 +24,9 @@ class GnnCritic(nn.Module):
         self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 256, dim_phi_critic_output)
         self.rho_critic = RhoCriticDeepSet(dim_rho_critic_input, dim_rho_critic_output)
 
-        self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        # self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        self.edge_ids = [np.array([0, 1, 2, 3]), np.array([4, 5, 6, 7]), np.array([8, 9, 10, 11]), np.array([12, 13, 14, 15]),
+                         np.array([16, 17, 18, 19])]
 
     def forward(self, obs, act, edge_features):
         batch_size = obs.shape[0]
@@ -57,11 +59,14 @@ class GnnCritic(nn.Module):
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
-        obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
-        goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
+        # obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
+        # goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
+        obj_ids = list(permutations(np.arange(self.nb_objects), 2))
+        goal_ids = [[0, 10], [1, 11], [2, 12], [3, 13], [0, 14], [4, 15], [5, 16], [6, 17], [1, 18], [4, 19], [7, 20], [8, 21], [2, 22], [5, 23],
+                    [7, 24], [9, 25], [3, 26], [6, 27], [8, 28], [9, 29]]
 
         inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3],
-                                         obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(6)])
+                                         obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(len(obj_ids))])
 
         # inp_mp = torch.stack([torch.cat([g, ag, obj[0], obj[1]], dim=-1) for obj in permutations(obs_objects, 2)])
 
@@ -81,7 +86,9 @@ class GnnActor(nn.Module):
         self.phi_actor = PhiActorDeepSet(dim_phi_actor_input, 256, dim_phi_actor_output)
         self.rho_actor = RhoActorDeepSet(dim_rho_actor_input, dim_rho_actor_output)
 
-        self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        # self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        self.edge_ids = [np.array([0, 1, 2, 3]), np.array([4, 5, 6, 7]), np.array([8, 9, 10, 11]), np.array([12, 13, 14, 15]),
+                         np.array([16, 17, 18, 19])]
 
         # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
 
@@ -124,8 +131,8 @@ class GnnSemantic:
         self.dim_object = 15
         self.dim_goal = env_params['goal']
         self.dim_act = env_params['action']
-        self.nb_objects = 3
-        self.n_permutations = 3
+        self.nb_objects = env_params['num_objects']
+        self.n_permutations = self.nb_objects
 
         self.q1_pi_tensor = None
         self.q2_pi_tensor = None

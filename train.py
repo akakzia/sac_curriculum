@@ -21,7 +21,7 @@ def get_env_params(env):
     # close the environment
     params = {'obs': obs['observation'].shape[0], 'goal': obs['desired_goal'].shape[0],
               'action': env.action_space.shape[0], 'action_max': env.action_space.high[0],
-              'max_timesteps': env._max_episode_steps}
+              'num_objects': env.num_blocks, 'max_timesteps': env._max_episode_steps}
     return params
 
 def launch(args):
@@ -35,7 +35,7 @@ def launch(args):
         args.env_name = 'FetchManipulate3ObjectsContinuous-v0'
         args.multi_criteria_her = True
     else:
-        args.env_name = 'FetchManipulate3Objects-v0'
+        args.env_name = 'FetchManipulate5Objects-v0'
     env = gym.make(args.env_name)
 
     # set random seeds for reproducibility
@@ -95,7 +95,7 @@ def launch(args):
 
             # Sample goals
             t_i = time.time()
-            goals, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False)
+            goals, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi)
             if args.algo == 'language':
                 language_goal_ep = np.random.choice(language_goal, size=args.num_rollouts_per_mpi)
             else:
@@ -142,8 +142,6 @@ def launch(args):
 
         # Updating Learning Progress
         t_i = time.time()
-        if goal_sampler.curriculum_learning and rank == 0:
-            goal_sampler.update_LP()
         goal_sampler.sync()
 
         time_dict['lp_update'] += time.time() - t_i
@@ -158,7 +156,8 @@ def launch(args):
                 ids = np.random.choice(np.arange(35), size=len(language_goal))
                 eval_goals = goal_sampler.valid_goals[ids]
             else:
-                eval_goals = goal_sampler.valid_goals
+                ids = np.random.choice(np.arange(len(goal_sampler.discovered_goals)), size=args.n_test_rollouts)
+                eval_goals = np.array(goal_sampler.discovered_goals)[ids]
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        self_eval=True,  # this parameter is overridden by true_eval
                                                        true_eval=True,  # this is offline evaluations
@@ -183,17 +182,19 @@ def launch(args):
                 av_res = np.array(all_results).mean(axis=0)
                 av_rewards = np.array(all_rewards).mean(axis=0)
                 global_sr = np.mean(av_res)
-                log_and_save(goal_sampler, epoch, episode_count, av_res, av_rewards, global_sr, time_dict)
+                avg_reward = np.mean(av_rewards)
+                log_and_save(goal_sampler, epoch, episode_count, avg_reward, global_sr, time_dict)
 
                 # Saving policy models
                 if epoch % args.save_freq == 0:
                     policy.save(model_path, epoch)
-                    goal_sampler.save_bucket_contents(bucket_path, epoch)
-                if rank==0: logger.info('\tEpoch #{}: SR: {}'.format(epoch, global_sr))
+                if rank==0:
+                    logger.info('\tEpoch #{}: SR: {}'.format(epoch, global_sr))
+                    logger.info('\tAverage Reward: {}'.format(avg_reward))
 
 
-def log_and_save( goal_sampler, epoch, episode_count, av_res, av_rew, global_sr, time_dict):
-    goal_sampler.save(epoch, episode_count, av_res, av_rew, global_sr, time_dict)
+def log_and_save( goal_sampler, epoch, episode_count, avg_reward, global_sr, time_dict):
+    goal_sampler.save(epoch, episode_count, avg_reward, global_sr, time_dict)
     for k, l in goal_sampler.stats.items():
         logger.record_tabular(k, l[-1])
     logger.dump_tabular()
