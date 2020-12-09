@@ -10,7 +10,7 @@ import torch
 from rollout import RolloutWorker
 from temporary_lg_goal_sampler import LanguageGoalSampler
 from goal_sampler import GoalSampler
-from utils import init_storage, get_instruction
+from utils import init_storage, get_instruction, get_eval_goals
 import time
 from mpi_utils import logger
 from language.build_dataset import sentence_from_configuration
@@ -152,12 +152,14 @@ def launch(args):
             if rank==0: logger.info('\tRunning eval ..')
             # Performing evaluations
             t_i = time.time()
-            if args.algo == 'language':
-                ids = np.random.choice(np.arange(35), size=len(language_goal))
-                eval_goals = goal_sampler.valid_goals[ids]
-            else:
-                ids = np.random.choice(np.arange(len(goal_sampler.discovered_goals)), size=args.n_test_rollouts)
-                eval_goals = np.array(goal_sampler.discovered_goals)[ids]
+            eval_goals = []
+            instructions = ['close_1', 'close_2', 'close_3', 'close_4', 'stack_2', 'stack_3', 'stack_4', 'stack_5']
+            for instruction in instructions:
+                eval_goal = get_eval_goals(instruction)
+                eval_goals.append(eval_goal.squeeze(0))
+            eval_goals = np.array(eval_goals)
+            # ids = np.random.choice(np.arange(len(goal_sampler.discovered_goals)), size=args.n_test_rollouts)
+            # eval_goals = np.array(goal_sampler.discovered_goals)[ids]
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        self_eval=True,  # this parameter is overridden by true_eval
                                                        true_eval=True,  # this is offline evaluations
@@ -183,7 +185,7 @@ def launch(args):
                 av_rewards = np.array(all_rewards).mean(axis=0)
                 global_sr = np.mean(av_res)
                 avg_reward = np.mean(av_rewards)
-                log_and_save(goal_sampler, epoch, episode_count, avg_reward, global_sr, time_dict)
+                log_and_save(goal_sampler, epoch, episode_count, av_res, av_rewards, avg_reward, global_sr, time_dict)
 
                 # Saving policy models
                 if epoch % args.save_freq == 0:
@@ -193,8 +195,8 @@ def launch(args):
                     logger.info('\tAverage Reward: {}'.format(avg_reward))
 
 
-def log_and_save( goal_sampler, epoch, episode_count, avg_reward, global_sr, time_dict):
-    goal_sampler.save(epoch, episode_count, avg_reward, global_sr, time_dict)
+def log_and_save( goal_sampler, epoch, episode_count, av_res, av_rewards, avg_reward, global_sr, time_dict):
+    goal_sampler.save(epoch, episode_count, av_res, av_rewards, avg_reward, global_sr, time_dict)
     for k, l in goal_sampler.stats.items():
         logger.record_tabular(k, l[-1])
     logger.dump_tabular()

@@ -5,6 +5,7 @@ import json
 import subprocess
 import os.path
 import sys
+from itertools import combinations, permutations
 
 
 def generate_all_goals_in_goal_space():
@@ -390,46 +391,46 @@ INSTRUCTIONS = get_instruction()
 
 language_to_id = dict(zip(INSTRUCTIONS, range(len(INSTRUCTIONS))))
 id_to_language = dict(zip(range(len(INSTRUCTIONS)), INSTRUCTIONS))
-# else:
-#     id_to_language = {
-#         0: ['Bring green and red apart', 'Bring red and green apart', 'Get green and red far_from each_other',
-#             'Get green far_from red', 'Get red and green far_from each_other', 'Get red far_from green', 'Put green far_from red',
-#             'Put red far_from green'],
-#         1: ['Bring blue and green apart', 'Bring green and blue apart', 'Get blue and green far_from each_other',
-#             'Get blue far_from green', 'Get green and blue far_from each_other', 'Get green far_from blue', 'Put blue far_from green',
-#             'Put green far_from blue'],
-#         2: ['Bring blue and green together', 'Bring green and blue together', 'Get blue and green close_from each_other',
-#             'Get blue close_to green', 'Get green and blue close_from each_other', 'Get green close_to blue', 'Put blue close_to green',
-#             'Put green close_to blue'],
-#         3: ['Bring blue and red apart', 'Bring red and blue apart', 'Get blue and red far_from each_other',
-#             'Get blue far_from red', 'Get red and blue far_from each_other', 'Get red far_from blue', 'Put blue far_from red',
-#             'Put red far_from blue'],
-#         4: ['Bring blue and red together', 'Bring red and blue together', 'Get blue and red close_from each_other',
-#             'Get blue close_to red', 'Get red and blue close_from each_other', 'Get red close_to blue', 'Put blue close_to red',
-#             'Put red close_to blue'],
-#         5: ['Bring green and red together', 'Bring red and green together', 'Get green and red close_from each_other',
-#             'Get green close_to red', 'Get red and green close_from each_other', 'Get red close_to green', 'Put green close_to red',
-#             'Put red close_to green'],
-#
-#         6: ['Put blue above green', 'Put blue on_top_of green', 'Put green below blue', 'Put green under blue'],
-#         7: ['Put blue above red', 'Put blue on_top_of red', 'Put red below blue', 'Put red under blue'],
-#         8: ['Put blue below green', 'Put blue under green', 'Put green above blue', 'Put green on_top_of blue'],
-#         9: ['Put blue below red', 'Put blue under red', 'Put red above blue', 'Put red on_top_of blue'],
-#         10: ['Put green above red', 'Put green on_top_of red', 'Put red below green', 'Put red under green'],
-#         11: ['Put green below red', 'Put green under red', 'Put red above green', 'Put red on_top_of green'],
-#         12: ['Remove green from red', 'Remove green from_above red', 'Remove red from_below green', 'Remove red from_under green'
-#                                                                                                     'Put green and red on_the_same_plane',
-#              'Put red and green on_the_same_plane'],
-#         13: ['Put blue and red on_the_same_plane', 'Put red and blue on_the_same_plane',
-#              'Remove red from_above blue', 'Remove blue from_below red', 'Remove blue from_under red', 'Remove red from blue'],
-#         14: ['Remove green from blue', 'Remove green from_above blue', 'Remove blue from_below green', 'Remove blue from_under green',
-#              'Put blue and green on_the_same_plane', 'Put green and blue on_the_same_plane'],
-#         15: ['Put green and red on_the_same_plane', 'Put red and green on_the_same_plane', 'Remove green from_below red',
-#              'Remove green from_under red', 'Remove red from green', 'Remove red from_above green'],
-#         16: ['Put blue and red on_the_same_plane', 'Put red and blue on_the_same_plane', 'Remove blue from red',
-#              'Remove blue from_above red', 'Remove red from_below blue', 'Remove red from_under blue'],
-#         17: ['Put blue and green on_the_same_plane', 'Put green and blue on_the_same_plane', 'Remove blue from green',
-#              'Remove blue from_above green', 'Remove green from_below blue', 'Remove green from_under blue'],
-#
-#     }
-#     language_to_id = invert_dict(id_to_language)
+
+
+def get_eval_goals(instruction):
+    """ Return the eval goals that respect the close_pairs and above size"""
+    res = []
+    predicate, pairs = instruction.split('_')
+    nb_goals = 1
+    if predicate == 'stack':
+        stack_size = int(pairs)
+        close_pairs = 0
+    else:
+        stack_size = 1
+        close_pairs = int(pairs)
+    if stack_size == 1:
+        ids = []
+        for _ in range(nb_goals):
+            id = np.random.choice(np.arange(10), size=close_pairs, replace=False)
+            ids.append(id)
+        for id in ids:
+            g = np.zeros(30)
+            g[id] = 1.
+            res.append(g)
+        return np.array(res)
+    else:
+        ids = []
+        for _ in range(nb_goals):
+            id = []
+            objects = np.random.choice(np.arange(5), size=stack_size, replace=False)
+            for j in range(stack_size-1):
+                obj_ids = (objects[j], objects[j+1])
+                for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                    if set(obj_ids) == set(c):
+                        id.append(k)
+                for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                    if obj_ids == c:
+                        id.append(k+10)
+            ids.append(np.array(id))
+        for id in ids:
+            g = np.zeros(30)
+            g[id] = 1.
+            res.append(g)
+        return np.array(res)
+
