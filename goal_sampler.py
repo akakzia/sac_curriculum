@@ -57,9 +57,10 @@ class GoalSampler:
 
             # find out if new goals were discovered
             for e in all_episode_list:
-                if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
-                    self.discovered_goals.append(e['ag_binary'][-1].copy())
-                    self.discovered_goals_str.append(str(e['ag_binary'][-1]))
+                # if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
+                if str(e['ag_binary'][0]) not in self.discovered_goals_str:
+                    self.discovered_goals.append(e['ag_binary'][0].copy())
+                    self.discovered_goals_str.append(str(e['ag_binary'][0]))
 
         self.sync()
 
