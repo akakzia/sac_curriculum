@@ -36,11 +36,18 @@ class GoalSampler:
         #     g[ids_masks] = 0.
         if not eval:
             gs = []
-            p = [2/9, 2/9, 2/9, 1/18, 1/18, 1/18, 1/18, 1/18, 1/18]
             for c in constraints:
                 g = np.zeros(9)
-                ids_constraints = np.random.choice(range(9), size=c, p=p)
-                g[ids_constraints] = 1.
+                ids_constraints = np.random.choice(range(3), size=c)
+                if np.random.uniform() < 0.3:
+                    g[ids_constraints] = 1.
+                else:
+                    if np.random.uniform() < 0.5:
+                        g[3+2*ids_constraints] = 1.
+                        g[4+2*ids_constraints] = -1.
+                    else:
+                        g[3 + 2 * ids_constraints] = -1.
+                        g[4 + 2 * ids_constraints] = 1.
                 gs.append(g)
             gs = np.array(gs)
         else:
@@ -48,9 +55,14 @@ class GoalSampler:
             g1 = np.zeros(9)
             g2 = np.zeros(9)
             id_close = np.random.randint(0, 3, size=c)
-            id_above = np.random.randint(3, 9, size=c)
+            id_above = np.random.randint(0, 3, size=c)
             g1[id_close] = 1.
-            g2[id_above] = 1.
+            if np.random.uniform() < 0.5:
+                g2[3+2*id_above] = 1.
+                g2[4+2*id_above] = -1.
+            else:
+                g2[3 + 2 * id_above] = -1.
+                g2[4 + 2 * id_above] = 1.
             gs = np.array([g1, g2])
         return gs
 
