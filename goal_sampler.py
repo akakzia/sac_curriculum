@@ -24,34 +24,16 @@ class GoalSampler:
         self.init_stats()
 
     @staticmethod
-    def apply_constraints(constraints, eval=False):
+    def apply_constraints(gs):
         """ gs and constraints have the same shape across first dimensions
         constraints values are comprised between 1 and second shape of gs
         Given an array of goals and an array of constraints
         Returns an array of partial goals"""
-        # assert gs.shape[0] == constraints.shape[0]
-        # assert np.max(constraints) <= gs.shape[1]
-        # for g, c in zip(gs, constraints):
-        #     ids_masks = np.random.choice(range(gs.shape[1]), size=gs.shape[1] - c, replace=False)
-        #     g[ids_masks] = 0.
-        if not eval:
-            gs = []
-            p = [2/9, 2/9, 2/9, 1/18, 1/18, 1/18, 1/18, 1/18, 1/18]
-            for c in constraints:
-                g = np.zeros(9)
-                ids_constraints = np.random.choice(range(9), size=c, p=p)
-                g[ids_constraints] = 1.
-                gs.append(g)
-            gs = np.array(gs)
-        else:
-            c = constraints[0]
-            g1 = np.zeros(9)
-            g2 = np.zeros(9)
-            id_close = np.random.randint(0, 3, size=c)
-            id_above = np.random.randint(3, 9, size=c)
-            g1[id_close] = 1.
-            g2[id_above] = 1.
-            gs = np.array([g1, g2])
+        # DEBUG 3 constraints for the pairwise predicates
+        goal_ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6]]
+        for g in gs:
+            ids_masks = np.random.randint(0, 3)
+            g[goal_ids[ids_masks]] = 0.
         return gs
 
     def sample_goal(self, n_goals, evaluation):
@@ -63,20 +45,21 @@ class GoalSampler:
             goals = np.random.choice(self.discovered_goals, size=self.num_rollouts_per_mpi)
             self_eval = False
         else:
-            # if len(self.discovered_goals) == 0:
-            #     goals = np.random.choice([1., -1.], size=(n_goals, self.goal_dim))
-            #     self_eval = False
-            # # if no curriculum learning
-            # else:
-            #     # sample uniformly from discovered goals
-            #     goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
-            #     num_constraints = np.random.randint(1, self.goal_dim+1, size=n_goals)
-            #     goals = np.array(self.discovered_goals)[goal_ids]
-            #     goals = self.apply_constraints(goals, num_constraints)
-            #     self_eval = False
-            num_constraints = np.random.randint(1, 2, size=n_goals)
-            goals = self.apply_constraints(num_constraints)
-            self_eval = False
+            if len(self.discovered_goals) == 0:
+                goals = np.zeros((n_goals, self.goal_dim))
+                ids = np.random.choice(np.arange(self.goal_dim), size=(n_goals, 3))
+                for i in range(n_goals):
+                    goals[i, ids[i]] = -1.
+                # goals = np.random.choice([1., -1.], size=(n_goals, self.goal_dim))
+                self_eval = False
+            # if no curriculum learning
+            else:
+                # sample uniformly from discovered goals
+                goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
+                # num_constraints = np.random.randint(1, self.goal_dim+1, size=n_goals)
+                goals = np.array(self.discovered_goals)[goal_ids]
+                goals = self.apply_constraints(goals)
+                self_eval = False
         return goals, self_eval
 
     def update(self, episodes, t):
@@ -121,11 +104,9 @@ class GoalSampler:
 
     def init_stats(self):
         self.stats = dict()
-        self.stats['Eval_SR_1_close'] = []
-        self.stats['Eval_SR_1_above'] = []
-        # for i in np.arange(1, self.goal_dim+1):
-        #     self.stats['Eval_SR_{}'.format(i)] = []
-        #     self.stats['Av_Rew_{}'.format(i)] = []
+        for i in np.arange(12):
+            self.stats['Eval_SR_{}'.format(i)] = []
+            self.stats['Av_Rew_{}'.format(i)] = []
         self.stats['epoch'] = []
         self.stats['episodes'] = []
         self.stats['global_sr'] = []
@@ -142,10 +123,8 @@ class GoalSampler:
         for k in time_dict.keys():
             self.stats['t_{}'.format(k)].append(time_dict[k])
         self.stats['nb_discovered'].append(len(self.discovered_goals))
-        self.stats['Eval_SR_1_close'].append(av_res[0])
-        self.stats['Eval_SR_1_above'].append(av_res[1])
-        # for g_id in np.arange(1, self.goal_dim+1):
-        #     self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id-1])
-        #     self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id-1])
+        for g_id in np.arange(12):
+            self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
+            self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id])
             # self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
             # self.stats['#Target_{}'.format(g_id)].append(self.target_counters[oracle_id])
