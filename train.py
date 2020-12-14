@@ -158,9 +158,7 @@ def launch(args):
                 ids = np.random.choice(np.arange(35), size=len(language_goal))
                 eval_goals = goal_sampler.valid_goals[ids]
             else:
-                # eval_goals = goal_sampler.valid_goals
-                eval_goals = np.array([np.array([0., 0., 0., 0., 0., 0., 0., 0., 0.]), np.array([1., 0., 0., 0., 0., 0., 0., 0., 0.]),
-                                       np.array([1., 0., 0., 1., 0., 0., 0., 0., 0.]), np.array([1., 0., 0., 0., 1., 0., 0., 0., 0.])])
+                eval_goals = goal_sampler.valid_goals
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        self_eval=True,  # this parameter is overridden by true_eval
                                                        true_eval=True,  # this is offline evaluations
@@ -190,6 +188,7 @@ def launch(args):
                 # Saving policy models
                 if epoch % args.save_freq == 0:
                     policy.save(model_path, epoch)
+                    goal_sampler.save_bucket_contents(bucket_path, epoch)
                 if rank==0: logger.info('\tEpoch #{}: SR: {}'.format(epoch, global_sr))
 
 

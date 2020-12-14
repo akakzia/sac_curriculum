@@ -49,7 +49,7 @@ class MultiBuffer:
                 self.buffer['ag'][idxs[i]] = e['ag']
                 self.buffer['g'][idxs[i]] = e['g']
                 self.buffer['actions'][idxs[i]] = e['act']
-                # self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
+                self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
                 if 'language_goal' in e.keys():
                     # self.buffer['language_goal'][idxs[i]] = e['language_goal']
                     self.buffer['lg_ids'][idxs[i]] = e['lg_ids']
