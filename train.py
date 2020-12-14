@@ -155,10 +155,12 @@ def launch(args):
             # Performing evaluations
             t_i = time.time()
             # Eval for all possible number of masks
-            ids = np.random.choice(np.arange(len(goal_sampler.discovered_goals)), size=goal_sampler.goal_dim)
-            eval_goals = np.array(goal_sampler.discovered_goals)[ids]
-            num_constraints = np.arange(1, goal_sampler.goal_dim+1)
-            eval_goals = goal_sampler.apply_constraints(eval_goals, num_constraints)
+            eval_goals = np.array([np.array([-1., 0., 0., -1., -1., 0., 0., 0., 0.]), np.array([1., 0., 0., -1., -1., 0., 0., 0., 0.]),
+                                   np.array([1., 0., 0., 1., -1., 0., 0., 0., 0.]), np.array([1., 0., 0., -1., 1., 0., 0., 0., 0.]),
+                                   np.array([0., -1., 0., 0., 0., -1., -1., 0., 0.]), np.array([0., 1., 0., 0., 0., -1., -1., 0., 0.]),
+                                   np.array([0., 1., 0., 0., 0., 1., -1., 0., 0.]), np.array([0., 1., 0., 0., 0., -1., 1., 0., 0.]),
+                                   np.array([0., 0., -1., 0., 0., 0., 0., -1., -1.]), np.array([0., 0., 1., 0., 0., 0., 0., -1., -1.]),
+                                   np.array([0., 0., 1., 0., 0., 0., 0., 1., -1.]), np.array([0., 0., 1., 0., 0., 0., 0., -1., 1.])])
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        self_eval=True,  # this parameter is overridden by true_eval
                                                        true_eval=True,  # this is offline evaluations
