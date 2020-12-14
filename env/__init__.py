@@ -14,7 +14,7 @@ num_blocks = 3
 
 register(id='FetchManipulate3Objects-v0',
          entry_point='env.envs:FetchManipulateEnv',
-         kwargs={'reward_type': 'incremental'},
+         kwargs={'reward_type': 'sparse'},
          max_episode_steps=100,)
 
 register(id='FetchManipulate3ObjectsContinuous-v0',

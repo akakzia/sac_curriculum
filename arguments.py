@@ -24,7 +24,7 @@ def get_args():
     parser.add_argument('--symmetry-trick', type=bool, default=False, help='experimental stuff from Cédric')
     parser.add_argument('--combinations-trick', type=bool, default=True, help='test')
     parser.add_argument('--continuous-trick', type=bool, default=False, help='test')
-    parser.add_argument('--multi-criteria-her', type=bool, default=True, help='test')
+    parser.add_argument('--multi-criteria-her', type=bool, default=False, help='test')
 
     parser.add_argument('--embedding-size', type=int, default=20, help='embedding size of the encoded language instructions')
 
@@ -60,7 +60,7 @@ def get_args():
     # Curriculum learning arguments
     parser.add_argument('--curriculum-learning', type=bool, default=False, help='Use LP-based curriculum learning')
     parser.add_argument('--curriculum-eps', type=float, default=0.3, help='Prob of sampling random goal in curriculum')
-    parser.add_argument('--multihead-buffer', type=bool, default=True, help='use a multihead replay buffer in curriculum')
+    parser.add_argument('--multihead-buffer', type=bool, default=False, help='use a multihead replay buffer in curriculum')
     parser.add_argument('--queue-length', type=int, default=1800, help='The window size when computing competence')
 
     # Deep sets arguments

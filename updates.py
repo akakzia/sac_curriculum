@@ -156,7 +156,7 @@ def update_disentangled(actor_network, critic_network, critic_target_network, co
 
 
 def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alpha, target_entropy, alpha_optim, obs_norm, ag_norm, g_norm,
-                    obs_next_norm, ag_next_norm, anchor_g, actions, rewards, language_goals, args):
+                    obs_next_norm, ag_next_norm, actions, rewards, language_goals, args):
     # Tensorize
     obs_norm_tensor = torch.tensor(obs_norm, dtype=torch.float32)
     obs_next_norm_tensor = torch.tensor(obs_next_norm, dtype=torch.float32)
@@ -168,8 +168,6 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
     ag_next_norm_tensor = torch.tensor(ag_next_norm, dtype=torch.float32)
     actions_tensor = torch.tensor(actions, dtype=torch.float32)
     r_tensor = torch.tensor(rewards, dtype=torch.float32).reshape(rewards.shape[0], 1)
-
-    anchor_g_tensor = torch.tensor(anchor_g, dtype=torch.float32)
 
     if args.cuda:
         obs_norm_tensor = obs_norm_tensor.cuda()

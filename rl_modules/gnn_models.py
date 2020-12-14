@@ -50,25 +50,31 @@ class GnnCritic(nn.Module):
         batch_size = obs.shape[0]
         assert batch_size == len(ag)
 
-        obs_body = obs[:, :self.dim_body]
-        # obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.nb_objects),
-        #                                       obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
-        #                            for i in range(self.nb_objects)]
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
-        obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
-        goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
+        # obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
+        # goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
+        obj_ids_main = [[0, 1], [1, 0]]
+        goal_ids_main = [[0, 3], [0, 4]]
 
-        inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3],
-                                         obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(6)])
+        obj_ids_others = [[0, 2], [2, 0], [1, 2], [2, 1]]
+        goal_ids_others = [[1, 5], [1, 6], [2, 7], [2, 8]]
+
+        inp_mp_main = torch.stack([torch.cat([ag[:, goal_ids_main[i]], g[:, goal_ids_main[i]], obs_objects[obj_ids_main[i][0]][:, :3],
+                                              obs_objects[obj_ids_main[i][1]][:, :3]], dim=-1) for i in range(2)])
+
+        inp_mp_others = torch.stack([torch.cat([ag[:, goal_ids_others[i]], g[:, goal_ids_others[i]], obs_objects[obj_ids_others[i][0]][:, :3],
+                                     obs_objects[obj_ids_others[i][1]][:, :3]], dim=-1) for i in range(4)])
 
         # inp_mp = torch.stack([torch.cat([g, ag, obj[0], obj[1]], dim=-1) for obj in permutations(obs_objects, 2)])
 
-        output_mp = self.mp_critic(inp_mp)
+        output_mp_main = self.mp_critic(inp_mp_main)
 
-        return output_mp
+        with torch.no_grad():
+            output_mp_others = self.mp_critic(inp_mp_others)
 
+        return torch.cat([output_mp_main, output_mp_others])
 
 class GnnActor(nn.Module):
     def __init__(self, nb_objects, dim_body, dim_object, dim_phi_actor_input, dim_phi_actor_output, dim_rho_actor_input, dim_rho_actor_output):

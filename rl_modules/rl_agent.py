@@ -124,7 +124,6 @@ class RLAgent:
                                   )
 
     def act(self, obs, ag, g, no_noise, language_goal=None):
-        anchor_g = torch.Tensor(g).unsqueeze(0)
         with torch.no_grad():
             # normalize policy inputs
             obs_norm = self.o_norm.normalize(obs)
@@ -259,8 +258,6 @@ class RLAgent:
         obs_next_norm = self.o_norm.normalize(transitions['obs_next'])
         ag_next_norm = self.g_norm.normalize(transitions['ag_next'])
 
-        anchor_g = transitions['g']
-
         if self.architecture == 'flat':
             critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_flat(self.actor_network, self.critic_network,
                                                                            self.critic_target_network, self.policy_optim, self.critic_optim,
@@ -270,7 +267,7 @@ class RLAgent:
             critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_deepsets(self.model, self.language,
                                                                                self.policy_optim, self.critic_optim, self.alpha, self.log_alpha,
                                                                                self.target_entropy, self.alpha_optim, obs_norm, ag_norm, g_norm,
-                                                                               obs_next_norm, ag_next_norm, anchor_g, actions, rewards, language_goals, self.args)
+                                                                               obs_next_norm, ag_next_norm, actions, rewards, language_goals, self.args)
         else:
             raise NotImplementedError
 
