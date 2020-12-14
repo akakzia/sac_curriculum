@@ -46,7 +46,7 @@ class GnnCritic(nn.Module):
         q1_pi_tensor, q2_pi_tensor = self.rho_critic(output_phi_critic_1, output_phi_critic_2)
         return q1_pi_tensor, q2_pi_tensor
 
-    def message_passing(self, obs, ag, g):
+    def message_passing(self, obs, ag, g, dropout=False):
         batch_size = obs.shape[0]
         assert batch_size == len(ag)
 
@@ -62,6 +62,12 @@ class GnnCritic(nn.Module):
 
         inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3],
                                          obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(6)])
+
+        if dropout:
+            inp_mp = inp_mp.reshape((6*256, 10))
+            ids = np.random.randint(inp_mp.shape[0], size=2*batch_size)
+            inp_mp[ids] = torch.zeros(inp_mp.shape[-1])
+            inp_mp = inp_mp.reshape([6, batch_size, inp_mp.shape[-1]])
 
         # inp_mp = torch.stack([torch.cat([g, ag, obj[0], obj[1]], dim=-1) for obj in permutations(obs_objects, 2)])
 
@@ -155,15 +161,15 @@ class GnnSemantic:
         self.actor = GnnActor(self.nb_objects, self.dim_body, self.dim_object, dim_phi_actor_input, dim_phi_actor_output, dim_rho_actor_input,
                               dim_rho_actor_output)
 
-    def policy_forward_pass(self, obs, ag, g, no_noise=False):
-        edge_features = self.critic.message_passing(obs, ag, g)
+    def policy_forward_pass(self, obs, ag, g, no_noise=False, dropout=False):
+        edge_features = self.critic.message_passing(obs, ag, g, dropout=dropout)
         if not no_noise:
             self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, edge_features)
         else:
             _, self.log_prob, self.pi_tensor = self.actor.sample(obs, edge_features)
 
-    def forward_pass(self, obs, ag, g, actions=None):
-        edge_features = self.critic.message_passing(obs, ag, g)
+    def forward_pass(self, obs, ag, g, actions=None, dropout=True):
+        edge_features = self.critic.message_passing(obs, ag, g, dropout=dropout)
 
         self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, edge_features)
 

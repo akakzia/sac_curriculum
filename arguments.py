@@ -14,9 +14,9 @@ def get_args():
     # the environment setting
     parser.add_argument('--algo', type=str, default='semantic', help="'semantic', 'continuous', 'language'")
     parser.add_argument('--agent', type=str, default='SAC', help='the agent name')
-    parser.add_argument('--n-epochs', type=int, default=1, help='the number of epochs to train the agent')
-    parser.add_argument('--n-cycles', type=int, default=1, help='the times to collect samples per epoch')
-    parser.add_argument('--n-batches', type=int, default=1, help='the times to update the network')
+    parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
+    parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
+    parser.add_argument('--n-batches', type=int, default=30, help='the times to update the network')
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
     parser.add_argument('--automatic-buckets', type=bool, default=True, help='automatically generate buckets during training')
     parser.add_argument('--num-buckets', type=int, default=5, help='number of buckets for automatic generation')
@@ -32,7 +32,7 @@ def get_args():
     parser.add_argument('--start-biased-init', type=int, default=10, help='Number of epoch before biased initializations start')
     parser.add_argument('--self-eval-prob', type=float, default=0.1, help='Probability to perform self-evaluation')
 
-    parser.add_argument('--evaluations', type=bool, default=False, help='do evaluation at the end of the epoch w/ frequency')
+    parser.add_argument('--evaluations', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
     parser.add_argument('--save-freq', type=int, default=10, help='the interval that save the trajectory')
 
     parser.add_argument('--seed', type=int, default=np.random.randint(1e6), help='random seed')
