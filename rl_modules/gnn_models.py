@@ -24,7 +24,7 @@ class GnnCritic(nn.Module):
         self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 256, dim_phi_critic_output)
         self.rho_critic = RhoCriticDeepSet(dim_rho_critic_input, dim_rho_critic_output)
 
-        self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        self.edge_ids = [np.array([0, 2, 6, 8]), np.array([1, 4, 7, 10]), np.array([3, 5, 9, 11])]
 
     def forward(self, obs, act, edge_features):
         batch_size = obs.shape[0]
@@ -57,15 +57,18 @@ class GnnCritic(nn.Module):
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
-        obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
-        goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
+        # obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
+        # goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
+
+        obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1], [0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
+        goal_ids = [[0], [0], [1], [1], [2], [2], [3], [4], [5], [6], [7], [8]]
 
         inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3],
-                                         obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(6)])
+                                         obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(12)])
 
         inp_mp = inp_mp.permute(2, 1, 0)
 
-        adjacency = torch.tensor([1., 1., 0., 0., 0., 0.]).repeat(batch_size, 1)
+        adjacency = torch.tensor([1., 1., 0., 0., 0., 0., 1., 1., 0., 0., 0., 0.]).repeat(batch_size, 1)
 
         inp_mp = adjacency * inp_mp
 
@@ -87,7 +90,7 @@ class GnnActor(nn.Module):
         self.phi_actor = PhiActorDeepSet(dim_phi_actor_input, 256, dim_phi_actor_output)
         self.rho_actor = RhoActorDeepSet(dim_rho_actor_input, dim_rho_actor_output)
 
-        self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        self.edge_ids = [np.array([0, 2, 6, 8]), np.array([1, 4, 7, 10]), np.array([3, 5, 9, 11])]
 
         # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
 
@@ -141,7 +144,7 @@ class GnnSemantic:
         self.log_prob = None
 
         # dim_input_objects = 2 * (self.nb_objects + self.dim_object)
-        dim_mp_input = 6 + 4
+        dim_mp_input = 6 + 2
         dim_mp_output = 3 * dim_mp_input
 
         dim_phi_actor_input = self.dim_body + self.dim_object + dim_mp_output
