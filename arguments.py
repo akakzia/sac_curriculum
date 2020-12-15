@@ -24,7 +24,7 @@ def get_args():
     parser.add_argument('--symmetry-trick', type=bool, default=False, help='experimental stuff from Cédric')
     parser.add_argument('--combinations-trick', type=bool, default=True, help='test')
     parser.add_argument('--continuous-trick', type=bool, default=False, help='test')
-    parser.add_argument('--multi-criteria-her', type=bool, default=True, help='test')
+    parser.add_argument('--multi-criteria-her', type=bool, default=False, help='test')
 
     parser.add_argument('--embedding-size', type=int, default=20, help='embedding size of the encoded language instructions')
 

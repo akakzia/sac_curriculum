@@ -171,7 +171,7 @@ def launch(args):
             elif args.algo == 'language':
                 results = np.array([e['language_goal'] in sentence_from_configuration(config=e['ag'][-1], all=True) for e in episodes]).astype(np.int)
             else:
-                results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
+                results = np.array([str(e['g'][0][[0, 3, 4]]) == str(e['ag'][-1][[0, 3, 4]]) for e in episodes]).astype(np.int)
             rewards = np.array([e['rewards'][-1] for e in episodes])
             all_results = MPI.COMM_WORLD.gather(results, root=0)
             all_rewards = MPI.COMM_WORLD.gather(rewards, root=0)
