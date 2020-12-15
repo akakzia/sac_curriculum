@@ -89,7 +89,7 @@ class GoalSampler:
             cond1 = (self.curriculum_learning and self.automatic_buckets and len(self.discovered_goals) < self.num_buckets)
             if len(self.discovered_goals) == 0 or cond1:
                 # sample randomly in the goal space
-                goals = np.random.randint(0, 2, size=(n_goals, self.goal_dim)).astype(np.float32)
+                goals = np.random.choice([-1., 1.], size=(n_goals, self.goal_dim))
                 self_eval = False
 
             # if goals have been discovered
