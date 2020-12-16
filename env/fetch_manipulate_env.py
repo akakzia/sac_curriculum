@@ -280,8 +280,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         return self.target_goal
 
     def _is_success(self, achieved_goal, desired_goal):
-        ids = [0, 3, 4]
-        return (achieved_goal[ids] == desired_goal[ids]).all()
+        return (achieved_goal == desired_goal).all()
 
     def _env_setup(self, initial_qpos):
         for name, value in initial_qpos.items():

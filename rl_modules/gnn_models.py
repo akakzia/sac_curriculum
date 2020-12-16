@@ -63,13 +63,13 @@ class GnnCritic(nn.Module):
         inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3],
                                          obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(6)])
 
-        # inp_mp = inp_mp.permute(2, 1, 0)
-        #
-        # adjacency = torch.tensor([1., 1., 0., 0., 0., 0.]).repeat(batch_size, 1)
-        #
-        # inp_mp = adjacency * inp_mp
-        #
-        # inp_mp = inp_mp.permute(2, 1, 0)
+        inp_mp = inp_mp.permute(2, 1, 0)
+
+        adjacency = torch.tensor([1., 1., 0., 0., 0., 0.]).repeat(batch_size, 1)
+
+        inp_mp = adjacency * inp_mp
+
+        inp_mp = inp_mp.permute(2, 1, 0)
 
         output_mp = self.mp_critic(inp_mp)
 
