@@ -71,7 +71,17 @@ class GnnCritic(nn.Module):
 
         inp_mp = inp_mp.permute(2, 1, 0)
 
-        output_mp = self.mp_critic(inp_mp)
+        output_mp = torch.empty((0, batch_size, 102))
+
+        for i in range(6):
+            if adjacency[0, i] == 0.:
+                with torch.no_grad():
+                    out = self.mp_critic(inp_mp[i])
+            else:
+                out = self.mp_critic(inp_mp[i])
+            output_mp = torch.cat([output_mp, out.unsqueeze(0)])
+
+        # output_mp = self.mp_critic(inp_mp)
 
         return output_mp
 
