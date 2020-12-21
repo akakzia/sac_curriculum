@@ -152,7 +152,7 @@ class GnnSemantic:
 
         # dim_input_objects = 2 * (self.nb_objects + self.dim_object)
         dim_mp_input = 2 * self.dim_object + 4
-        dim_mp_output = 3 * dim_mp_input
+        dim_mp_output = dim_mp_input
 
         dim_phi_actor_input = self.dim_body + self.dim_object + dim_mp_output
         dim_phi_actor_output = 3 * dim_phi_actor_input
