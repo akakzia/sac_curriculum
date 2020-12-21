@@ -167,7 +167,7 @@ def launch(args):
                                                        biased_init=False,
                                                        language_goal=language_goal)
 
-            results = np.array([e['rewards'][-1] / 3 for e in episodes])
+            results = np.array([e['rewards'][-1] == 3. for e in episodes])
             rewards = np.array([e['rewards'][-1] for e in episodes])
             all_results = MPI.COMM_WORLD.gather(results, root=0)
             all_rewards = MPI.COMM_WORLD.gather(rewards, root=0)

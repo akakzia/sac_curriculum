@@ -127,7 +127,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         if self.reward_type == 'sparse':
             reward = (achieved_goal == goal).all().astype(np.float32)
         else:
-            reward = ((goal != 0.) == (goal == achieved_goal)).all().astype(np.float32)
+            reward = (goal == achieved_goal)[goal != 0.].sum().astype(np.float32)
             # reward = sum((goal != 0.) & (goal == achieved_goal))
             # reward = 0.
             # semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
