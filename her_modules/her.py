@@ -16,7 +16,8 @@ class her_sampler:
         self.continuous = args.algo == 'continuous'  # whether to use semantic configurations or continuous goals
         self.language = args.algo == 'language'
         self.multi_criteria_her = args.multi_criteria_her
-        self.obj_ind = np.array([np.arange(i * 3, (i + 1) * 3) for i in range(3)])
+        # self.obj_ind = np.array([np.arange(i * 3, (i + 1) * 3) for i in range(3)])
+        self.obj_ind = np.array([np.array([0]), np.array([3]), np.array([4])])
         self.semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
 
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions):

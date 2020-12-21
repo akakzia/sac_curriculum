@@ -126,7 +126,8 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         assert self.reward_type in ['sparse', 'incremental'], "only sparse reward type is implemented."
         if self.reward_type == 'sparse':
             ids = [0, 3, 4]
-            reward = (achieved_goal[ids] == goal[ids]).all().astype(np.float32)
+            # reward = (achieved_goal[ids] == goal[ids]).all().astype(np.float32)
+            reward = (achieved_goal[ids] == goal[ids]).astype(np.float32).sum()
         else:
             reward = 0.
             semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
