@@ -51,6 +51,7 @@ class her_sampler:
 
                 # replace goal with achieved goal
                 future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
+                future_ag = apply_masks(future_ag)
                 transitions['g'][her_indexes] = future_ag
                 # to get the params to re-compute reward
             transitions['r'] = np.expand_dims(np.array([self.reward_func(ag_next, g, None) for ag_next, g in zip(transitions['ag_next'],
@@ -87,3 +88,11 @@ def compute_reward_language(ags, lg_ids):
     lgs = [id_to_language[lg_id] for lg_id in lg_ids]
     r = np.array([lg in sentence_from_configuration(ag, all=True) for ag, lg in zip(ags, lgs)]).astype(np.float32)
     return r
+
+
+def apply_masks(ags):
+    for ag in ags:
+        ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
+        i = np.random.choice(np.arange(len(ids)))
+        ag[ids[i]] = 0.
+    return ags
