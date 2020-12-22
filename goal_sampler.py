@@ -30,7 +30,7 @@ class GoalSampler:
         Given an array of goals and an array of constraints
         Returns an array of partial goals"""
         # DEBUG 3 constraints for the pairwise predicates
-        goal_ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6]]
+        goal_ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
         for g in gs:
             ids_masks = np.random.randint(0, 3)
             g[goal_ids[ids_masks]] = 0.
@@ -93,6 +93,30 @@ class GoalSampler:
         self.sync()
 
         return episodes
+
+    @staticmethod
+    def generate_eval_goals():
+        """ Generates a set of goals for evaluation. This set comprises :
+        - One relation with close == True .
+        - One relation with above == True
+        - Two relations with close == True in one of them
+        - Two relations with close == True in both of them
+        - Two relations with above == True in one and close == False in the other
+        - Two relations with above == True in one and close == True in the other
+        - Two relations with above == True in one and above == True in the other
+        - Three whole relations for the 7 above cases"""
+        return np.array([np.array([1., 0., 0., -1., -1., 0., 0., 0., 0.]), np.array([1., 0., 0., 1., -1., 0., 0., 0., 0.]),
+
+                         np.array([1., -1., 0., -1., -1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., -1., -1., -1., 0., 0.]),
+                         np.array([1., -1., 0., -1., 1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., 1., -1., -1., 0., 0.]),
+                         np.array([1., 0., 1., 1., -1., 0., 0., 1., -1.]),
+
+                         np.array([1., -1., -1., -1., -1., -1., -1., -1., -1.]), np.array([1., -1., -1., 1., -1., -1., -1., -1., -1.]),
+
+                         np.array([1., 1., -1., -1., -1., -1., -1., -1., -1.]),
+                         np.array([1., 1., 1., -1., 1., -1., -1., -1., -1.]),
+                         np.array([1., -1., 1., 1., -1., -1., -1., 1., -1.])
+                         ])
 
     def sync(self):
         self.discovered_goals = MPI.COMM_WORLD.bcast(self.discovered_goals, root=0)

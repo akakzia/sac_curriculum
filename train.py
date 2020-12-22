@@ -155,12 +155,7 @@ def launch(args):
             # Performing evaluations
             t_i = time.time()
             # Eval for all possible number of masks
-            eval_goals = np.array([np.array([-1., 0., 0., -1., -1., 0., 0., 0., 0.]), np.array([1., 0., 0., -1., -1., 0., 0., 0., 0.]),
-                                   np.array([1., 0., 0., 1., -1., 0., 0., 0., 0.]), np.array([1., 0., 0., -1., 1., 0., 0., 0., 0.]),
-                                   np.array([0., -1., 0., 0., 0., -1., -1., 0., 0.]), np.array([0., 1., 0., 0., 0., -1., -1., 0., 0.]),
-                                   np.array([0., 1., 0., 0., 0., 1., -1., 0., 0.]), np.array([0., 1., 0., 0., 0., -1., 1., 0., 0.]),
-                                   np.array([0., 0., -1., 0., 0., 0., 0., -1., -1.]), np.array([0., 0., 1., 0., 0., 0., 0., -1., -1.]),
-                                   np.array([0., 0., 1., 0., 0., 0., 0., 1., -1.]), np.array([0., 0., 1., 0., 0., 0., 0., -1., 1.])])
+            eval_goals = goal_sampler.generate_eval_goals()
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        self_eval=True,  # this parameter is overridden by true_eval
                                                        true_eval=True,  # this is offline evaluations
