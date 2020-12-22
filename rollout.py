@@ -69,6 +69,7 @@ class RolloutWorker:
                 ep_actions.append(action.copy())
                 ep_rewards.append(r)
                 ep_lg_id.append(lg_id)
+                ep_success.append(info['is_success'])
 
                 # Re-assign the observation
                 obs = obs_new
@@ -84,6 +85,7 @@ class RolloutWorker:
                            act=np.array(ep_actions).copy(),
                            g=np.array(ep_g).copy(),
                            ag=np.array(ep_ag).copy(),
+                           success=np.array(ep_success).copy(),
                            g_binary=np.array(ep_g_bin).copy(),
                            ag_binary=np.array(ep_ag_bin).copy(),
                            rewards=np.array(ep_rewards).copy(),
