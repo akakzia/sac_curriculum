@@ -46,7 +46,7 @@ class RolloutWorker:
                 #     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal_ep)
                 # else:
                 #     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
-                ag = ag * abs(g)
+                # ag = ag * abs(g)
                 action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal_ep)
 
                 # feed the actions into the environment
@@ -58,7 +58,7 @@ class RolloutWorker:
                 ag_new = observation_new['achieved_goal']
                 ag_new_bin = observation_new['achieved_goal_binary']
 
-                ag_new = ag_new * abs(g)
+                # ag_new = ag_new * abs(g)
 
                 # Append rollouts
                 ep_obs.append(obs.copy())
