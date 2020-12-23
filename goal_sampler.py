@@ -32,7 +32,7 @@ class GoalSampler:
         # DEBUG 3 constraints for the pairwise predicates
         goal_ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
         for g in gs:
-            ids_masks = np.random.randint(0, 3)
+            ids_masks = np.random.randint(0, len(goal_ids))
             g[goal_ids[ids_masks]] = 0.
         return gs
 
