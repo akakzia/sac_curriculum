@@ -1,6 +1,6 @@
 import numpy as np
 import os
-import itertools
+from itertools import combinations, permutations
 
 from env import rotations, robot_env, utils
 
@@ -23,6 +23,20 @@ def is_above(x, y):
         return 1.
     else:
         return -1.
+
+
+def generate_dict_relations(n):
+    """ Given n objects, generate a dictionary pair -> ids, where each pair is associated with the ids in the goal configuration"""
+    res = dict()
+    pairs = list(combinations(np.arange(n), 2)) + list(permutations(np.arange(n), 2))
+    m = n * (n-1) // 2
+    for p1 in pairs[:m]:
+        ids = []
+        for i, p2 in enumerate(pairs):
+            if set(p1) == set(p2):
+                ids.append(i)
+        res[str(p1)] = ids
+    return res
 
 
 class FetchManipulateEnv(robot_env.RobotEnv):
@@ -70,11 +84,12 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.p_stack_two = p_stack_two
         self.p_grasp = p_grasp
 
-        self.goal_size = 0
+        self.goal_size = self.num_blocks * (self.num_blocks - 1) * 3 // 2
 
         self.object_names = ['object{}'.format(i) for i in range(self.num_blocks)]
 
-        self.object_inds = [list(range(10 + i * 15, 10 + (i + 1) * 15)) for i in range(self.num_blocks)]
+        # self.object_inds = [list(range(10 + i * 15, 10 + (i + 1) * 15)) for i in range(self.num_blocks)]
+        self.relation_to_ids = generate_dict_relations(self.num_blocks)
 
         self.location_record = None
         self.location_record_write_dir = None
@@ -126,22 +141,9 @@ class FetchManipulateEnv(robot_env.RobotEnv):
     def compute_reward(self, achieved_goal, goal, info):
         assert self.reward_type in ['sparse', 'incremental'], "only sparse reward type is implemented."
         if self.reward_type == 'sparse':
-            reward = (achieved_goal == goal).all().astype(np.float32)
+            reward = (desired_goal == achieved_goal)[desired_goal != 0.].all().astype(np.float32)
         else:
-            if DEBUG:
-                ids = [[0, 3, 4], [1, 5, 6], [2, 7, 8]]
-                reward = 0.
-                for id in ids:
-                    if (goal[id] != 0.).all():
-                        reward = reward + (goal[id] == achieved_goal[id]).all().astype(np.float32)
-            else:
-                reward = (goal == achieved_goal)[goal != 0.].sum().astype(np.float32)
-            # reward = sum((goal != 0.) & (goal == achieved_goal))
-            # reward = 0.
-            # semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
-            # for subgoal in semantic_ids:
-            #     if (achieved_goal[subgoal] == goal[subgoal]).all():
-            #         reward = reward + 1.
+            reward = (goal == achieved_goal)[goal != 0.].sum().astype(np.float32)
         return reward
 
     # RobotEnv methods
@@ -186,16 +188,12 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         close_config = np.array([])
         above_config = np.array([])
         if "close" in self.predicates:
-            object_combinations = itertools.combinations(positions, 2)
+            object_combinations = combinations(positions, 2)
             object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
 
             close_config = np.array([self._is_close(distance) for distance in object_rel_distances])
         if "above" in self.predicates:
-            if self.num_blocks == 3:
-                object_permutations = [(positions[0], positions[1]), (positions[1], positions[0]), (positions[0], positions[2]),
-                                       (positions[2], positions[0]), (positions[1], positions[2]), (positions[2], positions[1])]
-            else:
-                raise NotImplementedError
+            object_permutations = permutations(positions, 2)
 
             above_config = np.array([is_above(obj[0], obj[1]) for obj in object_permutations])
         
@@ -246,10 +244,10 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             ])
 
         objects_positions = objects_positions.reshape(self.num_blocks, 3)
-        object_combinations = itertools.combinations(objects_positions, 2)
-        object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
+        # object_combinations = itertools.combinations(objects_positions, 2)
+        # object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
 
-        self.goal_size = len(object_rel_distances)
+        # self.goal_size = len(object_rel_distances)
         
         achieved_goal = self._get_configuration(objects_positions)
 
@@ -278,13 +276,13 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
     def reset(self):
         # Usual reset overriden by reset_goal, that specifies a goal
-        return self.reset_goal(np.zeros([9]), False)
+        return self.reset_goal(np.zeros([self.goal_size]), False)
 
     def _generate_valid_goal(self):
         raise NotImplementedError
 
     def _sample_goal(self):
-        self.target_goal = np.random.randint(2, size=9).astype(np.float32)
+        self.target_goal = np.random.randint(2, size=self.goal_size).astype(np.float32)
         
         return self.target_goal
 
@@ -327,8 +325,9 @@ class FetchManipulateEnv(robot_env.RobotEnv):
                 stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
                 z_stack = [0.525, 0.475, 0.425]
             else:
-                stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
-                z_stack = [0.475, 0.425]
+                n_stacks = np.random.randint(2, self.num_blocks+1)
+                stack = list(np.random.choice([i for i in range(self.num_blocks)], n_stacks, replace=False))
+                z_stack = [0.425 + 0.025*i for i in reversed(range(n_stacks))]
 
             pos_stack = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
             for i, obj_name in enumerate(self.object_names):

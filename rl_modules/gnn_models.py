@@ -10,11 +10,10 @@ epsilon = 1e-6
 
 
 class GnnCritic(nn.Module):
-    def __init__(self, nb_objects, nb_permutations, dim_body, dim_object, dim_mp_input, dim_mp_output, dim_phi_critic_input,
+    def __init__(self, nb_objects, dim_body, dim_object, dim_mp_input, dim_mp_output, dim_phi_critic_input,
                  dim_phi_critic_output, dim_rho_critic_input, dim_rho_critic_output):
         super(GnnCritic, self).__init__()
 
-        self.nb_permutations = nb_permutations
         # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
         self.nb_objects = nb_objects
         self.dim_body = dim_body
@@ -58,7 +57,7 @@ class GnnCritic(nn.Module):
                        for i in range(self.nb_objects)]
 
         obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
-        goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
+        goal_ids = [[0, 3], [0, 5], [1, 4], [1, 7], [2, 6], [2, 8]]
 
         inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]],
                                          obs_objects[obj_ids[i][1]]], dim=-1) for i in range(6)])
@@ -125,7 +124,6 @@ class GnnSemantic:
         self.dim_goal = env_params['goal']
         self.dim_act = env_params['action']
         self.nb_objects = 3
-        self.n_permutations = 3
 
         self.q1_pi_tensor = None
         self.q2_pi_tensor = None
@@ -148,9 +146,9 @@ class GnnSemantic:
         dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
 
-        self.critic = GnnCritic(self.nb_objects, self.n_permutations, self.dim_body, self.dim_object, dim_mp_input, dim_mp_output,
+        self.critic = GnnCritic(self.nb_objects, self.dim_body, self.dim_object, dim_mp_input, dim_mp_output,
                                 dim_phi_critic_input, dim_phi_critic_output, dim_rho_critic_input, dim_rho_critic_output)
-        self.critic_target = GnnCritic(self.nb_objects, self.n_permutations, self.dim_body, self.dim_object, dim_mp_input, dim_mp_output,
+        self.critic_target = GnnCritic(self.nb_objects, self.dim_body, self.dim_object, dim_mp_input, dim_mp_output,
                                        dim_phi_critic_input, dim_phi_critic_output, dim_rho_critic_input, dim_rho_critic_output)
         self.actor = GnnActor(self.nb_objects, self.dim_body, self.dim_object, dim_phi_actor_input, dim_phi_actor_output, dim_rho_actor_input,
                               dim_rho_actor_output)

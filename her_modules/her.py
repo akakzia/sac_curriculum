@@ -19,6 +19,18 @@ class her_sampler:
         self.obj_ind = np.array([np.arange(i * 3, (i + 1) * 3) for i in range(3)])
         self.semantic_ids = np.array([np.array([0, 3, 4]), np.array([1, 5, 6]), np.array([2, 7, 8])])
 
+        self.relation_to_ids = args.env_params['relation_to_ids']
+
+        self.n_relations = len(self.relation_to_ids.keys())
+
+    def apply_masks(self, ags):
+        for ag in ags:
+            n_masked_relations = np.random.randint(0, self.n_relations)
+            masked_pairs = np.random.choice(list(self.relation_to_ids.keys()), size=n_masked_relations, replace=False)
+            for p in masked_pairs:
+                ag[self.relation_to_ids[p]] = 0.
+        return ags
+
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions):
         T = episode_batch['actions'].shape[1]
         rollout_batch_size = episode_batch['actions'].shape[0]
@@ -51,7 +63,7 @@ class her_sampler:
 
                 # replace goal with achieved goal
                 future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
-                future_ag = apply_masks(future_ag)
+                future_ag = self.apply_masks(future_ag)
                 transitions['g'][her_indexes] = future_ag
                 # to get the params to re-compute reward
             transitions['r'] = np.expand_dims(np.array([self.reward_func(ag_next, g, None) for ag_next, g in zip(transitions['ag_next'],
@@ -89,10 +101,3 @@ def compute_reward_language(ags, lg_ids):
     r = np.array([lg in sentence_from_configuration(ag, all=True) for ag, lg in zip(ags, lgs)]).astype(np.float32)
     return r
 
-
-def apply_masks(ags):
-    for ag in ags:
-        ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
-        i = np.random.choice(np.arange(len(ids)))
-        ag[ids[i]] = 0.
-    return ags

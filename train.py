@@ -21,7 +21,7 @@ def get_env_params(env):
     # close the environment
     params = {'obs': obs['observation'].shape[0], 'goal': obs['desired_goal'].shape[0],
               'action': env.action_space.shape[0], 'action_max': env.action_space.high[0],
-              'max_timesteps': env._max_episode_steps}
+              'max_timesteps': env._max_episode_steps, 'relation_to_ids': env.relation_to_ids}
     return params
 
 def launch(args):
@@ -53,7 +53,6 @@ def launch(args):
         logger.info(vars(args))
 
     args.env_params = get_env_params(env)
-
 
     if args.algo == 'language':
         language_goal = get_instruction()

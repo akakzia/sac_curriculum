@@ -16,24 +16,36 @@ class GoalSampler:
         self.num_rollouts_per_mpi = args.num_rollouts_per_mpi
         self.rank = MPI.COMM_WORLD.Get_rank()
 
-        self.goal_dim = 9
+        self.goal_dim = args.env_params['goal']
+
+        self.relation_to_ids = args.env_params['relation_to_ids']
+
+        self.n_relations = len(self.relation_to_ids)
 
         self.discovered_goals = []
         self.discovered_goals_str = []
 
         self.init_stats()
 
-    @staticmethod
-    def apply_constraints(gs):
+    def apply_constraints(self, gs):
         """ gs and constraints have the same shape across first dimensions
         constraints values are comprised between 1 and second shape of gs
         Given an array of goals and an array of constraints
         Returns an array of partial goals"""
         # DEBUG 3 constraints for the pairwise predicates
-        goal_ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
-        for g in gs:
-            ids_masks = np.random.randint(0, len(goal_ids))
-            g[goal_ids[ids_masks]] = 0.
+        # goal_ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
+        # for g in gs:
+        #     ids_masks = np.random.randint(0, len(goal_ids))
+        #     g[goal_ids[ids_masks]] = 0.
+        # return gs
+        if not self.curriculum_learning:
+            for g in gs:
+                n_masked_relations = np.random.randint(0, self.n_relations)
+                masked_pairs = np.random.choice(list(self.relation_to_ids.keys()), size=n_masked_relations, replace=False)
+                for p in masked_pairs:
+                    g[self.relation_to_ids[p]] = 0.
+        else:
+            raise NotImplementedError
         return gs
 
     def sample_goal(self, n_goals, evaluation):
@@ -50,13 +62,11 @@ class GoalSampler:
                 ids = np.random.choice(np.arange(self.goal_dim), size=(n_goals, 3))
                 for i in range(n_goals):
                     goals[i, ids[i]] = -1.
-                # goals = np.random.choice([1., -1.], size=(n_goals, self.goal_dim))
                 self_eval = False
             # if no curriculum learning
             else:
                 # sample uniformly from discovered goals
                 goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
-                # num_constraints = np.random.randint(1, self.goal_dim+1, size=n_goals)
                 goals = np.array(self.discovered_goals)[goal_ids]
                 goals = self.apply_constraints(goals)
                 self_eval = False
@@ -83,10 +93,8 @@ class GoalSampler:
             # find out if new goals were discovered
             # label each episode with the oracle id of the last ag (to know where to store it in buffers)
             if not self.curriculum_learning or self.automatic_buckets:
-                new_goal_found = False
                 for e in all_episode_list:
                     if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
-                        new_goal_found = True
                         self.discovered_goals.append(e['ag_binary'][-1].copy())
                         self.discovered_goals_str.append(str(e['ag_binary'][-1]))
 
@@ -94,8 +102,7 @@ class GoalSampler:
 
         return episodes
 
-    @staticmethod
-    def generate_eval_goals():
+    def generate_eval_goals(self):
         """ Generates a set of goals for evaluation. This set comprises :
         - One relation with close == True .
         - One relation with above == True
@@ -105,18 +112,28 @@ class GoalSampler:
         - Two relations with above == True in one and close == True in the other
         - Two relations with above == True in one and above == True in the other
         - Three whole relations for the 7 above cases"""
-        return np.array([np.array([1., 0., 0., -1., -1., 0., 0., 0., 0.]), np.array([1., 0., 0., 1., -1., 0., 0., 0., 0.]),
+        res = []
+        for r in range(self.n_relations):
+            g_id = np.random.choice(np.arange(len(self.discovered_goals)))
+            g = self.discovered_goals[g_id]
+            masked_pairs = np.random.choice(list(self.relation_to_ids.keys()), size=r, replace=False)
+            for p in masked_pairs:
+                g[self.relation_to_ids[p]] = 0.
+            res.append(g.copy())
+        return np.array(res)
 
-                         np.array([1., -1., 0., -1., -1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., -1., -1., -1., 0., 0.]),
-                         np.array([1., -1., 0., -1., 1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., 1., -1., -1., 0., 0.]),
-                         np.array([1., 0., 1., 1., -1., 0., 0., 1., -1.]),
-
-                         np.array([1., -1., -1., -1., -1., -1., -1., -1., -1.]), np.array([1., -1., -1., 1., -1., -1., -1., -1., -1.]),
-
-                         np.array([1., 1., -1., -1., -1., -1., -1., -1., -1.]),
-                         np.array([1., 1., 1., -1., 1., -1., -1., -1., -1.]),
-                         np.array([1., -1., 1., 1., -1., -1., -1., 1., -1.])
-                         ])
+        # return np.array([np.array([1., 0., 0., -1., -1., 0., 0., 0., 0.]), np.array([1., 0., 0., 1., -1., 0., 0., 0., 0.]),
+        #
+        #                  np.array([1., -1., 0., -1., -1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., -1., -1., -1., 0., 0.]),
+        #                  np.array([1., -1., 0., -1., 1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., 1., -1., -1., 0., 0.]),
+        #                  np.array([1., 0., 1., 1., -1., 0., 0., 1., -1.]),
+        #
+        #                  np.array([1., -1., -1., -1., -1., -1., -1., -1., -1.]), np.array([1., -1., -1., 1., -1., -1., -1., -1., -1.]),
+        #
+        #                  np.array([1., 1., -1., -1., -1., -1., -1., -1., -1.]),
+        #                  np.array([1., 1., 1., -1., 1., -1., -1., -1., -1.]),
+        #                  np.array([1., -1., 1., 1., -1., -1., -1., 1., -1.])
+        #                  ])
 
     def sync(self):
         self.discovered_goals = MPI.COMM_WORLD.bcast(self.discovered_goals, root=0)
@@ -128,7 +145,7 @@ class GoalSampler:
 
     def init_stats(self):
         self.stats = dict()
-        for i in np.arange(12):
+        for i in np.arange(self.n_relations):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
         self.stats['epoch'] = []
@@ -147,7 +164,7 @@ class GoalSampler:
         for k in time_dict.keys():
             self.stats['t_{}'.format(k)].append(time_dict[k])
         self.stats['nb_discovered'].append(len(self.discovered_goals))
-        for g_id in np.arange(12):
+        for g_id in np.arange(self.n_relations):
             self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
             self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id])
             # self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
