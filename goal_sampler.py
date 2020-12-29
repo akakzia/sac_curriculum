@@ -158,8 +158,8 @@ class GoalSampler:
                 n_points = len(self.successes_and_failures[i])
                 if n_points > 100:
                     sf = np.array(self.successes_and_failures[i])
-                    self.C[k] = np.mean(sf[n_points // 2:, 1])
-                    self.LP[k] = np.abs(np.mean(sf[n_points // 2:, 1]) - np.mean(sf[: n_points // 2, 1]))
+                    self.C[i] = np.mean(sf[n_points // 2:])
+                    self.LP[i] = np.abs(np.mean(sf[n_points // 2:]) - np.mean(sf[: n_points // 2]))
 
             # compute p
             if self.LP.sum() == 0:
