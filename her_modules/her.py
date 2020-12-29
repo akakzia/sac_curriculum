@@ -25,7 +25,7 @@ class her_sampler:
 
     def apply_masks(self, ags, gs):
         for ag, g in zip(ags, gs):
-            n_masked_relations = (9 - np.count_nonzero(g)) // 2
+            n_masked_relations = (9 - np.count_nonzero(g)) // 3
             masked_pairs = np.random.choice(list(self.relation_to_ids.keys()), size=n_masked_relations, replace=False)
             for p in masked_pairs:
                 ag[self.relation_to_ids[p]] = 0.
