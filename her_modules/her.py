@@ -23,9 +23,9 @@ class her_sampler:
 
         self.n_relations = len(self.relation_to_ids.keys())
 
-    def apply_masks(self, ags):
-        for ag in ags:
-            n_masked_relations = np.random.randint(0, self.n_relations)
+    def apply_masks(self, ags, gs):
+        for ag, g in zip(ags, gs):
+            n_masked_relations = (9 - np.count_nonzero(g)) // 2
             masked_pairs = np.random.choice(list(self.relation_to_ids.keys()), size=n_masked_relations, replace=False)
             for p in masked_pairs:
                 ag[self.relation_to_ids[p]] = 0.
@@ -63,7 +63,8 @@ class her_sampler:
 
                 # replace goal with achieved goal
                 future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
-                future_ag = self.apply_masks(future_ag)
+                transition_goals = transitions['g'][her_indexes]
+                future_ag = self.apply_masks(future_ag, transition_goals)
                 transitions['g'][her_indexes] = future_ag
                 # to get the params to re-compute reward
             transitions['r'] = np.expand_dims(np.array([self.reward_func(ag_next, g, None) for ag_next, g in zip(transitions['ag_next'],

@@ -146,7 +146,7 @@ def launch(args):
         goal_sampler.sync()
 
         time_dict['lp_update'] += time.time() - t_i
-        time_dict['epoch'] += time.time() -t_init
+        time_dict['epoch'] += time.time() - t_init
         time_dict['total'] = time.time() - t_total_init
 
         if args.evaluations:

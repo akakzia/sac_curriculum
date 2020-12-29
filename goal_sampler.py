@@ -12,7 +12,6 @@ class GoalSampler:
     def __init__(self, args):
         self.continuous = args.algo == 'continuous'
         self.curriculum_learning = args.curriculum_learning
-        self.automatic_buckets = args.automatic_buckets
         self.num_rollouts_per_mpi = args.num_rollouts_per_mpi
         self.rank = MPI.COMM_WORLD.Get_rank()
 
@@ -21,6 +20,17 @@ class GoalSampler:
         self.relation_to_ids = args.env_params['relation_to_ids']
 
         self.n_relations = len(self.relation_to_ids)
+
+        self.queue_length = 2 * args.queue_length
+        self.epsilon = args.curriculum_eps
+
+        if self.curriculum_learning:
+            # initialize deques of successes and failures for all goals
+            self.successes_and_failures = [deque(maxlen=self.queue_length) for _ in range(self.n_relations)]
+            # fifth bucket contains not discovered goals
+            self.LP = np.zeros([self.n_relations])
+            self.C = np.zeros([self.n_relations])
+            self.p = np.ones([self.n_relations]) / self.n_relations
 
         self.discovered_goals = []
         self.discovered_goals_str = []
@@ -32,21 +42,25 @@ class GoalSampler:
         constraints values are comprised between 1 and second shape of gs
         Given an array of goals and an array of constraints
         Returns an array of partial goals"""
-        # DEBUG 3 constraints for the pairwise predicates
-        # goal_ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
-        # for g in gs:
-        #     ids_masks = np.random.randint(0, len(goal_ids))
-        #     g[goal_ids[ids_masks]] = 0.
-        # return gs
         if not self.curriculum_learning:
+            self_eval = False
             for g in gs:
                 n_masked_relations = np.random.randint(0, self.n_relations)
                 masked_pairs = np.random.choice(list(self.relation_to_ids.keys()), size=n_masked_relations, replace=False)
                 for p in masked_pairs:
                     g[self.relation_to_ids[p]] = 0.
         else:
-            raise NotImplementedError
-        return gs
+            # decide whether to self evaluate
+            self_eval = True if np.random.random() < 0.1 else False
+            for g in gs:
+                if self_eval:
+                    n_masked_relations = np.random.randint(0, self.n_relations)
+                else:
+                    n_masked_relations = np.random.choice(np.arange(self.n_relations), p=self.p)
+                masked_pairs = np.random.choice(list(self.relation_to_ids.keys()), size=n_masked_relations, replace=False)
+                for p in masked_pairs:
+                    g[self.relation_to_ids[p]] = 0.
+        return gs, self_eval
 
     def sample_goal(self, n_goals, evaluation):
         """
@@ -67,9 +81,8 @@ class GoalSampler:
             else:
                 # sample uniformly from discovered goals
                 goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
-                goals = np.array(self.discovered_goals)[goal_ids]
-                goals = self.apply_constraints(goals)
-                self_eval = False
+                goals = np.array(self.discovered_goals)[goal_ids].copy()
+                goals, self_eval = self.apply_constraints(goals)
         return goals, self_eval
 
     def update(self, episodes, t):
@@ -85,20 +98,22 @@ class GoalSampler:
             for eps in all_episodes:
                 all_episode_list += eps
 
-            # for e in all_episode_list:
-            #     reached_oracle_id = self.g_str_to_oracle_id[str(e['ag_binary'][-1])]
-            #     target_oracle_id = self.g_str_to_oracle_id[str(e['g_binary'][0])]
-            #     self.rew_counters[reached_oracle_id] += 1
-            #     self.target_counters[target_oracle_id] += 1
-            # find out if new goals were discovered
-            # label each episode with the oracle id of the last ag (to know where to store it in buffers)
-            if not self.curriculum_learning or self.automatic_buckets:
-                for e in all_episode_list:
-                    if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
-                        self.discovered_goals.append(e['ag_binary'][-1].copy())
-                        self.discovered_goals_str.append(str(e['ag_binary'][-1]))
+            for e in all_episode_list:
+                n_masked_relations = (self.goal_dim - np.count_nonzero(e['g'][0])) // 3
+                if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
+                    self.discovered_goals.append(e['ag_binary'][-1].copy())
+                    self.discovered_goals_str.append(str(e['ag_binary'][-1]))
+                if e['self_eval']:
+                    success = e['success'][-1]
+                    try:
+                        self.successes_and_failures[n_masked_relations].append(success)
+                    except:
+                        pass
 
         self.sync()
+        for e in episodes:
+            n_masked_relations = (self.goal_dim - np.count_nonzero(e['g'][0])) // 3
+            e['n_masked_relations'] = n_masked_relations
 
         return episodes
 
@@ -115,7 +130,7 @@ class GoalSampler:
         res = []
         for r in range(self.n_relations):
             g_id = np.random.choice(np.arange(len(self.discovered_goals)))
-            g = self.discovered_goals[g_id]
+            g = self.discovered_goals[g_id].copy()
             masked_pairs = np.random.choice(list(self.relation_to_ids.keys()), size=r, replace=False)
             for p in masked_pairs:
                 g[self.relation_to_ids[p]] = 0.
@@ -135,12 +150,38 @@ class GoalSampler:
         #                  np.array([1., -1., 1., 1., -1., -1., -1., 1., -1.])
         #                  ])
 
+    def update_LP(self):
+
+        if (np.array([len(e) for e in self.successes_and_failures]) > 0.).all():
+            # compute C, LP per module
+            for i in range(self.n_relations):
+                n_points = len(self.successes_and_failures[i])
+                if n_points > 100:
+                    sf = np.array(self.successes_and_failures[i])
+                    self.C[k] = np.mean(sf[n_points // 2:, 1])
+                    self.LP[k] = np.abs(np.mean(sf[n_points // 2:, 1]) - np.mean(sf[: n_points // 2, 1]))
+
+            # compute p
+            if self.LP.sum() == 0:
+                self.p = np.ones([self.n_relations]) / self.n_relations
+            else:
+                self.p = self.LP / self.LP.sum()
+
+            if self.p.sum() > 1:
+                self.p[np.argmax(self.p)] -= self.p.sum() - 1
+            elif self.p.sum() < 1:
+                self.p[-1] = 1 - self.p[:-1].sum()
+
     def sync(self):
+        if self.curriculum_learning:
+            self.p = MPI.COMM_WORLD.bcast(self.p, root=0)
+            self.LP = MPI.COMM_WORLD.bcast(self.LP, root=0)
+            self.C = MPI.COMM_WORLD.bcast(self.C, root=0)
         self.discovered_goals = MPI.COMM_WORLD.bcast(self.discovered_goals, root=0)
         self.discovered_goals_str = MPI.COMM_WORLD.bcast(self.discovered_goals_str, root=0)
 
     def build_batch(self, batch_size):
-        goal_ids = np.random.choice(np.arange(len(self.discovered_goals)), size=batch_size)
+        goal_ids = np.random.choice(np.arange(self.n_relations), p=self.p, size=batch_size)
         return goal_ids
 
     def init_stats(self):
@@ -148,12 +189,16 @@ class GoalSampler:
         for i in np.arange(self.n_relations):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
+        for i in range(self.n_relations):
+            self.stats['B_{}_LP'.format(i)] = []
+            self.stats['B_{}_C'.format(i)] = []
+            self.stats['B_{}_p'.format(i)] = []
         self.stats['epoch'] = []
         self.stats['episodes'] = []
         self.stats['global_sr'] = []
         self.stats['nb_discovered'] = []
         keys = ['goal_sampler', 'rollout', 'gs_update', 'store', 'norm_update',
-                  'policy_train', 'lp_update', 'eval', 'epoch', 'total']
+                'policy_train', 'lp_update', 'eval', 'epoch', 'total']
         for k in keys:
             self.stats['t_{}'.format(k)] = []
 
@@ -167,5 +212,8 @@ class GoalSampler:
         for g_id in np.arange(self.n_relations):
             self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
             self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id])
-            # self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
-            # self.stats['#Target_{}'.format(g_id)].append(self.target_counters[oracle_id])
+
+        for i in range(self.n_relations):
+            self.stats['B_{}_LP'.format(i)].append(self.LP[i])
+            self.stats['B_{}_C'.format(i)].append(self.C[i])
+            self.stats['B_{}_p'.format(i)].append(self.p[i])
