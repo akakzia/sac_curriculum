@@ -51,7 +51,7 @@ class GoalSampler:
                     g[self.relation_to_ids[p]] = 0.
         else:
             # decide whether to self evaluate
-            self_eval = True if np.random.random() < 0.1 else False
+            self_eval = True if np.random.random() < self.epsilon else False
             for g in gs:
                 if self_eval:
                     n_masked_relations = np.random.randint(0, self.n_relations)
@@ -77,7 +77,6 @@ class GoalSampler:
                 for i in range(n_goals):
                     goals[i, ids[i]] = -1.
                 self_eval = False
-            # if no curriculum learning
             else:
                 # sample uniformly from discovered goals
                 goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
@@ -105,10 +104,7 @@ class GoalSampler:
                     self.discovered_goals_str.append(str(e['ag_binary'][-1]))
                 if e['self_eval']:
                     success = e['success'][-1]
-                    try:
-                        self.successes_and_failures[n_masked_relations].append(success)
-                    except:
-                        pass
+                    self.successes_and_failures[n_masked_relations].append(success)
 
         self.sync()
         for e in episodes:
@@ -189,10 +185,11 @@ class GoalSampler:
         for i in np.arange(self.n_relations):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
-        for i in range(self.n_relations):
-            self.stats['B_{}_LP'.format(i)] = []
-            self.stats['B_{}_C'.format(i)] = []
-            self.stats['B_{}_p'.format(i)] = []
+        if self.curriculum_learning:
+            for i in range(self.n_relations):
+                self.stats['B_{}_LP'.format(i)] = []
+                self.stats['B_{}_C'.format(i)] = []
+                self.stats['B_{}_p'.format(i)] = []
         self.stats['epoch'] = []
         self.stats['episodes'] = []
         self.stats['global_sr'] = []
@@ -212,8 +209,8 @@ class GoalSampler:
         for g_id in np.arange(self.n_relations):
             self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
             self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id])
-
-        for i in range(self.n_relations):
-            self.stats['B_{}_LP'.format(i)].append(self.LP[i])
-            self.stats['B_{}_C'.format(i)].append(self.C[i])
-            self.stats['B_{}_p'.format(i)].append(self.p[i])
+        if self.curriculum_learning:
+            for i in range(self.n_relations):
+                self.stats['B_{}_LP'.format(i)].append(self.LP[i])
+                self.stats['B_{}_C'.format(i)].append(self.C[i])
+                self.stats['B_{}_p'.format(i)].append(self.p[i])

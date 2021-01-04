@@ -21,7 +21,8 @@ def get_env_params(env):
     # close the environment
     params = {'obs': obs['observation'].shape[0], 'goal': obs['desired_goal'].shape[0],
               'action': env.action_space.shape[0], 'action_max': env.action_space.high[0],
-              'max_timesteps': env._max_episode_steps, 'relation_to_ids': env.relation_to_ids}
+              'max_timesteps': env._max_episode_steps, 'relation_to_ids': env.relation_to_ids,
+              'n_blocks': env.num_blocks}
     return params
 
 def launch(args):
@@ -32,10 +33,11 @@ def launch(args):
 
     # Make the environment
     if args.algo == 'continuous':
-        args.env_name = 'FetchManipulate3ObjectsContinuous-v0'
+        args.env_name = 'FetchManipulate{}ObjectsContinuous-v0'.format(args.n_blocks)
         args.multi_criteria_her = True
     else:
-        args.env_name = 'FetchManipulate3Objects-v0'
+        args.env_name = 'FetchManipulate{}Objects-v0'.format(args.n_blocks)
+
     env = gym.make(args.env_name)
 
     # set random seeds for reproducibility
@@ -62,7 +64,7 @@ def launch(args):
         goal_sampler = GoalSampler(args)
 
     # Initialize RL Agent
-    if args.agent == "SAC":
+    if args.agent == 'SAC':
         policy = RLAgent(args, env.compute_reward, goal_sampler)
     else:
         raise NotImplementedError

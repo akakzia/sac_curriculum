@@ -141,7 +141,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
     def compute_reward(self, achieved_goal, goal, info):
         assert self.reward_type in ['sparse', 'incremental'], "only sparse reward type is implemented."
         if self.reward_type == 'sparse':
-            reward = (desired_goal == achieved_goal)[desired_goal != 0.].all().astype(np.float32)
+            reward = (goal == achieved_goal)[goal != 0.].all().astype(np.float32)
         else:
             reward = (goal == achieved_goal)[goal != 0.].sum().astype(np.float32)
         return reward

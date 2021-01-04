@@ -14,6 +14,7 @@ def get_args():
     # the environment setting
     parser.add_argument('--algo', type=str, default='semantic', help="'semantic', 'continuous', 'language'")
     parser.add_argument('--agent', type=str, default='SAC', help='the agent name')
+    parser.add_argument('--n-blocks', type=int, default=3, help='the number of blocks to be manipulated')
     parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
     parser.add_argument('--n-batches', type=int, default=30, help='the times to update the network')
@@ -58,9 +59,9 @@ def get_args():
     parser.add_argument('--latent-dim', type=int, default=10, help='Dimension of latent for goal encoder')
 
     # Curriculum learning arguments
-    parser.add_argument('--curriculum-learning', type=bool, default=True, help='Use LP-based curriculum learning')
+    parser.add_argument('--curriculum-learning', type=bool, default=False, help='Use LP-based curriculum learning')
     parser.add_argument('--curriculum-eps', type=float, default=0.3, help='Prob of sampling random goal in curriculum')
-    parser.add_argument('--multihead-buffer', type=bool, default=True, help='use a multihead replay buffer in curriculum')
+    parser.add_argument('--multihead-buffer', type=bool, default=False, help='use a multihead replay buffer in curriculum')
     parser.add_argument('--queue-length', type=int, default=500, help='The window size when computing competence')
 
     # Deep sets arguments

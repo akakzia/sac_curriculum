@@ -9,8 +9,15 @@ from rl_modules.networks import GnnMessagePassing, PhiCriticDeepSet, PhiActorDee
 epsilon = 1e-6
 
 
+def catch(p, r):
+    try:
+        return [r[str(p)][0], r[str(p)][1]]
+    except KeyError:
+        p = (p[-1], p[0])
+        return [r[str(p)][0], r[str(p)][2]]
+
 class GnnCritic(nn.Module):
-    def __init__(self, nb_objects, dim_body, dim_object, dim_mp_input, dim_mp_output, dim_phi_critic_input,
+    def __init__(self, nb_objects, r_to_ids, dim_body, dim_object, dim_mp_input, dim_mp_output, dim_phi_critic_input,
                  dim_phi_critic_output, dim_rho_critic_input, dim_rho_critic_output):
         super(GnnCritic, self).__init__()
 
@@ -23,7 +30,15 @@ class GnnCritic(nn.Module):
         self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 256, dim_phi_critic_output)
         self.rho_critic = RhoCriticDeepSet(dim_rho_critic_input, dim_rho_critic_output)
 
-        self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        self.relation_to_ids = r_to_ids
+
+        self.obj_ids = list(permutations(np.arange(self.nb_objects), 2))
+        self.goal_ids = [catch(p, self.relation_to_ids) for p in self.obj_ids]
+
+        self.edge_ids = [np.arange(i*(len(self.obj_ids)//self.nb_objects), (i+1)*(len(self.obj_ids)//self.nb_objects))
+                         for i in range(self.nb_objects)]
+
+        # self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
 
     def forward(self, obs, act, edge_features):
         batch_size = obs.shape[0]
@@ -56,11 +71,11 @@ class GnnCritic(nn.Module):
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
-        obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
-        goal_ids = [[0, 3], [0, 5], [1, 4], [1, 7], [2, 6], [2, 8]]
+        # obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
+        # goal_ids = [[0, 3], [0, 5], [1, 4], [1, 7], [2, 6], [2, 8]]
 
-        inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]],
-                                         obs_objects[obj_ids[i][1]]], dim=-1) for i in range(6)])
+        inp_mp = torch.stack([torch.cat([ag[:, self.goal_ids[i]], g[:, self.goal_ids[i]], obs_objects[self.obj_ids[i][0]],
+                                         obs_objects[self.obj_ids[i][1]]], dim=-1) for i in range(6)])
 
         # inp_mp = torch.stack([torch.cat([g, ag, obj[0], obj[1]], dim=-1) for obj in permutations(obs_objects, 2)])
 
@@ -80,7 +95,12 @@ class GnnActor(nn.Module):
         self.phi_actor = PhiActorDeepSet(dim_phi_actor_input, 256, dim_phi_actor_output)
         self.rho_actor = RhoActorDeepSet(dim_rho_actor_input, dim_rho_actor_output)
 
-        self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        nb_permutations = nb_objects * (nb_objects-1)
+
+        self.edge_ids = [np.arange(i * (nb_permutations // self.nb_objects), (i + 1) * (nb_permutations // self.nb_objects))
+                         for i in range(self.nb_objects)]
+
+        # self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
 
         # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
 
@@ -96,7 +116,7 @@ class GnnActor(nn.Module):
                        for i in range(self.nb_objects)]
 
         inp = torch.stack([torch.cat([obs_body, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
-                                   for i, obj in enumerate(obs_objects)])
+                           for i, obj in enumerate(obs_objects)])
 
         output_phi_actor = self.phi_actor(inp)
         output_phi_actor = output_phi_actor.sum(dim=0)
@@ -123,7 +143,9 @@ class GnnSemantic:
         self.dim_object = 15
         self.dim_goal = env_params['goal']
         self.dim_act = env_params['action']
-        self.nb_objects = 3
+        self.nb_objects = env_params['n_blocks']
+
+        self.relation_to_ids = env_params['relation_to_ids']
 
         self.q1_pi_tensor = None
         self.q2_pi_tensor = None
@@ -146,9 +168,9 @@ class GnnSemantic:
         dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
 
-        self.critic = GnnCritic(self.nb_objects, self.dim_body, self.dim_object, dim_mp_input, dim_mp_output,
+        self.critic = GnnCritic(self.nb_objects, self.relation_to_ids, self.dim_body, self.dim_object, dim_mp_input, dim_mp_output,
                                 dim_phi_critic_input, dim_phi_critic_output, dim_rho_critic_input, dim_rho_critic_output)
-        self.critic_target = GnnCritic(self.nb_objects, self.dim_body, self.dim_object, dim_mp_input, dim_mp_output,
+        self.critic_target = GnnCritic(self.nb_objects, self.relation_to_ids, self.dim_body, self.dim_object, dim_mp_input, dim_mp_output,
                                        dim_phi_critic_input, dim_phi_critic_output, dim_rho_critic_input, dim_rho_critic_output)
         self.actor = GnnActor(self.nb_objects, self.dim_body, self.dim_object, dim_phi_actor_input, dim_phi_actor_output, dim_rho_actor_input,
                               dim_rho_actor_output)
