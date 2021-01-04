@@ -30,10 +30,14 @@ class GoalSampler:
         Given an array of goals and an array of constraints
         Returns an array of partial goals"""
         # DEBUG 3 constraints for the pairwise predicates
-        goal_ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
+        # goal_ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
+        # for g in gs:
+        #     ids_masks = np.random.randint(0, len(goal_ids))
+        #     g[goal_ids[ids_masks]] = 0.
         for g in gs:
-            ids_masks = np.random.randint(0, len(goal_ids))
-            g[goal_ids[ids_masks]] = 0.
+            n_masks = np.random.randint(0, 9)
+            ids_masks = np.random.choice(np.arange(9), size=n_masks, replace=False)
+            g[ids_masks] = 0
         return gs
 
     def sample_goal(self, n_goals, evaluation):
@@ -105,7 +109,9 @@ class GoalSampler:
         - Two relations with above == True in one and close == True in the other
         - Two relations with above == True in one and above == True in the other
         - Three whole relations for the 7 above cases"""
-        return np.array([np.array([1., 0., 0., -1., -1., 0., 0., 0., 0.]), np.array([1., 0., 0., 1., -1., 0., 0., 0., 0.]),
+        return np.array([np.array([1., 0., 0., 0., 0., 0., 0., 0., 0.]), np.array([0., 0., 0., 1., 0., 0., 0., 0., 0.]),
+                         np.array([1., 0., 0., 1., 0., 0., 0., 0., 0.]), np.array([0., -1., 0., 1., 0., 0., 0., 0., 0.]),
+                         np.array([1., 0., 0., -1., -1., 0., 0., 0., 0.]), np.array([1., 0., 0., 1., -1., 0., 0., 0., 0.]),
 
                          np.array([1., -1., 0., -1., -1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., -1., -1., -1., 0., 0.]),
                          np.array([1., -1., 0., -1., 1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., 1., -1., -1., 0., 0.]),
@@ -128,7 +134,7 @@ class GoalSampler:
 
     def init_stats(self):
         self.stats = dict()
-        for i in np.arange(12):
+        for i in np.arange(16):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
         self.stats['epoch'] = []
@@ -147,7 +153,7 @@ class GoalSampler:
         for k in time_dict.keys():
             self.stats['t_{}'.format(k)].append(time_dict[k])
         self.stats['nb_discovered'].append(len(self.discovered_goals))
-        for g_id in np.arange(12):
+        for g_id in np.arange(16):
             self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
             self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id])
             # self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
