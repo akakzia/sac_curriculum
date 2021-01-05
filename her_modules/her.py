@@ -92,9 +92,7 @@ def compute_reward_language(ags, lg_ids):
 
 def apply_masks(ags):
     for ag in ags:
-        # ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
-        # i = np.random.choice(np.arange(len(ids)))
-        n_masks = np.random.randint(0, 9)
-        ids_masks = np.random.choice(np.arange(9), size=n_masks, replace=False)
-        ag[ids_masks] = 0.
+        ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
+        i = np.random.choice(np.arange(len(ids)))
+        ag[ids[i]] = 0.
     return ags
