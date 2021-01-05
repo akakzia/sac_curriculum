@@ -58,7 +58,7 @@ class GnnCritic(nn.Module):
                        for i in range(self.nb_objects)]
 
         obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
-        goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
+        goal_ids = [[0, 6, 12, 18, 24], [1, 7, 13, 19, 25], [2, 8, 14, 20, 26], [3, 9, 15, 21, 27], [4, 10, 16, 22, 28], [5, 11, 17, 23, 29]]
 
         inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]],
                                          obs_objects[obj_ids[i][1]]], dim=-1) for i in range(6)])
@@ -135,7 +135,7 @@ class GnnSemantic:
         self.log_prob = None
 
         # dim_input_objects = 2 * (self.nb_objects + self.dim_object)
-        dim_mp_input = 2 * self.dim_object + 4
+        dim_mp_input = 2 * self.dim_object + 5*2
         dim_mp_output = 3 * dim_mp_input
 
         dim_phi_actor_input = self.dim_body + self.dim_object + dim_mp_output

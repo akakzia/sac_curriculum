@@ -58,6 +58,11 @@ class RolloutWorker:
                 ag_new = observation_new['achieved_goal']
                 ag_new_bin = observation_new['achieved_goal_binary']
 
+                # if sum(ag_new) > -30.:
+                #     animated = True
+                #     print('stop')
+                #     pass
+
                 # ag_new = ag_new * abs(g)
 
                 # Append rollouts
