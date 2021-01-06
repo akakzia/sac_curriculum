@@ -12,11 +12,10 @@ class GoalSampler:
     def __init__(self, args):
         self.continuous = args.algo == 'continuous'
         self.curriculum_learning = args.curriculum_learning
-        self.automatic_buckets = args.automatic_buckets
         self.num_rollouts_per_mpi = args.num_rollouts_per_mpi
         self.rank = MPI.COMM_WORLD.Get_rank()
 
-        self.goal_dim = 9
+        self.goal_dim = args.env_params['goal_dim']
 
         self.discovered_goals = []
         self.discovered_goals_str = []

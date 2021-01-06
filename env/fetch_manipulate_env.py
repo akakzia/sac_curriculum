@@ -70,6 +70,9 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.p_stack_two = p_stack_two
         self.p_grasp = p_grasp
 
+        self.body_dim = 10
+        self.obj_dim = 15
+
         self.goal_size = 0
 
         self.object_names = ['object{}'.format(i) for i in range(self.num_blocks)]

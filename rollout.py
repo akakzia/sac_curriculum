@@ -3,13 +3,12 @@ from language.build_dataset import sentence_from_configuration
 from utils import language_to_id
 
 class RolloutWorker:
-    def __init__(self, env, policy, goal_sampler, args):
+    def __init__(self, env, policy, args):
 
         self.env = env
         self.policy = policy
         self.env_params = args.env_params
         self.biased_init = args.biased_init
-        self.goal_sampler = goal_sampler
         self.args = args
 
     def generate_rollout(self, goals, self_eval, true_eval, biased_init=False, animated=False, language_goal=None):

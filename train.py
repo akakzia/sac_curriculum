@@ -19,8 +19,10 @@ def get_env_params(env):
     obs = env.reset()
 
     # close the environment
-    params = {'obs': obs['observation'].shape[0], 'goal': obs['desired_goal'].shape[0],
-              'action': env.action_space.shape[0], 'action_max': env.action_space.high[0],
+    params = {'obs_dim': obs['observation'].shape[0], 'goal_dim': obs['desired_goal'].shape[0],
+              'body_dim': env.body_dim, 'obj_dim': env.obj_dim,
+              'action_dim': env.action_space.shape[0], 'action_max': env.action_space.high[0],
+              'n_blocks': env.num_blocks, 'n_predicates': env.num_predicates,
               'max_timesteps': env._max_episode_steps}
     return params
 
@@ -32,10 +34,10 @@ def launch(args):
 
     # Make the environment
     if args.algo == 'continuous':
-        args.env_name = 'FetchManipulate3ObjectsContinuous-v0'
+        args.env_name = 'FetchManipulate{}ObjectsContinuous-v0'.format(args.n_blocks)
         args.multi_criteria_her = True
     else:
-        args.env_name = 'FetchManipulate3Objects-v0'
+        args.env_name = 'FetchManipulate{}Objects-v0'.format(args.n_blocks)
     env = gym.make(args.env_name)
 
     # set random seeds for reproducibility
@@ -69,7 +71,7 @@ def launch(args):
         raise NotImplementedError
 
     # Initialize Rollout Worker
-    rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
+    rollout_worker = RolloutWorker(env, policy,  args)
 
     # Main interaction loop
     episode_count = 0

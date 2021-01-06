@@ -89,8 +89,8 @@ class RLAgent:
             raise NotImplementedError
 
         # create the normalizer
-        self.o_norm = normalizer(size=self.env_params['obs'], default_clip_range=self.args.clip_range)
-        self.g_norm = normalizer(size=self.env_params['goal'], default_clip_range=self.args.clip_range)
+        self.o_norm = normalizer(size=self.env_params['obs_dim'], default_clip_range=self.args.clip_range)
+        self.g_norm = normalizer(size=self.env_params['goal_dim'], default_clip_range=self.args.clip_range)
 
         # if use GPU
         if self.args.cuda:
@@ -100,7 +100,7 @@ class RLAgent:
 
         # Target Entropy
         if self.args.automatic_entropy_tuning:
-            self.target_entropy = -torch.prod(torch.Tensor(self.env_params['action'])).item()
+            self.target_entropy = -torch.prod(torch.Tensor(self.env_params['action_dim'])).item()
             self.log_alpha = torch.zeros(1, requires_grad=True)
             self.alpha_optim = torch.optim.Adam([self.log_alpha], lr=self.args.lr_entropy)
 

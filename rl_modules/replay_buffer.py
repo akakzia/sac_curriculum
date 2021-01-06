@@ -23,10 +23,10 @@ class MultiBuffer:
         self.current_size = 0
 
         # create the buffer to store info
-        self.buffer = {'obs': np.empty([self.size, self.T + 1, self.env_params['obs']]),
-                       'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
-                       'g': np.empty([self.size, self.T, self.env_params['goal']]),
-                       'actions': np.empty([self.size, self.T, self.env_params['action']]),
+        self.buffer = {'obs': np.empty([self.size, self.T + 1, self.env_params['obs_dim']]),
+                       'ag': np.empty([self.size, self.T + 1, self.env_params['goal_dim']]),
+                       'g': np.empty([self.size, self.T, self.env_params['goal_dim']]),
+                       'actions': np.empty([self.size, self.T, self.env_params['action_dim']]),
                        'lg_ids': np.empty([self.size, self.T]).astype(np.int),
                        # 'language_goal': [None for _ in range(self.size)],
                        }
