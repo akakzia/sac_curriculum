@@ -60,6 +60,8 @@ def get_args():
 
     # Deep sets arguments
     parser.add_argument('--architecture', type=str, default='gnn', help='The architecture of the networks')
+    parser.add_argument('--aggregation_fct', type=str, default='max', help='node-wise aggregation function')
+    parser.add_argument('--readout_fct', type=str, default='sum', help='readout aggregation function')
 
     parser.add_argument('--n-test-rollouts', type=int, default=1, help='the number of tests')
     parser.add_argument('--clip-range', type=float, default=5, help='the clip range')
