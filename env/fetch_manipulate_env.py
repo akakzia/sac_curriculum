@@ -6,57 +6,12 @@ from env import rotations, robot_env, utils
 
 DEBUG = False
 
-
 def objects_distance(x, y):
     """
     A function that returns the euclidean distance between two objects x and y
     """
     assert x.shape == y.shape
     return np.linalg.norm(x - y)
-
-
-def is_in_front(x, y):
-    """
-    A function that returns whether the object x is above y
-    """
-    assert x.shape == y.shape
-    if 0 <= x[0] - y[0] < 0.07 and abs(x[1] - y[1]) < 0.025 and abs(x[2] - y[2]) < 0.01:
-        return 1.
-    else:
-        return -1.
-
-
-def is_behind(x, y):
-    """
-    A function that returns whether the object x is above y
-    """
-    assert x.shape == y.shape
-    if 0. <= y[0] - x[0] < 0.07 and abs(x[1] - y[1]) < 0.025 and abs(x[2] - y[2]) < 0.01:
-        return 1.
-    else:
-        return -1.
-
-
-def is_right(x, y):
-    """
-    A function that returns whether the object x is above y
-    """
-    assert x.shape == y.shape
-    if 0 <= x[1] - y[1] < 0.07 and abs(x[0] - y[0]) < 0.025 and abs(x[2] - y[2]) < 0.01:
-        return 1.
-    else:
-        return -1.
-
-
-def is_left(x, y):
-    """
-    A function that returns whether the object x is above y
-    """
-    assert x.shape == y.shape
-    if 0. <= y[1] - x[1] < 0.07 and abs(x[0] - y[0]) < 0.025 and abs(x[2] - y[2]) < 0.01:
-        return 1.
-    else:
-        return -1.
 
 
 def is_above(x, y):
@@ -98,7 +53,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             p_stack_two: The probability of having exactly one stack of two given that there is at least one stack
             p_grasp: The probability of having a block grasped at initialization
         """
-
+        
         self.target_goal = None
         self.num_blocks = num_blocks
         self.gripper_extra_height = gripper_extra_height
@@ -215,7 +170,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         # Apply action to simulation.
         utils.ctrl_set_action(self.sim, action)
         utils.mocap_set_action(self.sim, action)
-
+    
     def _is_close(self, d):
         """ Return the value of the close predicate for a given distance between two pairs """
         if d < self.predicate_threshold:
@@ -228,16 +183,13 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         This functions takes as input the positions of the objects in the scene and outputs the corresponding semantic configuration
         based on the environment predicates
         """
-        left_config = np.array([])
-        right_config = np.array([])
-        behind_config = np.array([])
-        front_config = np.array([])
+        close_config = np.array([])
         above_config = np.array([])
-        # if "close" in self.predicates:
-        #     object_combinations = itertools.combinations(positions, 2)
-        #     object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
-        #
-        #     close_config = np.array([self._is_close(distance) for distance in object_rel_distances])
+        if "close" in self.predicates:
+            object_combinations = itertools.combinations(positions, 2)
+            object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
+
+            close_config = np.array([self._is_close(distance) for distance in object_rel_distances])
         if "above" in self.predicates:
             if self.num_blocks == 3:
                 object_permutations = [(positions[0], positions[1]), (positions[1], positions[0]), (positions[0], positions[2]),
@@ -245,13 +197,9 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             else:
                 raise NotImplementedError
 
-            left_config = np.array([is_left(obj[0], obj[1]) for obj in object_permutations])
-            right_config = np.array([is_right(obj[0], obj[1]) for obj in object_permutations])
-            behind_config = np.array([is_behind(obj[0], obj[1]) for obj in object_permutations])
-            front_config = np.array([is_in_front(obj[0], obj[1]) for obj in object_permutations])
             above_config = np.array([is_above(obj[0], obj[1]) for obj in object_permutations])
-
-        res = np.concatenate([left_config, right_config, front_config, behind_config, above_config])
+        
+        res = np.concatenate([close_config, above_config])
         return res
 
     def _get_obs(self):
@@ -302,7 +250,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
 
         self.goal_size = len(object_rel_distances)
-
+        
         achieved_goal = self._get_configuration(objects_positions)
 
         achieved_goal = np.squeeze(achieved_goal)
@@ -330,14 +278,14 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
     def reset(self):
         # Usual reset overriden by reset_goal, that specifies a goal
-        return self.reset_goal(np.zeros([30]), False)
+        return self.reset_goal(np.zeros([9]), False)
 
     def _generate_valid_goal(self):
         raise NotImplementedError
 
     def _sample_goal(self):
         self.target_goal = np.random.randint(2, size=9).astype(np.float32)
-
+        
         return self.target_goal
 
     def _is_success(self, achieved_goal, desired_goal):

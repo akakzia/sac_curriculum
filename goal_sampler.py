@@ -16,7 +16,7 @@ class GoalSampler:
         self.num_rollouts_per_mpi = args.num_rollouts_per_mpi
         self.rank = MPI.COMM_WORLD.Get_rank()
 
-        self.goal_dim = args.env_params['goal']
+        self.goal_dim = 9
 
         self.discovered_goals = []
         self.discovered_goals_str = []
@@ -30,15 +30,7 @@ class GoalSampler:
         Given an array of goals and an array of constraints
         Returns an array of partial goals"""
         # DEBUG 3 constraints for the pairwise predicates
-        goal_ids = [[2, 8, 14, 20, 26, 3, 9, 15, 21, 27, 4, 10, 16, 22, 28, 5, 11, 17, 23, 29],
-                    [0, 6, 12, 18, 24, 1, 7, 13, 19, 25, 4, 10, 16, 22, 28, 5, 11, 17, 23, 29],
-                    [0, 6, 12, 18, 24, 1, 7, 13, 19, 25, 2, 8, 14, 20, 26, 3, 9, 15, 21, 27],
-                    [4, 10, 16, 22, 28, 5, 11, 17, 23, 29],
-                    [2, 8, 14, 20, 26, 3, 9, 15, 21, 27],
-                    [0, 6, 12, 18, 24, 1, 7, 13, 19, 25],
-                    [],
-                    [],
-                    []]
+        goal_ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
         for g in gs:
             ids_masks = np.random.randint(0, len(goal_ids))
             g[goal_ids[ids_masks]] = 0.
@@ -113,49 +105,18 @@ class GoalSampler:
         - Two relations with above == True in one and close == True in the other
         - Two relations with above == True in one and above == True in the other
         - Three whole relations for the 7 above cases"""
-        anchor = np.zeros(30)
-        left = np.array([1., -1., -1., -1., -1, -1., -1., -1., -1., -1.])
-        above = np.array([-1., -1., -1., -1., -1, -1., -1., -1., 1., -1.])
-        far = np.array([-1., -1., -1., -1., -1., -1., -1., -1., -1., -1.])
-        g_1_relation_close = anchor.copy()
-        g_2_relations_close = anchor.copy()
-        g_3_relations_close = anchor.copy()
-        g_1_relation_above = anchor.copy()
-        g_2_relations_above = anchor.copy()
-        g_3_relations_above = anchor.copy()
-        ids_0_1 = [0, 1, 6, 7, 12, 13, 18, 19, 24, 25]
-        ids_0_2 = [2, 3, 8, 9, 14, 15, 20, 21, 26, 27]
-        ids_1_2 = [4, 5, 10, 11, 16, 17, 22, 23, 28, 29]
-        g_1_relation_close[ids_0_1] = left
-        g_1_relation_above[ids_0_1] = above
+        return np.array([np.array([1., 0., 0., -1., -1., 0., 0., 0., 0.]), np.array([1., 0., 0., 1., -1., 0., 0., 0., 0.]),
 
-        g_2_relations_close[ids_0_1] = left
-        g_2_relations_close[ids_0_2] = far
+                         np.array([1., -1., 0., -1., -1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., -1., -1., -1., 0., 0.]),
+                         np.array([1., -1., 0., -1., 1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., 1., -1., -1., 0., 0.]),
+                         np.array([1., 0., 1., 1., -1., 0., 0., 1., -1.]),
 
-        g_2_relations_above[ids_0_1] = above
-        g_2_relations_above[ids_0_2] = far
+                         np.array([1., -1., -1., -1., -1., -1., -1., -1., -1.]), np.array([1., -1., -1., 1., -1., -1., -1., -1., -1.]),
 
-        g_3_relations_close[ids_0_1] = left
-        g_3_relations_close[ids_0_2] = far
-        g_3_relations_close[ids_1_2] = far
-
-        g_3_relations_above[ids_0_1] = above
-        g_3_relations_above[ids_0_2] = far
-        g_3_relations_above[ids_1_2] = far
-
-        return np.array([g_1_relation_close, g_1_relation_above, g_2_relations_close, g_2_relations_above, g_3_relations_close, g_3_relations_above])
-        # return np.array([np.array([1., 0., 0., -1., -1., 0., 0., 0., 0.]), np.array([1., 0., 0., 1., -1., 0., 0., 0., 0.]),
-        #
-        #                  np.array([1., -1., 0., -1., -1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., -1., -1., -1., 0., 0.]),
-        #                  np.array([1., -1., 0., -1., 1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., 1., -1., -1., 0., 0.]),
-        #                  np.array([1., 0., 1., 1., -1., 0., 0., 1., -1.]),
-        #
-        #                  np.array([1., -1., -1., -1., -1., -1., -1., -1., -1.]), np.array([1., -1., -1., 1., -1., -1., -1., -1., -1.]),
-        #
-        #                  np.array([1., 1., -1., -1., -1., -1., -1., -1., -1.]),
-        #                  np.array([1., 1., 1., -1., 1., -1., -1., -1., -1.]),
-        #                  np.array([1., -1., 1., 1., -1., -1., -1., 1., -1.])
-        #                  ])
+                         np.array([1., 1., -1., -1., -1., -1., -1., -1., -1.]),
+                         np.array([1., 1., 1., -1., 1., -1., -1., -1., -1.]),
+                         np.array([1., -1., 1., 1., -1., -1., -1., 1., -1.])
+                         ])
 
     def sync(self):
         self.discovered_goals = MPI.COMM_WORLD.bcast(self.discovered_goals, root=0)
@@ -167,7 +128,7 @@ class GoalSampler:
 
     def init_stats(self):
         self.stats = dict()
-        for i in np.arange(6):
+        for i in np.arange(12):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
         self.stats['epoch'] = []
@@ -186,7 +147,7 @@ class GoalSampler:
         for k in time_dict.keys():
             self.stats['t_{}'.format(k)].append(time_dict[k])
         self.stats['nb_discovered'].append(len(self.discovered_goals))
-        for g_id in np.arange(6):
+        for g_id in np.arange(12):
             self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
             self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id])
             # self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
