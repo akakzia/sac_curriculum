@@ -13,6 +13,14 @@ def objects_distance(x, y):
     return np.linalg.norm(x - y)
 
 
+def close(x, y):
+    """
+    A function that returns whether the object x is close to y on the same plane
+    """
+    assert x.shape == y.shape
+    return np.linalg.norm(x[:2] - y[:2]) < 0.09 and 0.03 > x[2] - y[2] > -0.03
+
+
 def above(x, y):
     """
     A function that returns whether the object x is above y
@@ -167,10 +175,11 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         above_config = np.array([])
         if "close" in self.predicates:
             object_combinations = itertools.combinations(positions, 2)
-            object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
-
-            close_config = np.array([(distance <= self.predicate_threshold).astype(np.float32)
-                                     for distance in object_rel_distances])
+            # object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
+            #
+            # close_config = np.array([(distance <= self.predicate_threshold).astype(np.float32)
+            #                          for distance in object_rel_distances])
+            close_config = np.array([int(close(obj[0], obj[1])) for obj in object_combinations]).astype(np.float32)
         if "above" in self.predicates:
             if self.num_blocks == 3:
                 object_permutations = [(positions[0], positions[1]), (positions[1], positions[0]), (positions[0], positions[2]),
