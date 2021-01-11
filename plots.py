@@ -19,16 +19,16 @@ plt.rcParams['figure.constrained_layout.use'] = True
 colors = [[0, 0.447, 0.7410], [0.85, 0.325, 0.098],  [0.466, 0.674, 0.188], [0.929, 0.694, 0.125],
           [0.494, 0.1844, 0.556],[0.3010, 0.745, 0.933], [137/255,145/255,145/255],
           [0.466, 0.674, 0.188], [0.929, 0.694, 0.125],
-          [0.3010, 0.745, 0.933], [0.635, 0.078, 0.184]]
+          [0.3010, 0.745, 0.933], [0.635, 0.078, 0.184], [0.035, 0.078, 0.088]]
 
 # [[0, 0.447, 0.7410], [0.466, 0.674, 0.188], [0.929, 0.694, 0.125],  # c2[0.85, 0.325, 0.098],[0.85, 0.325, 0.098],
 #  [0.494, 0.1844, 0.556], [209 / 255, 70 / 255, 70 / 255], [137 / 255, 145 / 255, 145 / 255],  # [0.3010, 0.745, 0.933],
 #  [0.466, 0.674, 0.188], [0.929, 0.694, 0.125],
 #  [0.3010, 0.745, 0.933], [0.635, 0.078, 0.184]]
 
-RESULTS_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/results/'
-SAVE_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/results/plots/'
-TO_PLOT = ['ablations','DECSTR', 'baselines','PRE', ]# 'study','plafrim', 'jz',   'tests', 'init_study', 'symmetry_bias', 'tests']
+RESULTS_PATH = '/home/akakzia/DECSTR/icml/results/'
+SAVE_PATH = '/home/akakzia/DECSTR/icml/results/plots/'
+TO_PLOT = ['Masks_sum']# 'study','plafrim', 'jz',   'tests', 'init_study', 'symmetry_bias', 'tests']
 
 LINE = 'mean'
 ERR = 'std'
@@ -39,12 +39,12 @@ LINEWIDTH = 10
 MARKERSIZE = 30
 ALPHA = 0.3
 ALPHA_TEST = 0.05
-MARKERS = ['o', 'v', 's', 'P', 'D', 'X', "*"]
-FREQ = 50
+MARKERS = ['o', 'v', 's', 'P', 'D', 'X', "*", '1', '2', '3', '4', '8']
+FREQ = 20
 NB_BUCKETS = 5
 NB_EPS_PER_EPOCH = 2400
 NB_VALID_GOALS = 35
-LAST_EP = 600
+LAST_EP = 220
 LIM = NB_EPS_PER_EPOCH * LAST_EP / 1000 + 30
 line, err_min, err_plus = get_stat_func(line=LINE, err=ERR)
 COMPRESSOR = CompressPDF(4)
@@ -287,7 +287,7 @@ def plot_sr_av(max_len, experiment_path, folder, true_buckets=False):
     list_runs = sorted(os.listdir(condition_path))
     global_sr = np.zeros([len(list_runs), max_len])
     global_sr.fill(np.nan)
-    sr_data = np.zeros([len(list_runs), 5, max_len])
+    sr_data = np.zeros([len(list_runs), 12, max_len])
     sr_data.fill(np.nan)
     x_eps = np.arange(0, (LAST_EP + 1) * NB_EPS_PER_EPOCH, NB_EPS_PER_EPOCH * FREQ) / 1000
     # x_eps = np.arange(0, max_len, FREQ)
@@ -298,7 +298,7 @@ def plot_sr_av(max_len, experiment_path, folder, true_buckets=False):
 
 
         if true_buckets:
-            buckets = generate_goals(nb_objects=3, sym=1, asym=1)
+            buckets = generate_goals()
             all_goals = generate_all_goals_in_goal_space().astype(np.float32)
             valid_goals = []
             for k in buckets.keys():
@@ -325,16 +325,21 @@ def plot_sr_av(max_len, experiment_path, folder, true_buckets=False):
             global_sr[i_run, :all_sr.size] = all_sr.copy()
         else:
             T = len(data_run['Eval_SR_1'][:LAST_EP + 1])
+            NB_BUCKETS = 12
             SR = np.zeros([NB_BUCKETS, T])
+            # for t in range(T):
+            #     for i in range(NB_BUCKETS):
+            #         ids = []
+            #         for g_id in range(35):
+            #             if data_run['{}_in_bucket'.format(g_id)][t] == i:
+            #                 ids.append(g_id)
+            #         values = [data_run['Eval_SR_{}'.format(g_id)][t] for g_id in ids]
+            #         SR[i, t] = np.mean(values)
             for t in range(T):
                 for i in range(NB_BUCKETS):
-                    ids = []
-                    for g_id in range(35):
-                        if data_run['{}_in_bucket'.format(g_id)][t] == i:
-                            ids.append(g_id)
-                    values = [data_run['Eval_SR_{}'.format(g_id)][t] for g_id in ids]
-                    SR[i, t] = np.mean(values)
-            all_sr = np.mean([data_run['Eval_SR_{}'.format(i)] for i in range(35)], axis=0)
+                    SR[i, t] = data_run['Eval_SR_{}'.format(i)][t]
+
+            all_sr = np.mean([data_run['Eval_SR_{}'.format(i)] for i in range(11)], axis=0)
 
             sr_buckets =  []
             for i in range(SR.shape[0]):
@@ -349,19 +354,19 @@ def plot_sr_av(max_len, experiment_path, folder, true_buckets=False):
         ylabel='Success Rate',
         xlim=[-1, LIM],
         ylim=[-0.02, 1.03])
-    sr_per_cond_stats = np.zeros([5, max_len, 3])
+    sr_per_cond_stats = np.zeros([NB_BUCKETS, max_len, 3])
     sr_per_cond_stats[:, :, 0] = line(sr_data)
     sr_per_cond_stats[:, :, 1] = err_min(sr_data)
     sr_per_cond_stats[:, :, 2] = err_plus(sr_data)
     av = line(global_sr)
-    for i in range(5):
+    for i in range(NB_BUCKETS):
         plt.plot(x_eps, sr_per_cond_stats[i, x, 0], color=colors[i], marker=MARKERS[i], markersize=MARKERSIZE, linewidth=LINEWIDTH)
         plt.fill_between(x_eps, sr_per_cond_stats[i, x, 1], sr_per_cond_stats[i, x, 2], color=colors[i], alpha=ALPHA)
     plt.plot(x_eps, av[x], color=[0.3]*3, linestyle='--', linewidth=LINEWIDTH // 2)
-    leg = plt.legend(['Bucket {}'.format(i) for i in range(5)] + ['Global'],
+    leg = plt.legend(['Goal {}'.format(i) for i in range(NB_BUCKETS)] + ['Global'],
                      loc='upper center',
-                     bbox_to_anchor=(0.5, 1.15),
-                     ncol=3,
+                     bbox_to_anchor=(0.5, 1.5),
+                     ncol=4,
                      fancybox=True,
                      shadow=True,
                      prop={'size': 45, 'weight': 'bold'},
@@ -487,12 +492,12 @@ if __name__ == '__main__':
             sr_per_cond_stats = get_mean_sr(experiment_path, max_len, max_seeds, conditions, labels, ref='DECSTR')
 
 
-        if PLOT == 'DECSTR':
+        if PLOT == 'Masks_sum':
             max_len, max_seeds, min_len, min_seeds = check_length_and_seeds(experiment_path=experiment_path)
-            plot_c_lp_p_sr(experiment_path)
+            # plot_c_lp_p_sr(experiment_path)
 
             plot_sr_av(max_len, experiment_path, PLOT)
-            plot_lp_av(max_len, experiment_path, PLOT)
+            # plot_lp_av(max_len, experiment_path, PLOT)
 
         if PLOT == 'PRE':
             max_len, max_seeds, min_len, min_seeds = check_length_and_seeds(experiment_path=experiment_path)
