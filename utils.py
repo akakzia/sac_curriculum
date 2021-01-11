@@ -393,17 +393,160 @@ language_to_id = dict(zip(INSTRUCTIONS, range(len(INSTRUCTIONS))))
 id_to_language = dict(zip(range(len(INSTRUCTIONS)), INSTRUCTIONS))
 
 
-def get_eval_goals(instruction):
+def get_eval_goals(instruction, nb_goals=1):
     """ Return the eval goals that respect the close_pairs and above size"""
     res = []
-    predicate, pairs = instruction.split('_')
-    nb_goals = 1
+    try:
+        predicate, pairs = instruction.split('_')
+    except ValueError:
+        predicate, pairs_1, pairs_2 = instruction.split('_')
+    # tower + pyramid
+    if predicate == 'mixed':
+        ids = []
+        for _ in range(nb_goals):
+            id = []
+            objects = np.random.choice(np.arange(5), size=5, replace=False)
+            tower_objects = objects[:2]
+            pyramid_objects = objects[2:]
+            for j in range(1):
+                obj_ids = (tower_objects[j], tower_objects[j+1])
+                for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                    if set(obj_ids) == set(c):
+                        id.append(k)
+                for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                    if obj_ids == c:
+                        id.append(k+10)
+
+            for j in range(1):
+                obj_ids = (pyramid_objects[j], pyramid_objects[j + 1])
+                for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                    if set(obj_ids) == set(c):
+                        id.append(k)
+                    if set((pyramid_objects[j], pyramid_objects[-1])) == set(c):
+                        id.append(k)
+                    if j == 2 - 2 and set((pyramid_objects[j + 1], pyramid_objects[-1])) == set(c):
+                        id.append(k)
+            for j in range(2):
+                obj_ids = (pyramid_objects[-1], pyramid_objects[j])
+                for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                    if obj_ids == c:
+                        id.append(k + 10)
+            ids.append(np.array(id))
+        for id in ids:
+            g = np.zeros(30)
+            g[id] = 1.
+            res.append(g)
+        return np.array(res)
+
+    # trapeze
+    if predicate == 'trapeze':
+        ids = []
+        for _ in range(nb_goals):
+            id = []
+            objects = np.random.choice(np.arange(5), size=5, replace=False)
+            base_objects = objects[:3]
+            top_objects = objects[3:]
+            for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                if set((base_objects[0], base_objects[1])) == set(c):
+                    id.append(k)
+                if set((base_objects[1], base_objects[2])) == set(c):
+                    id.append(k)
+                if set((top_objects[0], top_objects[1])) == set(c):
+                    id.append(k)
+                if set((top_objects[0], base_objects[0])) == set(c):
+                    id.append(k)
+                if set((top_objects[0], base_objects[1])) == set(c):
+                    id.append(k)
+                if set((top_objects[0], base_objects[2])) == set(c):
+                    id.append(k)
+                if set((top_objects[1], base_objects[0])) == set(c):
+                    id.append(k)
+                if set((top_objects[1], base_objects[1])) == set(c):
+                    id.append(k)
+                if set((top_objects[1], base_objects[2])) == set(c):
+                    id.append(k)
+            for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                if (top_objects[0], base_objects[0]) == c:
+                    id.append(k + 10)
+                if (top_objects[0], base_objects[1]) == c:
+                    id.append(k + 10)
+                if (top_objects[1], base_objects[1]) == c:
+                    id.append(k + 10)
+                if (top_objects[1], base_objects[2]) == c:
+                    id.append(k + 10)
+            ids.append(np.array(id))
+        for id in ids:
+            g = np.zeros(30)
+            g[id] = 1.
+            res.append(g)
+        return np.array(res)
+    # two towers
+    if predicate == '2stacks':
+        stack_size_1 = int(pairs_1)
+        stack_size_2 = int(pairs_2)
+
+        ids = []
+        for _ in range(nb_goals):
+            id = []
+            objects = np.random.choice(np.arange(5), size=stack_size_1 + stack_size_2, replace=False)
+            for j in range(stack_size_1 - 1):
+                obj_ids = (objects[j], objects[j + 1])
+                for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                    if set(obj_ids) == set(c):
+                        id.append(k)
+                for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                    if obj_ids == c:
+                        id.append(k + 10)
+            for j in range(stack_size_1, stack_size_1+stack_size_2-1):
+                obj_ids = (objects[j], objects[j + 1])
+                for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                    if set(obj_ids) == set(c):
+                        id.append(k)
+                for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                    if obj_ids == c:
+                        id.append(k + 10)
+            ids.append(np.array(id))
+        for id in ids:
+            g = np.zeros(30)
+            g[id] = 1.
+            res.append(g)
+        return np.array(res)
+
+    # pyramid
+    if predicate == 'pyramid':
+        n_base = int(pairs)-1
+        ids = []
+        for _ in range(nb_goals):
+            id = []
+            objects = np.random.choice(np.arange(5), size=n_base+1, replace=False)
+            for j in range(n_base-1):
+                obj_ids = (objects[j], objects[j + 1])
+                for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                    if set(obj_ids) == set(c):
+                        id.append(k)
+                    if set((objects[j], objects[-1])) == set(c):
+                        id.append(k)
+                    if j == n_base - 2 and set((objects[j+1], objects[-1])) == set(c):
+                        id.append(k)
+            for j in range(n_base):
+                obj_ids = (objects[-1], objects[j])
+                for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                    if obj_ids == c:
+                        id.append(k+10)
+            ids.append(np.array(id))
+        for id in ids:
+            g = np.zeros(30)
+            g[id] = 1.
+            res.append(g)
+        return np.array(res)
+
     if predicate == 'stack':
         stack_size = int(pairs)
         close_pairs = 0
     else:
         stack_size = 1
         close_pairs = int(pairs)
+    # no stacks whatsoever
     if stack_size == 1:
         ids = []
         for _ in range(nb_goals):
@@ -414,6 +557,7 @@ def get_eval_goals(instruction):
             g[id] = 1.
             res.append(g)
         return np.array(res)
+    # one tower
     else:
         ids = []
         for _ in range(nb_goals):
