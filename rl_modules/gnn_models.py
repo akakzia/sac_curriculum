@@ -10,15 +10,17 @@ epsilon = 1e-6
 
 
 class GnnCritic(nn.Module):
-    def __init__(self, nb_objects, nb_permutations, dim_body, dim_object, dim_mp_input, dim_mp_output, dim_phi_critic_input,
+    def __init__(self, nb_objects, aggregation, readout, dim_body, dim_object, dim_mp_input, dim_mp_output, dim_phi_critic_input,
                  dim_phi_critic_output, dim_rho_critic_input, dim_rho_critic_output):
         super(GnnCritic, self).__init__()
 
-        self.nb_permutations = nb_permutations
         # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
         self.nb_objects = nb_objects
         self.dim_body = dim_body
         self.dim_object = dim_object
+
+        self.aggregation = aggregation
+        self.readout = readout
 
         self.mp_critic = GnnMessagePassing(dim_mp_input, dim_mp_output)
         self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 256, dim_phi_critic_output)
@@ -37,12 +39,28 @@ class GnnCritic(nn.Module):
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
-        inp = torch.stack([torch.cat([act, obs_body, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
-                           for i, obj in enumerate(obs_objects)])
+        if self.aggregation == 'max':
+            inp = torch.stack([torch.cat([act, obs_body, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
+                               for i, obj in enumerate(obs_objects)])
+        elif self.aggregation == 'sum':
+            inp = torch.stack([torch.cat([act, obs_body, obj, torch.sum(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
+                               for i, obj in enumerate(obs_objects)])
+        elif self.aggregation == 'mean':
+            inp = torch.stack([torch.cat([act, obs_body, obj, torch.mean(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
+                               for i, obj in enumerate(obs_objects)])
+        else:
+            raise NotImplementedError
 
         output_phi_critic_1, output_phi_critic_2 = self.phi_critic(inp)
-        output_phi_critic_1 = output_phi_critic_1.sum(dim=0)
-        output_phi_critic_2 = output_phi_critic_2.sum(dim=0)
+        if self.readout == 'sum':
+            output_phi_critic_1 = output_phi_critic_1.sum(dim=0)
+            output_phi_critic_2 = output_phi_critic_2.sum(dim=0)
+        elif self.readout == 'mean':
+            output_phi_critic_1 = output_phi_critic_1.mean(dim=0)
+            output_phi_critic_2 = output_phi_critic_2.mean(dim=0)
+        elif self.readout == 'max':
+            output_phi_critic_1 = output_phi_critic_1.max(dim=0).values
+            output_phi_critic_2 = output_phi_critic_2.max(dim=0).values
         q1_pi_tensor, q2_pi_tensor = self.rho_critic(output_phi_critic_1, output_phi_critic_2)
         return q1_pi_tensor, q2_pi_tensor
 
@@ -71,12 +89,16 @@ class GnnCritic(nn.Module):
 
 
 class GnnActor(nn.Module):
-    def __init__(self, nb_objects, dim_body, dim_object, dim_phi_actor_input, dim_phi_actor_output, dim_rho_actor_input, dim_rho_actor_output):
+    def __init__(self, nb_objects, aggregation, readout, dim_body, dim_object, dim_phi_actor_input, dim_phi_actor_output, dim_rho_actor_input,
+                 dim_rho_actor_output):
         super(GnnActor, self).__init__()
 
         self.nb_objects = nb_objects
         self.dim_body = dim_body
         self.dim_object = dim_object
+
+        self.aggregation = aggregation
+        self.readout = readout
 
         self.phi_actor = PhiActorDeepSet(dim_phi_actor_input, 256, dim_phi_actor_output)
         self.rho_actor = RhoActorDeepSet(dim_rho_actor_input, dim_rho_actor_output)
@@ -96,11 +118,28 @@ class GnnActor(nn.Module):
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
-        inp = torch.stack([torch.cat([obs_body, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
-                                   for i, obj in enumerate(obs_objects)])
+        if self.aggregation == 'max':
+            inp = torch.stack([torch.cat([obs_body, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
+                                       for i, obj in enumerate(obs_objects)])
+        elif self.aggregation == 'sum':
+            inp = torch.stack([torch.cat([obs_body, obj, torch.sum(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
+                               for i, obj in enumerate(obs_objects)])
+        elif self.aggregation == 'mean':
+            inp = torch.stack([torch.cat([obs_body, obj, torch.mean(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
+                               for i, obj in enumerate(obs_objects)])
+        else:
+            raise NotImplementedError
 
         output_phi_actor = self.phi_actor(inp)
-        output_phi_actor = output_phi_actor.sum(dim=0)
+        if self.readout == 'sum':
+            output_phi_actor = output_phi_actor.sum(dim=0)
+        elif self.readout == 'mean':
+            output_phi_actor = output_phi_actor.mean(dim=0)
+        elif self.readout == 'max':
+            output_phi_actor = output_phi_actor.max(dim=0).values
+        else:
+            raise NotImplementedError
+
         mean, logstd = self.rho_actor(output_phi_actor)
         return mean, logstd
 
@@ -127,6 +166,9 @@ class GnnSemantic:
         self.nb_objects = 3
         self.n_permutations = 3
 
+        self.aggregation = args.aggregation_fct
+        self.readout = args.readout_fct
+
         self.q1_pi_tensor = None
         self.q2_pi_tensor = None
         self.target_q1_pi_tensor = None
@@ -148,12 +190,12 @@ class GnnSemantic:
         dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
 
-        self.critic = GnnCritic(self.nb_objects, self.n_permutations, self.dim_body, self.dim_object, dim_mp_input, dim_mp_output,
+        self.critic = GnnCritic(self.nb_objects, self.aggregation, self.readout, self.dim_body, self.dim_object, dim_mp_input, dim_mp_output,
                                 dim_phi_critic_input, dim_phi_critic_output, dim_rho_critic_input, dim_rho_critic_output)
-        self.critic_target = GnnCritic(self.nb_objects, self.n_permutations, self.dim_body, self.dim_object, dim_mp_input, dim_mp_output,
+        self.critic_target = GnnCritic(self.nb_objects, self.aggregation, self.readout, self.dim_body, self.dim_object, dim_mp_input, dim_mp_output,
                                        dim_phi_critic_input, dim_phi_critic_output, dim_rho_critic_input, dim_rho_critic_output)
-        self.actor = GnnActor(self.nb_objects, self.dim_body, self.dim_object, dim_phi_actor_input, dim_phi_actor_output, dim_rho_actor_input,
-                              dim_rho_actor_output)
+        self.actor = GnnActor(self.nb_objects, self.aggregation, self.readout, self.dim_body, self.dim_object, dim_phi_actor_input,
+                              dim_phi_actor_output, dim_rho_actor_input, dim_rho_actor_output)
 
     def policy_forward_pass(self, obs, ag, g, no_noise=False):
         edge_features = self.critic.message_passing(obs, ag, g)
