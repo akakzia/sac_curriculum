@@ -69,7 +69,18 @@ class normalizer:
         return buf
 
     # normalize the observation
-    def normalize(self, v, clip_range=None):
+    def normalize(self, v, goal=False, clip_range=None):
+        if goal:
+            if clip_range is None:
+                clip_range = self.default_clip_range
+            res = v.copy()
+            ids = [[0, 3, 4], [1, 5, 6], [2, 7, 8]]
+            for id in ids:
+                try:
+                    res[id] = np.clip((res[id] - self.mean) / (self.std), -clip_range, clip_range)
+                except ValueError:
+                    res[:, id] = np.clip((res[:, id] - self.mean) / (self.std), -clip_range, clip_range)
+            return res
         if clip_range is None:
             clip_range = self.default_clip_range
         return np.clip((v - self.mean) / (self.std), -clip_range, clip_range)
