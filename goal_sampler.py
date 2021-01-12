@@ -72,7 +72,7 @@ class GoalSampler:
 
     def init_stats(self):
         self.stats = dict()
-        for i in range(8):
+        for i in range(12):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_R_{}'.format(i)] = []
         self.stats['epoch'] = []
@@ -86,7 +86,7 @@ class GoalSampler:
             self.stats['t_{}'.format(k)] = []
 
     def save(self, epoch, episode_count, av_res, av_rewards, avg_reward, global_sr, time_dict):
-        for i in range(8):
+        for i in range(12):
             self.stats['Eval_SR_{}'.format(i)].append(av_res[i])
             self.stats['Av_R_{}'.format(i)].append(av_rewards[i])
         self.stats['epoch'].append(epoch)

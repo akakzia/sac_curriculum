@@ -153,7 +153,8 @@ def launch(args):
             # Performing evaluations
             t_i = time.time()
             eval_goals = []
-            instructions = ['close_1', 'close_2', 'close_3', 'close_4', 'stack_2', 'stack_3', 'stack_4', 'stack_5']
+            instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'stack_3', '2stacks_2_2', '2stacks_2_3', 'pyramid_3',
+                            'mixed_2_3', 'trapeze_2_3', 'stack_4', 'stack_5']
             for instruction in instructions:
                 eval_goal = get_eval_goals(instruction)
                 eval_goals.append(eval_goal.squeeze(0))
