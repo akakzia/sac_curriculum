@@ -1,8 +1,13 @@
 import numpy as np
 import os
 import itertools
+from functools import reduce
 
 from env import rotations, robot_env, utils
+
+
+def binary_to_decimal(a):
+    return reduce(lambda x, y: 2*x + y, a)
 
 
 def objects_distance(x, y):
@@ -72,6 +77,12 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
         self.object_inds = [list(range(10 + i * 15, 10 + (i + 1) * 15)) for i in range(self.num_blocks)]
 
+        self.semantic_ids = np.array([np.array([0, 1, 2, 3, 10, 11, 12, 13]),
+                                      np.array([0, 4, 5, 6, 14, 15, 16, 17]),
+                                      np.array([1, 4, 7, 8, 18, 19, 20, 21]),
+                                      np.array([2, 5, 7, 9, 22, 23, 24, 25]),
+                                      np.array([3, 6, 8, 9, 26, 27, 28, 29])])
+
         self.location_record = None
         self.location_record_write_dir = None
         self.location_record_prefix = None
@@ -125,13 +136,13 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             reward = (achieved_goal == goal).all().astype(np.float32)
         else:
             reward = 0.
-            semantic_ids = np.array([np.array([0, 1, 3, 10, 11, 12, 13, 14, 18, 22, 26]),
-                                     np.array([0, 4, 5, 6, 10, 14, 15, 16, 17, 19, 23, 27]),
-                                     np.array([1, 4, 7, 8, 11, 15, 18, 19, 20, 21, 24, 28]),
-                                     np.array([2, 5, 7, 9, 12, 16, 20, 22, 23, 24, 25, 29]),
-                                     np.array([3, 6, 8, 9, 13, 17, 21, 25, 26, 27, 28, 29])])
+            # semantic_ids = np.array([np.array([0, 1, 2, 3, 10, 11, 12, 13, 14, 18, 22, 26]),
+            #                          np.array([0, 4, 5, 6, 10, 14, 15, 16, 17, 19, 23, 27]),
+            #                          np.array([1, 4, 7, 8, 11, 15, 18, 19, 20, 21, 24, 28]),
+            #                          np.array([2, 5, 7, 9, 12, 16, 20, 22, 23, 24, 25, 29]),
+            #                          np.array([3, 6, 8, 9, 13, 17, 21, 25, 26, 27, 28, 29])])
             # semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
-            for subgoal in semantic_ids:
+            for subgoal in self.semantic_ids:
                 if (achieved_goal[subgoal] == goal[subgoal]).all():
                     reward = reward + 1.
         return reward
@@ -188,6 +199,16 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         res = np.concatenate([close_config, above_config])
         return res
 
+    def _get_decimal_code(self, configuration):
+        """Given a configuration, outputs the corresponding decimal code
+        The decimal code is computed as follows:
+        1) Get the decimal code for each block sub-goal (the bits that correspond to certain block)
+        2) Sum all sub-goals decimal codes"""
+        res = 0
+        for subgoal in self.semantic_ids:
+            res = res + binary_to_decimal(configuration[np.flip(subgoal)])
+        return res
+
     def _get_obs(self):
         grip_pos = self.sim.data.get_site_xpos('robot0:grip')
         dt = self.sim.nsubsteps * self.sim.model.opt.timestep
@@ -241,12 +262,15 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
         achieved_goal = np.squeeze(achieved_goal)
 
+        decimal_code = self._get_decimal_code(achieved_goal)
+
         return {
             'observation': obs.copy(),
             'achieved_goal': achieved_goal.copy(),
             'desired_goal': self.target_goal.copy(),
             'achieved_goal_binary': achieved_goal.copy(),
-            'desired_goal_binary': self.target_goal.copy()}
+            'desired_goal_binary': self.target_goal.copy(),
+            'decimal_code': decimal_code}
 
     def _viewer_setup(self):
         body_id = self.sim.model.body_name2id('robot0:gripper_link')
