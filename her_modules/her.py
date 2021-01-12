@@ -17,11 +17,16 @@ class her_sampler:
         self.language = args.algo == 'language'
         self.multi_criteria_her = args.multi_criteria_her
         self.obj_ind = np.array([np.arange(i * 3, (i + 1) * 3) for i in range(args.env_params['num_objects'])])
-        self.semantic_ids = np.array([np.array([0, 1, 3, 10, 11, 12, 13, 14, 18, 22, 26]),
-                                      np.array([0, 4, 5, 6, 10, 14, 15, 16, 17, 19, 23, 27]),
-                                      np.array([1, 4, 7, 8, 11, 15, 18, 19, 20, 21, 24, 28]),
-                                      np.array([2, 5, 7, 9, 12, 16, 20, 22, 23, 24, 25, 29]),
-                                      np.array([3, 6, 8, 9, 13, 17, 21, 25, 26, 27, 28, 29])])
+        # self.semantic_ids = np.array([np.array([0, 1, 2, 3, 10, 11, 12, 13, 14, 18, 22, 26]),
+        #                               np.array([0, 4, 5, 6, 10, 14, 15, 16, 17, 19, 23, 27]),
+        #                               np.array([1, 4, 7, 8, 11, 15, 18, 19, 20, 21, 24, 28]),
+        #                               np.array([2, 5, 7, 9, 12, 16, 20, 22, 23, 24, 25, 29]),
+        #                               np.array([3, 6, 8, 9, 13, 17, 21, 25, 26, 27, 28, 29])])
+        self.semantic_ids = np.array([np.array([0, 1, 2, 3, 10, 11, 12, 13]),
+                                      np.array([0, 4, 5, 6, 14, 15, 16, 17]),
+                                      np.array([1, 4, 7, 8, 18, 19, 20, 21]),
+                                      np.array([2, 5, 7, 9, 22, 23, 24, 25]),
+                                      np.array([3, 6, 8, 9, 26, 27, 28, 29])])
 
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions):
         T = episode_batch['actions'].shape[1]
