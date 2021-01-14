@@ -11,7 +11,7 @@ class RolloutWorker:
         self.biased_init = args.biased_init
         self.args = args
 
-    def generate_rollout(self, goals, unmasked_goals, self_eval, true_eval, biased_init=False, animated=False, language_goal=None):
+    def generate_rollout(self, goals, self_eval, true_eval, biased_init=False, animated=False, language_goal=None):
 
         episodes = []
         for i in range(goals.shape[0]):
@@ -36,8 +36,6 @@ class RolloutWorker:
 
             ep_obs, ep_ag, ep_ag_bin, ep_g, ep_g_bin, ep_actions, ep_success, ep_rewards = [], [], [], [], [], [], [], []
             ep_lg_id = []
-            ep_unmasked_goals = []
-            unmasked_g = unmasked_goals[i]
 
             # Start to collect samples
             for t in range(self.env_params['max_timesteps']):
@@ -48,7 +46,7 @@ class RolloutWorker:
                 # else:
                 #     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
                 # ag = ag * abs(g)
-                action = self.policy.act(obs.copy(), ag.copy(), g.copy(), unmasked_g.copy(), no_noise, language_goal=language_goal_ep)
+                action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal_ep)
 
                 # feed the actions into the environment
                 if animated:
@@ -71,7 +69,6 @@ class RolloutWorker:
                 ep_rewards.append(r)
                 ep_lg_id.append(lg_id)
                 ep_success.append(info['is_success'])
-                ep_unmasked_goals.append(unmasked_g.copy())
 
                 # Re-assign the observation
                 obs = obs_new
@@ -86,7 +83,6 @@ class RolloutWorker:
             episode = dict(obs=np.array(ep_obs).copy(),
                            act=np.array(ep_actions).copy(),
                            g=np.array(ep_g).copy(),
-                           unmasked_g=np.array(ep_unmasked_goals).copy(),
                            ag=np.array(ep_ag).copy(),
                            success=np.array(ep_success).copy(),
                            g_binary=np.array(ep_g_bin).copy(),

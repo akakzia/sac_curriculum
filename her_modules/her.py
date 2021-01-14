@@ -51,7 +51,6 @@ class her_sampler:
 
                 # replace goal with achieved goal
                 future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
-                transitions['unmasked_g'][her_indexes] = future_ag.copy()
                 future_ag = apply_masks(future_ag)
                 transitions['g'][her_indexes] = future_ag
                 # to get the params to re-compute reward

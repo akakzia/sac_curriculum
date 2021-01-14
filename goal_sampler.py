@@ -42,15 +42,13 @@ class GoalSampler:
         """
         if evaluation and len(self.discovered_goals) > 0:
             goals = np.random.choice(self.discovered_goals, size=self.num_rollouts_per_mpi)
-            masked_goals = goals.copy()
             self_eval = False
         else:
             if len(self.discovered_goals) == 0:
-                goals = -np.ones((n_goals, self.goal_dim))
-                masked_goals = goals.copy()
-                # ids = np.random.choice(np.arange(self.goal_dim), size=(n_goals, 3))
-                # for i in range(n_goals):
-                #     goals[i, ids[i]] = -1.
+                goals = np.zeros((n_goals, self.goal_dim))
+                ids = np.random.choice(np.arange(self.goal_dim), size=(n_goals, 3))
+                for i in range(n_goals):
+                    goals[i, ids[i]] = -1.
                 # goals = np.random.choice([1., -1.], size=(n_goals, self.goal_dim))
                 self_eval = False
             # if no curriculum learning
@@ -59,9 +57,9 @@ class GoalSampler:
                 goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
                 # num_constraints = np.random.randint(1, self.goal_dim+1, size=n_goals)
                 goals = np.array(self.discovered_goals)[goal_ids]
-                masked_goals = self.apply_constraints(goals.copy())
+                goals = self.apply_constraints(goals)
                 self_eval = False
-        return masked_goals, goals, self_eval
+        return goals, self_eval
 
     def update(self, episodes, t):
         """
