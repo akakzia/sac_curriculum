@@ -97,7 +97,7 @@ def launch(args):
 
             # Sample goals
             t_i = time.time()
-            goals, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False)
+            goals, unmasked_goals, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False)
             if args.algo == 'language':
                 language_goal_ep = np.random.choice(language_goal, size=args.num_rollouts_per_mpi)
             else:
@@ -113,6 +113,7 @@ def launch(args):
             # Environment interactions
             t_i = time.time()
             episodes = rollout_worker.generate_rollout(goals=goals,  # list of goal configurations
+                                                       unmasked_goals=unmasked_goals,
                                                        self_eval=self_eval,  # whether the agent performs self-evaluations
                                                        true_eval=False,  # these are not offline evaluation episodes
                                                        biased_init=biased_init,
@@ -159,6 +160,7 @@ def launch(args):
             # Eval for all possible number of masks
             eval_goals = goal_sampler.generate_eval_goals()
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
+                                                       unmasked_goals=eval_goals,
                                                        self_eval=True,  # this parameter is overridden by true_eval
                                                        true_eval=True,  # this is offline evaluations
                                                        biased_init=False,

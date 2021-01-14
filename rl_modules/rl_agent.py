@@ -123,7 +123,7 @@ class RLAgent:
                                   goal_sampler=self.goal_sampler
                                   )
 
-    def act(self, obs, ag, g, no_noise, language_goal=None):
+    def act(self, obs, ag, g, unmasked_g, no_noise, language_goal=None):
         anchor_g = torch.Tensor(g).unsqueeze(0)
         with torch.no_grad():
             # normalize policy inputs
@@ -133,7 +133,7 @@ class RLAgent:
             if self.language:
                 g_norm = g
             else:
-                g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
+                g_norm = torch.tensor(self.g_norm.normalize(unmasked_g) * abs(g), dtype=torch.float32).unsqueeze(0)
             if self.architecture == 'gnn':
                 obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
                 if self.args.algo == 'language':
@@ -191,6 +191,7 @@ class RLAgent:
         mb_ag = episode['ag']
         mb_g = episode['g']
         mb_actions = episode['act']
+        mb_unmasked_g = episode['unmasked_g']
         mb_obs_next = mb_obs[1:, :]
         mb_ag_next = mb_ag[1:, :]
         # get the number of normalization transitions
@@ -199,6 +200,7 @@ class RLAgent:
         buffer_temp = {'obs': np.expand_dims(mb_obs, 0),
                        'ag': np.expand_dims(mb_ag, 0),
                        'g': np.expand_dims(mb_g, 0),
+                       'unmasked_g': np.expand_dims(mb_unmasked_g, 0),
                        'actions': np.expand_dims(mb_actions, 0),
                        'obs_next': np.expand_dims(mb_obs_next, 0),
                        'ag_next': np.expand_dims(mb_ag_next, 0),
@@ -218,7 +220,7 @@ class RLAgent:
         self.o_norm.recompute_stats()
 
         if self.args.normalize_goal:
-            self.g_norm.update(transitions['g'])
+            self.g_norm.update(transitions['unmasked_g'])
             self.g_norm.recompute_stats()
 
     def _preproc_og(self, o, g):
@@ -253,7 +255,7 @@ class RLAgent:
             language_goals = np.array([id_to_language[lg_id] for lg_id in lg_ids])
             # language_goals = transitions['language_goal']
         else:
-            g_norm = self.g_norm.normalize(transitions['g'])
+            g_norm = self.g_norm.normalize(transitions['unmasked_g']) * abs(transitions['g'])
             language_goals = None
         ag_norm = self.g_norm.normalize(transitions['ag'])
         obs_next_norm = self.o_norm.normalize(transitions['obs_next'])
