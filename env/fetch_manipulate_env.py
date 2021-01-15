@@ -205,6 +205,35 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         res = np.concatenate([close_config, above_config])
         return res
 
+    @staticmethod
+    def _get_graph_mask(goal):
+        """ Given a masked goal, returns the vector that masks the graph"""
+        res = np.zeros(6, dtype=bool)
+        unmasked_ids = np.where(goal != 0.)
+        if np.isin(np.array([0, 3, 4]), unmasked_ids).all():
+            res[0] = True
+            res[1] = True
+        if np.isin(np.array([1, 5, 6]), unmasked_ids).all():
+            res[2] = True
+            res[3] = True
+        if np.isin(np.array([2, 7, 8]), unmasked_ids).all():
+            res[4] = True
+            res[5] = True
+        return res
+
+    @staticmethod
+    def _get_graph(positions, ag, g):
+        """Given objects features, masked achieved and desired goals, returns the corresponding graph"""
+        res = np.zeros((6, 34))
+        object_permutations = [(positions[0], positions[1]), (positions[1], positions[0]), (positions[0], positions[2]),
+                               (positions[2], positions[0]), (positions[1], positions[2]), (positions[2], positions[1])]
+        goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
+        i = 0
+        for obj, ids in zip(object_permutations, goal_ids):
+            res[i] = np.concatenate([ag[ids], g[ids], obj[0], obj[1]])
+            i = i + 1
+        return res
+
     def _get_obs(self):
         grip_pos = self.sim.data.get_site_xpos('robot0:grip')
         dt = self.sim.nsubsteps * self.sim.model.opt.timestep
@@ -222,6 +251,8 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         ])
 
         objects_positions = []
+
+        objects_features = []
 
         for i in range(self.num_blocks):
 
@@ -248,6 +279,12 @@ class FetchManipulateEnv(robot_env.RobotEnv):
                 objects_positions, object_i_pos.ravel()
             ])
 
+            objects_features = np.concatenate([
+                objects_features, object_i_pos.ravel(), object_i_rel_pos.ravel(), object_i_rot.ravel(), object_i_velp.ravel(),
+                object_i_velr.ravel()
+            ])
+
+        objects_features = objects_features.reshape(self.num_blocks, 15)
         objects_positions = objects_positions.reshape(self.num_blocks, 3)
         object_combinations = itertools.combinations(objects_positions, 2)
         object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
@@ -258,12 +295,25 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
         achieved_goal = np.squeeze(achieved_goal)
 
+        # graph_mask = self._get_graph_mask(self.target_goal)
+
+        graph = self._get_graph(objects_features, achieved_goal, self.target_goal)
+
+        # corresponding_ids = np.array([0, 1, 0, 2, 1, 2])
+        #
+        # sub_graph = graph[graph_mask]
+        #
+        # edges_to = corresponding_ids[graph_mask]
+        #
+        # isolated_nodes = np.array([objects_features[i] for i in range(3) if i not in edges_to])
+
         return {
             'observation': obs.copy(),
             'achieved_goal': achieved_goal.copy(),
             'desired_goal': self.target_goal.copy(),
             'achieved_goal_binary': achieved_goal.copy(),
-            'desired_goal_binary': self.target_goal.copy()}
+            'desired_goal_binary': self.target_goal.copy(),
+            'graph': graph.copy()}
 
     def _viewer_setup(self):
         body_id = self.sim.model.body_name2id('robot0:gripper_link')

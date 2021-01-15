@@ -46,7 +46,8 @@ class GoalSampler:
         else:
             if len(self.discovered_goals) == 0:
                 goals = np.zeros((n_goals, self.goal_dim))
-                ids = np.random.choice(np.arange(self.goal_dim), size=(n_goals, 3))
+                # ids = np.random.choice(np.arange(self.goal_dim), size=(n_goals, 3))
+                ids = [[0, 3, 4], [0, 3, 4]]
                 for i in range(n_goals):
                     goals[i, ids[i]] = -1.
                 # goals = np.random.choice([1., -1.], size=(n_goals, self.goal_dim))
@@ -90,6 +91,12 @@ class GoalSampler:
                         self.discovered_goals_str.append(str(e['ag_binary'][-1]))
 
         self.sync()
+
+        # Label each episode with the mask size (so that we can bias buffer sampling)
+        for e in episodes:
+            last_g = e['g'][-1]
+            n_masks = np.count_nonzero(last_g)
+            e['mask_size'] = n_masks
 
         return episodes
 

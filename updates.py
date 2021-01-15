@@ -156,7 +156,8 @@ def update_disentangled(actor_network, critic_network, critic_target_network, co
 
 
 def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alpha, target_entropy, alpha_optim, obs_norm, ag_norm, g_norm,
-                    obs_next_norm, ag_next_norm, anchor_g, actions, rewards, language_goals, args):
+                    obs_next_norm, ag_next_norm, anchor_g, actions, rewards, language_goals, args, sub_graph, sub_graph_next, isolated_nodes,
+                    isolated_nodes_next, edges_to):
     # Tensorize
     obs_norm_tensor = torch.tensor(obs_norm, dtype=torch.float32)
     obs_next_norm_tensor = torch.tensor(obs_next_norm, dtype=torch.float32)
@@ -170,6 +171,12 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
     r_tensor = torch.tensor(rewards, dtype=torch.float32).reshape(rewards.shape[0], 1)
 
     anchor_g_tensor = torch.tensor(anchor_g, dtype=torch.float32)
+
+    sub_graph_tensor = torch.tensor(sub_graph, dtype=torch.float32)
+    sub_graph_next_tensor = torch.tensor(sub_graph_next, dtype=torch.float32)
+
+    isolated_nodes_tensor = torch.tensor(isolated_nodes, dtype=torch.float32)
+    isolated_nodes_next_tensor = torch.tensor(isolated_nodes_next, dtype=torch.float32)
 
     if args.cuda:
         obs_norm_tensor = obs_norm_tensor.cuda()
@@ -186,7 +193,7 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
         elif args.algo == 'continuous':
             model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor)
         else:
-            model.forward_pass(obs_next_norm_tensor, ag_next_norm_tensor, g_norm_tensor)
+            model.forward_pass(obs_next_norm_tensor, sub_graph_next_tensor, edges_to, isolated_nodes_next_tensor)
         actions_next, log_pi_next = model.pi_tensor, model.log_prob
         qf1_next_target, qf2_next_target = model.target_q1_pi_tensor, model.target_q2_pi_tensor
         min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * log_pi_next
@@ -198,7 +205,8 @@ def update_deepsets(model, language, policy_optim, critic_optim, alpha, log_alph
     elif args.algo == 'continuous':
         qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, actions=actions_tensor)
     else:
-        qf1, qf2 = model.forward_pass(obs_norm_tensor, ag_norm_tensor, g_norm_tensor, actions=actions_tensor)
+        qf1, qf2 = model.forward_pass(obs_norm_tensor, sub_graph_tensor, edges_to, isolated_nodes_tensor,
+                                      actions=actions_tensor)
     qf1_loss = F.mse_loss(qf1, next_q_value)
     qf2_loss = F.mse_loss(qf2, next_q_value)
     qf_loss = qf1_loss + qf2_loss

@@ -31,7 +31,7 @@ class MultiBuffer:
                        # 'language_goal': [None for _ in range(self.size)],
                        }
 
-        self.goal_ids = np.zeros([self.size])  # contains id of achieved goal (discovery rank)
+        self.goal_ids = np.zeros([self.size])  # contains id of episode
         self.goal_ids.fill(np.nan)
 
         # thread lock
@@ -49,7 +49,7 @@ class MultiBuffer:
                 self.buffer['ag'][idxs[i]] = e['ag']
                 self.buffer['g'][idxs[i]] = e['g']
                 self.buffer['actions'][idxs[i]] = e['act']
-                # self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
+                self.goal_ids[idxs[i]] = e['mask_size']
                 if 'language_goal' in e.keys():
                     # self.buffer['language_goal'][idxs[i]] = e['language_goal']
                     self.buffer['lg_ids'][idxs[i]] = e['lg_ids']
@@ -67,18 +67,19 @@ class MultiBuffer:
                     # else:
                     #     temp_buffers[key] = self.buffer[key][:self.current_size]
             else:
-                # Compute goal id proportions with respect to LP probas
-                goal_ids = self.goal_sampler.build_batch(batch_size)
+                # Choose a mask size to get corresponding episodes
+                n_masks = np.random.choice([0, 3, 6])
+                # make sure episode of the selected mask size exist in buffer
+                while np.argwhere(self.goal_ids == n_masks).flatten().size == 0:
+                    n_masks = np.random.choice([0, 3, 6])
+                goal_ids = [n_masks for _ in range(batch_size)]
 
                 # If a goal id is not in the buffer then pick a random episode instead
                 # This should not happen when discovered goals are configuration achieved at the end of episodes
                 buffer_ids = []
                 for g in goal_ids:
                     buffer_ids_g = np.argwhere(self.goal_ids == g).flatten()
-                    if buffer_ids_g.size == 0:
-                        buffer_ids.append(np.random.choice(range(self.current_size)))
-                    else:
-                        buffer_ids.append(np.random.choice(buffer_ids_g))
+                    buffer_ids.append(np.random.choice(buffer_ids_g))
                 buffer_ids = np.array(buffer_ids)
                 for key in self.buffer.keys():
                     temp_buffers[key] = self.buffer[key][buffer_ids]

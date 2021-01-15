@@ -6,7 +6,7 @@ from rl_modules.networks import QNetworkFlat, GaussianPolicyFlat
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from updates import update_flat, update_deepsets
-from utils import id_to_language
+from utils import id_to_language, goal_to_graph, goal_to_graph_batch
 
 
 """
@@ -71,7 +71,7 @@ class RLAgent:
             self.critic_optim = torch.optim.Adam(list(self.model.critic.parameters()),
                                                  lr=self.args.lr_critic)
         elif self.architecture == 'gnn':
-            from rl_modules.gnn_models import GnnSemantic
+            from rl_modules.gnn_models_pruned import GnnSemantic
             self.model = GnnSemantic(self.env_params, args)
             # sync the networks across the CPUs
             sync_networks(self.model.critic)
@@ -124,7 +124,7 @@ class RLAgent:
                                   )
 
     def act(self, obs, ag, g, no_noise, language_goal=None):
-        anchor_g = torch.Tensor(g).unsqueeze(0)
+        anchor_g = g.copy()
         with torch.no_grad():
             # normalize policy inputs
             obs_norm = self.o_norm.normalize(obs)
@@ -135,13 +135,17 @@ class RLAgent:
             else:
                 g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
             if self.architecture == 'gnn':
+                sub_graph, edges_to, isolated_nodes = goal_to_graph(anchor_g, self.o_norm.normalize(obs), self.g_norm.normalize(ag),
+                                                                    self.g_norm.normalize(g))
+                sub_graph = torch.tensor(sub_graph, dtype=torch.float32).unsqueeze(0)
+                isolated_nodes = torch.tensor(isolated_nodes, dtype=torch.float32).unsqueeze(0)
                 obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
                 if self.args.algo == 'language':
                     self.model.policy_forward_pass(obs_tensor, no_noise=no_noise, language_goal=language_goal)
                 elif self.args.algo == 'continuous':
                     self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
                 else:
-                    self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
+                    self.model.policy_forward_pass(obs_tensor, sub_graph, edges_to, isolated_nodes, no_noise=no_noise)
                 action = self.model.pi_tensor.numpy()[0]
 
             else:
@@ -261,6 +265,9 @@ class RLAgent:
 
         anchor_g = transitions['g']
 
+        sub_graph, edges_to, isolated_nodes = goal_to_graph_batch(anchor_g, obs_norm, ag_norm, g_norm)
+        sub_graph_next, _, isolated_nodes_next = goal_to_graph_batch(anchor_g, obs_next_norm, ag_next_norm, g_norm)
+
         if self.architecture == 'flat':
             critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_flat(self.actor_network, self.critic_network,
                                                                            self.critic_target_network, self.policy_optim, self.critic_optim,
@@ -270,7 +277,9 @@ class RLAgent:
             critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_deepsets(self.model, self.language,
                                                                                self.policy_optim, self.critic_optim, self.alpha, self.log_alpha,
                                                                                self.target_entropy, self.alpha_optim, obs_norm, ag_norm, g_norm,
-                                                                               obs_next_norm, ag_next_norm, anchor_g, actions, rewards, language_goals, self.args)
+                                                                               obs_next_norm, ag_next_norm, anchor_g, actions, rewards, language_goals, self.args,
+                                                                                                sub_graph, sub_graph_next, isolated_nodes, isolated_nodes_next,
+                                                                                                edges_to)
         else:
             raise NotImplementedError
 
