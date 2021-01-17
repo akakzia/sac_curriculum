@@ -15,6 +15,12 @@ def weights_init_(m):
         torch.nn.init.constant_(m.bias, 0)
 
 
+# Initialize weights and no bias
+def weights_init_bis(m):
+    if isinstance(m, nn.Linear):
+        torch.nn.init.xavier_uniform_(m.weight, gain=1)
+
+
 class QNetworkFlat(nn.Module):
     def __init__(self, env_params):
         super(QNetworkFlat, self).__init__()
@@ -208,10 +214,10 @@ class GnnAttention(nn.Module):
 class GnnMessagePassing(nn.Module):
     def __init__(self, inp, out):
         super(GnnMessagePassing, self).__init__()
-        self.linear1 = nn.Linear(inp, 256)
-        self.linear2 = nn.Linear(256, out)
+        self.linear1 = nn.Linear(inp, 256, bias=False)
+        self.linear2 = nn.Linear(256, out, bias=False)
 
-        self.apply(weights_init_)
+        self.apply(weights_init_bis)
 
     def forward(self, inp):
         x = F.relu(self.linear1(inp))

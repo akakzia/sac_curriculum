@@ -4,7 +4,7 @@ import itertools
 
 from env import rotations, robot_env, utils
 
-DEBUG = False
+DEBUG = True
 
 def objects_distance(x, y):
     """
