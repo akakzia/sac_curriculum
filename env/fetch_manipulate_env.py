@@ -135,10 +135,10 @@ class FetchManipulateEnv(robot_env.RobotEnv):
                 ids = [[0, 3, 4], [1, 5, 6], [2, 7, 8]]
                 reward = 0.
                 for id in ids:
-                    if (goal[id] != 0.).all():
+                    if (goal[id] != -10.).all():
                         reward = reward + (goal[id] == achieved_goal[id]).all().astype(np.float32)
             else:
-                reward = (goal == achieved_goal)[goal != 0.].sum().astype(np.float32)
+                reward = (goal == achieved_goal)[goal != -10.].sum().astype(np.float32)
             # reward = sum((goal != 0.) & (goal == achieved_goal))
             # reward = 0.
             # semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
@@ -292,7 +292,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         return self.target_goal
 
     def _is_success(self, achieved_goal, desired_goal):
-        return (desired_goal == achieved_goal)[desired_goal != 0.].all()
+        return (desired_goal == achieved_goal)[desired_goal != -10.].all()
 
     def _env_setup(self, initial_qpos):
         for name, value in initial_qpos.items():
