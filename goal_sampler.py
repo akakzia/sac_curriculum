@@ -32,7 +32,7 @@ class GoalSampler:
         goal_ids = [[1, 2, 5, 6, 7, 8], [0, 2, 3, 4, 7, 8], [0, 1, 3, 4, 5, 6], [2, 7, 8], [1, 5, 6], [0, 3, 4], [], [], []]
         for g in gs:
             ids_masks = np.random.randint(0, len(goal_ids))
-            g[goal_ids[ids_masks]] = -10.
+            g[goal_ids[ids_masks]] = 0.
         return gs
 
     def sample_goal(self, n_goals, evaluation):
@@ -45,7 +45,7 @@ class GoalSampler:
             self_eval = False
         else:
             if len(self.discovered_goals) == 0:
-                goals = -10 * np.ones((n_goals, self.goal_dim))
+                goals = np.zeros((n_goals, self.goal_dim))
                 ids = np.random.choice(np.arange(self.goal_dim), size=(n_goals, 3))
                 for i in range(n_goals):
                     goals[i, ids[i]] = -1.
@@ -104,11 +104,11 @@ class GoalSampler:
         - Two relations with above == True in one and close == True in the other
         - Two relations with above == True in one and above == True in the other
         - Three whole relations for the 7 above cases"""
-        return np.array([np.array([1., -10., -10., -1., -1., -10., -10., -10., -10.]), np.array([1., -10., -10., 1., -1., -10., -10., -10., -10.]),
+        return np.array([np.array([1., 0., 0., -1., -1., 0., 0., 0., 0.]), np.array([1., 0., 0., 1., -1., 0., 0., 0., 0.]),
 
-                         np.array([1., -1., -10., -1., -1., -1., -1., -10., -10.]), np.array([1., 1., -10., -1., -1., -1., -1., -10., -10.]),
-                         np.array([1., -1., -10., -1., 1., -1., -1., -10., -10.]), np.array([1., 1., -10., -1., 1., -1., -1., -10., -10.]),
-                         np.array([1., -10., 1., 1., -1., -10., -10., 1., -1.]),
+                         np.array([1., -1., 0., -1., -1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., -1., -1., -1., 0., 0.]),
+                         np.array([1., -1., 0., -1., 1., -1., -1., 0., 0.]), np.array([1., 1., 0., -1., 1., -1., -1., 0., 0.]),
+                         np.array([1., 0., 1., 1., -1., 0., 0., 1., -1.]),
 
                          np.array([1., -1., -1., -1., -1., -1., -1., -1., -1.]), np.array([1., -1., -1., 1., -1., -1., -1., -1., -1.]),
 
