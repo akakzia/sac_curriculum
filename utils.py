@@ -28,26 +28,26 @@ def generate_goals():
     buckets = {0: [(-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0), (-1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0),
                    (-1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0), (1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0)],
 
-               1: [(-1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0), (1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0),
-                   (1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0), (1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0)],
+                1: [(-1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0), (1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0),
+                    (1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0), (1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0)],
 
-               2: [(-1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0), (-1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0),
-                   (-1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0), (-1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0),
-                   (1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0), (1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0),
-                   (1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0), (-1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0),
-                   (1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0), (-1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0),
-                   (1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0), (1.0, -1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0)],
+                2: [(-1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0), (-1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0),
+                    (-1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0), (-1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0),
+                    (1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0), (1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0),
+                    (1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0), (-1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0),
+                    (1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0), (-1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0),
+                    (1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0), (1.0, -1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0)],
 
-               3: [(1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0), (1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0),
-                   (1.0, 1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0), (1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0),
-                   (1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0), (1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0),
-                   (1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0), (1.0, 1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0),
-                   (1.0, 1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0)],
+                3: [(1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0), (1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0),
+                    (1.0, 1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0), (1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0),
+                    (1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0), (1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0),
+                    (1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0), (1.0, 1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0),
+                     (1.0, 1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0)],
 
-               4: [(-1.0, 1.0, 1.0, -1.0, -1.0, -1.0, 1.0, 1.0, -1.0), (-1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0),
-                   (1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, 1.0), (1.0, -1.0, 1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0),
-                   (1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, -1.0), (1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0)
-                   ]
+                4:  [(-1.0, 1.0, 1.0, -1.0, -1.0, -1.0, 1.0, 1.0, -1.0), (-1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0),
+                     (1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, 1.0), (1.0, -1.0, 1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0),
+                     (1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, -1.0), (1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0)
+                     ]
                }
     return buckets
 
@@ -254,6 +254,7 @@ def init_storage(args):
 
 
 def get_stat_func(line='mean', err='std'):
+
     if line == 'mean':
         def line_f(a):
             return np.nanmean(a, axis=0)
@@ -266,25 +267,21 @@ def get_stat_func(line='mean', err='std'):
     if err == 'std':
         def err_plus(a):
             return line_f(a) + np.nanstd(a, axis=0)
-
         def err_minus(a):
             return line_f(a) - np.nanstd(a, axis=0)
     elif err == 'sem':
         def err_plus(a):
             return line_f(a) + np.nanstd(a, axis=0) / np.sqrt(a.shape[0])
-
         def err_minus(a):
             return line_f(a) - np.nanstd(a, axis=0) / np.sqrt(a.shape[0])
     elif err == 'range':
         def err_plus(a):
             return np.nanmax(a, axis=0)
-
         def err_minus(a):
             return np.nanmin(a, axis=0)
     elif err == 'interquartile':
         def err_plus(a):
             return np.nanpercentile(a, q=75, axis=0)
-
         def err_minus(a):
             return np.nanpercentile(a, q=25, axis=0)
     else:
@@ -313,7 +310,6 @@ class CompressPDF:
     Dependency: Ghostscript.
     On MacOSX install via command line `brew install ghostscript`.
     """
-
     def __init__(self, compress_level=0, show_info=False):
         self.compress_level = compress_level
 
@@ -349,11 +345,12 @@ class CompressPDF:
                 initial_size = os.path.getsize(file)
 
             subprocess.call(['gs', '-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.4',
-                             '-dPDFSETTINGS={}'.format(self.quality[self.compress_level]),
-                             '-dNOPAUSE', '-dQUIET', '-dBATCH',
-                             '-sOutputFile={}'.format(new_file),
+                            '-dPDFSETTINGS={}'.format(self.quality[self.compress_level]),
+                            '-dNOPAUSE', '-dQUIET', '-dBATCH',
+                            '-sOutputFile={}'.format(new_file),
                              file]
-                            )
+            )
+
 
             if self.show_compress_info:
                 final_size = os.path.getsize(new_file)
@@ -387,8 +384,6 @@ INSTRUCTIONS = get_instruction()
 
 language_to_id = dict(zip(INSTRUCTIONS, range(len(INSTRUCTIONS))))
 id_to_language = dict(zip(range(len(INSTRUCTIONS)), INSTRUCTIONS))
-
-
 # else:
 #     id_to_language = {
 #         0: ['Bring green and red apart', 'Bring red and green apart', 'Get green and red far_from each_other',
@@ -432,91 +427,3 @@ id_to_language = dict(zip(range(len(INSTRUCTIONS)), INSTRUCTIONS))
 #
 #     }
 #     language_to_id = invert_dict(id_to_language)
-
-
-def goal_to_graph(anchor_g, obs, ag, g):
-    """ Creates a computation graph from input"""
-    positions = np.stack([obs[10+15*i:10+15*(i+1)] for i in range(3)])
-    whole_graph = np.zeros((6, 34))
-    object_permutations = [(positions[0], positions[1]), (positions[1], positions[0]), (positions[0], positions[2]),
-                           (positions[2], positions[0]), (positions[1], positions[2]), (positions[2], positions[1])]
-    goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
-    i = 0
-    for obj, ids in zip(object_permutations, goal_ids):
-        whole_graph[i] = np.concatenate([ag[ids], g[ids], obj[0], obj[1]])
-        i = i + 1
-
-    # get edged mask
-    edges_mask = np.zeros(6, dtype=bool)
-    unmasked_ids = np.where(anchor_g != 0.)
-    if np.isin(np.array([0, 3, 4]), unmasked_ids).all():
-        edges_mask[0] = True
-        edges_mask[1] = True
-    if np.isin(np.array([1, 5, 6]), unmasked_ids).all():
-        edges_mask[2] = True
-        edges_mask[3] = True
-    if np.isin(np.array([2, 7, 8]), unmasked_ids).all():
-        edges_mask[4] = True
-        edges_mask[5] = True
-
-    corresponding_ids = np.array([0, 1, 0, 2, 1, 2])
-
-    sub_graph = whole_graph[edges_mask]
-
-    edges_to = corresponding_ids[edges_mask]
-
-    isolated_nodes = np.array([positions[i] for i in range(3) if i not in edges_to])
-
-    return sub_graph, edges_to, isolated_nodes
-
-
-def goal_to_graph_batch(mb_anchor_g, mb_obs, mb_ag, mb_g):
-    """ Creates a computation graph from input"""
-    batch_size = mb_g.shape[0]
-
-    sub_graph_list = []
-    edges_to_list = []
-    isolated_list = []
-
-    for i in range(batch_size):
-        obs = mb_obs[i, :]
-        anchor_g = mb_anchor_g[i, :]
-        ag = mb_ag[i, :]
-        g = mb_g[i, :]
-
-        positions = np.stack([obs[10+15*i:10+15*(i+1)] for i in range(3)])
-        whole_graph = np.zeros((6, 34))
-        object_permutations = [(positions[0], positions[1]), (positions[1], positions[0]), (positions[0], positions[2]),
-                               (positions[2], positions[0]), (positions[1], positions[2]), (positions[2], positions[1])]
-        goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
-        i = 0
-        for obj, ids in zip(object_permutations, goal_ids):
-            whole_graph[i] = np.concatenate([ag[ids], g[ids], obj[0], obj[1]])
-            i = i + 1
-
-        # get edged mask
-        edges_mask = np.zeros(6, dtype=bool)
-        unmasked_ids = np.where(anchor_g != 0.)
-        if np.isin(np.array([0, 3, 4]), unmasked_ids).all():
-            edges_mask[0] = True
-            edges_mask[1] = True
-        if np.isin(np.array([1, 5, 6]), unmasked_ids).all():
-            edges_mask[2] = True
-            edges_mask[3] = True
-        if np.isin(np.array([2, 7, 8]), unmasked_ids).all():
-            edges_mask[4] = True
-            edges_mask[5] = True
-
-        corresponding_ids = np.array([0, 1, 0, 2, 1, 2])
-
-        sub_graph = whole_graph[edges_mask]
-
-        edges_to = corresponding_ids[edges_mask]
-
-        isolated_nodes = np.array([positions[i] for i in range(3) if i not in edges_to])
-
-        sub_graph_list.append(sub_graph.copy())
-        edges_to_list.append(edges_to.copy())
-        isolated_list.append(isolated_nodes.copy())
-
-    return np.array(sub_graph_list), np.array(edges_to_list), np.array(isolated_list)
