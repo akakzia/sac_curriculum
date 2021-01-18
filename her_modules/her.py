@@ -36,6 +36,8 @@ class her_sampler:
         if not self.continuous:
             # her idx
             if self.multi_criteria_her:
+                count = 0
+                np.random.shuffle(self.mask_ids)
                 for sub_goal, sub_mask in zip(self.semantic_ids, self.mask_ids):
                     her_indexes = np.where(np.random.uniform(size=batch_size) < self.future_p)
                     future_offset = np.random.uniform(size=batch_size) * (T - t_samples)
@@ -48,10 +50,12 @@ class her_sampler:
                     transitions['g'][her_indexes] = transition_goals
 
                     # Mask sub goals
-                    mask_indexes = np.where(np.random.uniform(size=batch_size) < self.mask_p)
-                    transition_goals = transitions['g'][mask_indexes]
-                    transition_goals[:, sub_mask] = -10.
-                    transitions['g'][mask_indexes] = transition_goals
+                    if count < 2:
+                        count += 1
+                        mask_indexes = np.where(np.random.uniform(size=batch_size) < self.mask_p)
+                        transition_goals = transitions['g'][mask_indexes]
+                        transition_goals[:, sub_mask] = -10.
+                        transitions['g'][mask_indexes] = transition_goals
             else:
                 her_indexes = np.where(np.random.uniform(size=batch_size) < self.future_p)
                 n_replay = her_indexes[0].size
