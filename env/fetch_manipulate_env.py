@@ -131,6 +131,8 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         else:
             reward = 0.
             semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
+            ids = np.where(self.mask == 1)[0]
+            semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
             for subgoal in semantic_ids:
                 if (achieved_goal[subgoal] == goal[subgoal]).all():
                     reward = reward + 1.
@@ -248,19 +250,19 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         achieved_goal = np.squeeze(achieved_goal)
 
         # Reflect achieved goal in goal according to mask
-        if self.mask is not None:
-            desired_goal = achieved_goal * self.mask + self.target_goal * (1 - self.mask)
-        else:
-            desired_goal = self.target_goal.copy()
-
-        desired_goal = np.squeeze(desired_goal)
+        # if self.mask is not None:
+        #     desired_goal = achieved_goal * self.mask + self.target_goal * (1 - self.mask)
+        # else:
+        #     desired_goal = self.target_goal.copy()
+        #
+        # desired_goal = np.squeeze(desired_goal)
 
         return {
             'observation': obs.copy(),
             'achieved_goal': achieved_goal.copy(),
-            'desired_goal': desired_goal.copy(),
+            'desired_goal': self.target_goal.copy(),
             'achieved_goal_binary': achieved_goal.copy(),
-            'desired_goal_binary': desired_goal.copy()}
+            'desired_goal_binary': self.target_goal.copy()}
 
     def _viewer_setup(self):
         body_id = self.sim.model.body_name2id('robot0:gripper_link')
@@ -318,11 +320,6 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             mask: the mask to be put
             biased_init: Whether or not to initialize the blocks in non-trivial configuration
         """
-        if mask is not None:
-            self.mask = mask
-
-        self.target_goal = goal
-
         self.sim.set_state(self.initial_state)
 
         if biased_init and np.random.uniform() > self.p_coplanar:
@@ -397,6 +394,14 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             self._grasp(idx_grasp)
 
         self.sim.forward()
+        obs = self._get_obs()
+
+        if mask is not None:
+            self.mask = mask
+            self.target_goal = goal * (1 - mask) + obs['achieved_goal'] * mask
+            self.target_goal = np.squeeze(self.target_goal)
+        else:
+            self.target_goal = goal
         obs = self._get_obs()
         return obs
 
