@@ -131,7 +131,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         else:
             reward = 0.
             semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
-            ids = np.where(self.mask == 1)[0]
+            ids = np.where(self.mask != 1.)[1]
             semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
             for subgoal in semantic_ids:
                 if (achieved_goal[subgoal] == goal[subgoal]).all():
@@ -291,7 +291,8 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         return self.target_goal
 
     def _is_success(self, achieved_goal, desired_goal):
-        return (achieved_goal == desired_goal).all()
+        ids = np.where(self.mask != 1.)[1]
+        return (achieved_goal[ids] == desired_goal[ids]).all()
 
     def _env_setup(self, initial_qpos):
         for name, value in initial_qpos.items():
