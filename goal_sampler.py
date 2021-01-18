@@ -51,7 +51,7 @@ class GoalSampler:
                 # sample uniformly from discovered goals
                 goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
                 goals = np.array(self.discovered_goals)[goal_ids]
-                masks = self.masks_list[np.random.choice(range(self.n_masks), size=n_goals)]
+                masks = np.array(self.masks_list)[np.random.choice(range(self.n_masks), size=n_goals)]
                 self_eval = False
         return goals, masks, self_eval
 
