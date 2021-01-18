@@ -18,11 +18,12 @@ def get_args():
     parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
     parser.add_argument('--n-batches', type=int, default=30, help='the times to update the network')
+    parser.add_argument('--mask-p', type=float, default=0.1, help='Probability to mask multicriteria her')
 
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
     parser.add_argument('--start-biased-init', type=int, default=10, help='Number of epoch before biased initializations start')
 
-    parser.add_argument('--multi-criteria-her', type=bool, default=False, help='test')
+    parser.add_argument('--multi-criteria-her', type=bool, default=True, help='test')
 
     parser.add_argument('--embedding-size', type=int, default=20, help='embedding size of the encoded language instructions')
 
