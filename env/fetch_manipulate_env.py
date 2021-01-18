@@ -69,6 +69,8 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.p_stack_two = p_stack_two
         self.p_grasp = p_grasp
 
+        self.mask = np.zeros(9)
+
         self.goal_size = 0
 
         self.object_names = ['object{}'.format(i) for i in range(self.num_blocks)]
@@ -245,12 +247,20 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
         achieved_goal = np.squeeze(achieved_goal)
 
+        # Reflect achieved goal in goal according to mask
+        if self.mask is not None:
+            desired_goal = achieved_goal * self.mask + self.target_goal * (1 - self.mask)
+        else:
+            desired_goal = self.target_goal.copy()
+
+        desired_goal = np.squeeze(desired_goal)
+
         return {
             'observation': obs.copy(),
             'achieved_goal': achieved_goal.copy(),
-            'desired_goal': self.target_goal.copy(),
+            'desired_goal': desired_goal.copy(),
             'achieved_goal_binary': achieved_goal.copy(),
-            'desired_goal_binary': self.target_goal.copy()}
+            'desired_goal_binary': desired_goal.copy()}
 
     def _viewer_setup(self):
         body_id = self.sim.model.body_name2id('robot0:gripper_link')
@@ -268,13 +278,13 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
     def reset(self):
         # Usual reset overriden by reset_goal, that specifies a goal
-        return self.reset_goal(np.zeros([9]), False)
+        return self.reset_goal(-np.ones(9), biased_init=False)
 
     def _generate_valid_goal(self):
         raise NotImplementedError
 
     def _sample_goal(self):
-        self.target_goal = np.random.randint(2, size=9).astype(np.float32)
+        self.target_goal = np.random.choice([-1., 1.], size=9).astype(np.float32)
         
         return self.target_goal
 
@@ -300,13 +310,16 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.initial_gripper_xpos = self.sim.data.get_site_xpos('robot0:grip').copy()
         self.height_offset = self.sim.data.get_site_xpos('object0')[2]
 
-    def reset_goal(self, goal, biased_init=False):
+    def reset_goal(self, goal, mask=None, biased_init=False):
         """
         This function resets the environment and target the goal given as input
         Args:
             goal: The semantic configuration to target
+            mask: the mask to be put
             biased_init: Whether or not to initialize the blocks in non-trivial configuration
         """
+        if mask is not None:
+            self.mask = mask
 
         self.target_goal = goal
 
