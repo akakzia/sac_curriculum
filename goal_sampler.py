@@ -6,6 +6,7 @@ import os
 import pickle
 import pandas as pd
 from mpi_utils import logger
+from itertools import combinations, permutations
 
 
 class GoalSampler:
@@ -18,10 +19,28 @@ class GoalSampler:
 
         self.goal_dim = args.env_params['goal']
 
+        self.masks = self._get_masks(args.env_params['num_objects'])
+
         self.discovered_goals = []
         self.discovered_goals_str = []
 
         self.init_stats()
+
+    def _get_masks(self, n):
+        """
+        Creates a set of masks
+        n : number of objects
+        """
+        configuration_mapping = list(combinations(np.arange(n), 2)) + list(permutations(np.arange(n), 2))
+        pairs_list = list(combinations(np.arange(n), 2))
+        res = []
+        for pair in pairs_list:
+            ids = [i for i, k in enumerate(configuration_mapping) if set(k) == set(pair)]
+            temp = np.ones(self.goal_dim)
+            temp[ids] = 0.
+            res.append(temp)
+
+        return np.array(res)
 
     def sample_goal(self, n_goals):
         """
