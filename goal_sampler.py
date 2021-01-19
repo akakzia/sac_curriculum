@@ -8,6 +8,9 @@ import pandas as pd
 from mpi_utils import logger
 
 
+ALL_MASKS = False
+
+
 class GoalSampler:
     def __init__(self, args):
         self.continuous = args.algo == 'continuous'
@@ -18,15 +21,16 @@ class GoalSampler:
 
         self.goal_dim = 9
 
-        # self.masks_list = [np.array([1, 0, 0, 1, 1, 0, 0, 0, 0]), np.array([0, 1, 0, 0, 0, 1, 1, 0, 0]),
-        #                    np.array([0, 0, 1, 0, 0, 0, 0, 1, 1]),
-        #                    np.array([1, 1, 0, 1, 1, 1, 1, 0, 0]), np.array([1, 0, 1, 1, 1, 0, 0, 1, 1]),
-        #                    np.array([0, 0, 1, 0, 0, 1, 1, 1, 1]),
-        #                    np.array([0, 0, 0, 0, 0, 0, 0, 0, 0])]
-
+        if ALL_MASKS:
+            self.masks_list = [np.array([1, 0, 0, 1, 1, 0, 0, 0, 0]), np.array([0, 1, 0, 0, 0, 1, 1, 0, 0]),
+                               np.array([0, 0, 1, 0, 0, 0, 0, 1, 1]),
+                               np.array([1, 1, 0, 1, 1, 1, 1, 0, 0]), np.array([1, 0, 1, 1, 1, 0, 0, 1, 1]),
+                               np.array([0, 0, 1, 0, 0, 1, 1, 1, 1]),
+                               np.array([0, 0, 0, 0, 0, 0, 0, 0, 0])]
         # Test only simple masks in training
-        self.masks_list = [np.array([1, 1, 0, 1, 1, 1, 1, 0, 0]), np.array([1, 0, 1, 1, 1, 0, 0, 1, 1]),
-                           np.array([0, 1, 1, 0, 0, 1, 1, 1, 1])]
+        else:
+            self.masks_list = [np.array([1, 1, 0, 1, 1, 1, 1, 0, 0]), np.array([1, 0, 1, 1, 1, 0, 0, 1, 1]),
+                               np.array([0, 1, 1, 0, 0, 1, 1, 1, 1])]
 
         self.n_masks = len(self.masks_list)
 

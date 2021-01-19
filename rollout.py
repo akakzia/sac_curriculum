@@ -38,6 +38,7 @@ class RolloutWorker:
 
             ep_obs, ep_ag, ep_ag_bin, ep_g, ep_g_bin, ep_actions, ep_success, ep_rewards = [], [], [], [], [], [], [], []
             ep_lg_id = []
+            ep_masks = []
 
             # Start to collect samples
             for t in range(self.env_params['max_timesteps']):
@@ -69,6 +70,7 @@ class RolloutWorker:
                 ep_rewards.append(r)
                 ep_lg_id.append(lg_id)
                 ep_success.append(info['is_success'])
+                ep_masks.append(np.array(masks[i]).copy())
 
                 # Re-assign the observation
                 obs = obs_new
@@ -89,6 +91,7 @@ class RolloutWorker:
                            ag_binary=np.array(ep_ag_bin).copy(),
                            rewards=np.array(ep_rewards).copy(),
                            lg_ids=np.array(ep_lg_id).copy(),
+                           masks=np.array(ep_masks).copy(),
                            self_eval=self_eval)
 
             if self.args.algo == 'language':
