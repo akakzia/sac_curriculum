@@ -18,11 +18,15 @@ class GoalSampler:
 
         self.goal_dim = 9
 
-        self.masks_list = [np.array([1, 0, 0, 1, 1, 0, 0, 0, 0]), np.array([0, 1, 0, 0, 0, 1, 1, 0, 0]),
-                           np.array([0, 0, 1, 0, 0, 0, 0, 1, 1]),
-                           np.array([1, 1, 0, 1, 1, 1, 1, 0, 0]), np.array([1, 0, 1, 1, 1, 0, 0, 1, 1]),
-                           np.array([0, 0, 1, 0, 0, 1, 1, 1, 1]),
-                           np.array([0, 0, 0, 0, 0, 0, 0, 0, 0])]
+        # self.masks_list = [np.array([1, 0, 0, 1, 1, 0, 0, 0, 0]), np.array([0, 1, 0, 0, 0, 1, 1, 0, 0]),
+        #                    np.array([0, 0, 1, 0, 0, 0, 0, 1, 1]),
+        #                    np.array([1, 1, 0, 1, 1, 1, 1, 0, 0]), np.array([1, 0, 1, 1, 1, 0, 0, 1, 1]),
+        #                    np.array([0, 0, 1, 0, 0, 1, 1, 1, 1]),
+        #                    np.array([0, 0, 0, 0, 0, 0, 0, 0, 0])]
+
+        # Test only simple masks in training
+        self.masks_list = [np.array([1, 1, 0, 1, 1, 1, 1, 0, 0]), np.array([1, 0, 1, 1, 1, 0, 0, 1, 1]),
+                           np.array([0, 1, 1, 0, 0, 1, 1, 1, 1])]
 
         self.n_masks = len(self.masks_list)
 
