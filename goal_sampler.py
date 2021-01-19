@@ -101,7 +101,7 @@ class GoalSampler:
         masks = np.array([np.array([0, 1, 1, 0, 0, 1, 1, 1, 1]), np.array([0, 1, 1, 0, 0, 1, 1, 1, 1]),
                           np.array([0, 0, 1, 0, 0, 0, 0, 1, 1]), np.array([0, 0, 1, 0, 0, 0, 0, 1, 1]),
                           np.array([0, 0, 1, 0, 0, 0, 0, 1, 1]), np.array([0, 0, 1, 0, 0, 0, 0, 1, 1]),
-                          np.array([0, 0, 1, 0, 0, 0, 0, 1, 1]),
+                          np.array([0, 1, 0, 0, 0, 1, 1, 0, 0]),
                           np.zeros(9), np.zeros(9), np.zeros(9), np.zeros(9), np.zeros(9)])
         gs = np.array([np.array([1., -10., -10., -1., -1., -10., -10., -10., -10.]), np.array([1., -10., -10., 1., -1., -10., -10., -10., -10.]),
 
