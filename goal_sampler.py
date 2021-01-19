@@ -21,6 +21,8 @@ class GoalSampler:
 
         self.masks = self._get_masks(args.env_params['num_objects'])
 
+        self.n_masks = self.masks.shape[0]
+
         self.discovered_goals = []
         self.discovered_goals_str = []
 
@@ -33,33 +35,47 @@ class GoalSampler:
         """
         configuration_mapping = list(combinations(np.arange(n), 2)) + list(permutations(np.arange(n), 2))
         pairs_list = list(combinations(np.arange(n), 2))
-        res = []
+        atomic_masks = []
         for pair in pairs_list:
             ids = [i for i, k in enumerate(configuration_mapping) if set(k) == set(pair)]
             temp = np.ones(self.goal_dim)
             temp[ids] = 0.
-            res.append(temp)
+            atomic_masks.append(temp)
+
+        res = atomic_masks
+
+        all_comb = [list(combinations(atomic_masks, i)) for i in range(2, 10)]
+
+        for comb_list in all_comb:
+            for comb in comb_list:
+                temp = 1 - sum([1 - m for m in comb])
+                res.append(temp)
 
         return np.array(res)
 
-    def sample_goal(self, n_goals):
+    def sample_goal(self, n_goals, evaluation):
         """
         Sample n_goals goals to be targeted during rollouts
         evaluation controls whether or not to sample the goal uniformly or according to curriculum
         """
-        # if no goal has been discovered
-        if len(self.discovered_goals) == 0:
-            # sample randomly in the goal space
-            goals = np.random.randint(0, 2, size=(n_goals, self.goal_dim)).astype(np.float32)
+        if evaluation and len(self.discovered_goals) > 0:
+            goals = np.random.choice(self.discovered_goals, size=self.num_rollouts_per_mpi)
+            masks = np.zeros((n_goals, self.goal_dim))
             self_eval = False
-
-        # if goals have been discovered
         else:
-            # sample uniformly from discovered goals
-            goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
-            goals = np.array(self.discovered_goals)[goal_ids]
-            self_eval = False
-        return goals, self_eval
+            if len(self.discovered_goals) == 0:
+                goals = np.random.choice([-1., 1.], size=(n_goals, self.goal_dim))
+                # masks = np.zeros((n_goals, self.goal_dim))
+                masks = np.random.choice([0., 1.], size=(n_goals, self.goal_dim))
+                self_eval = False
+            # if no curriculum learning
+            else:
+                # sample uniformly from discovered goals
+                goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
+                goals = np.array(self.discovered_goals)[goal_ids]
+                masks = self.masks[np.random.choice(range(self.n_masks), size=n_goals)]
+                self_eval = False
+        return goals, masks, self_eval
 
     def update(self, episodes, t):
         """
@@ -75,11 +91,14 @@ class GoalSampler:
                 all_episode_list += eps
 
             # find out if new goals were discovered
-            for e in all_episode_list:
-                # if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
-                if str(e['ag_binary'][0]) not in self.discovered_goals_str:
-                    self.discovered_goals.append(e['ag_binary'][0].copy())
-                    self.discovered_goals_str.append(str(e['ag_binary'][0]))
+            # label each episode with the oracle id of the last ag (to know where to store it in buffers)
+            if not self.curriculum_learning or self.automatic_buckets:
+                new_goal_found = False
+                for e in all_episode_list:
+                    if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
+                        new_goal_found = True
+                        self.discovered_goals.append(e['ag_binary'][-1].copy())
+                        self.discovered_goals_str.append(str(e['ag_binary'][-1]))
 
         self.sync()
 
@@ -91,7 +110,7 @@ class GoalSampler:
 
     def init_stats(self):
         self.stats = dict()
-        for i in range(12):
+        for i in range(20):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_R_{}'.format(i)] = []
         self.stats['epoch'] = []
@@ -105,7 +124,7 @@ class GoalSampler:
             self.stats['t_{}'.format(k)] = []
 
     def save(self, epoch, episode_count, av_res, av_rewards, avg_reward, global_sr, time_dict):
-        for i in range(12):
+        for i in range(len(av_res)):
             self.stats['Eval_SR_{}'.format(i)].append(av_res[i])
             self.stats['Av_R_{}'.format(i)].append(av_rewards[i])
         self.stats['epoch'].append(epoch)

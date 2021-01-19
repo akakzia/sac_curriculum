@@ -26,6 +26,7 @@ class MultiBuffer:
         self.buffer = {'obs': np.empty([self.size, self.T + 1, self.env_params['obs']]),
                        'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
                        'g': np.empty([self.size, self.T, self.env_params['goal']]),
+                       'masks': np.empty([self.size, self.T, self.env_params['goal']]),
                        'actions': np.empty([self.size, self.T, self.env_params['action']]),
                        'lg_ids': np.empty([self.size, self.T]).astype(np.int),
                        # 'language_goal': [None for _ in range(self.size)],
@@ -49,6 +50,7 @@ class MultiBuffer:
                 self.buffer['ag'][idxs[i]] = e['ag']
                 self.buffer['g'][idxs[i]] = e['g']
                 self.buffer['actions'][idxs[i]] = e['act']
+                self.buffer['masks'][idxs[i]] = e['masks']
                 # self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
                 if 'language_goal' in e.keys():
                     # self.buffer['language_goal'][idxs[i]] = e['language_goal']

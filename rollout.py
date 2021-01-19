@@ -12,11 +12,12 @@ class RolloutWorker:
         self.goal_sampler = goal_sampler
         self.args = args
 
-    def generate_rollout(self, goals, self_eval, true_eval, biased_init=False, animated=False, language_goal=None):
+    def generate_rollout(self, goals, masks, self_eval, true_eval, biased_init=False, animated=False, language_goal=None):
 
         episodes = []
         for i in range(goals.shape[0]):
-            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), biased_init=biased_init)
+            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), mask=np.array([masks[i]]),
+                                                        biased_init=biased_init)
             obs = observation['observation']
             ag = observation['achieved_goal']
             ag_bin = observation['achieved_goal_binary']
@@ -37,6 +38,7 @@ class RolloutWorker:
 
             ep_obs, ep_ag, ep_ag_bin, ep_g, ep_g_bin, ep_actions, ep_success, ep_rewards = [], [], [], [], [], [], [], []
             ep_lg_id = []
+            ep_masks = []
 
             # Start to collect samples
             for t in range(self.env_params['max_timesteps']):
@@ -67,6 +69,8 @@ class RolloutWorker:
                 ep_actions.append(action.copy())
                 ep_rewards.append(r)
                 ep_lg_id.append(lg_id)
+                ep_success.append(info['is_success'])
+                ep_masks.append(np.array(masks[i]).copy())
 
                 # Re-assign the observation
                 obs = obs_new
@@ -82,10 +86,12 @@ class RolloutWorker:
                            act=np.array(ep_actions).copy(),
                            g=np.array(ep_g).copy(),
                            ag=np.array(ep_ag).copy(),
+                           success=np.array(ep_success).copy(),
                            g_binary=np.array(ep_g_bin).copy(),
                            ag_binary=np.array(ep_ag_bin).copy(),
                            rewards=np.array(ep_rewards).copy(),
                            lg_ids=np.array(ep_lg_id).copy(),
+                           masks=np.array(ep_masks).copy(),
                            self_eval=self_eval)
 
             if self.args.algo == 'language':

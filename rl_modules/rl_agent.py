@@ -190,6 +190,7 @@ class RLAgent:
         mb_obs = episode['obs']
         mb_ag = episode['ag']
         mb_g = episode['g']
+        mb_masks = episode['masks']
         mb_actions = episode['act']
         mb_obs_next = mb_obs[1:, :]
         mb_ag_next = mb_ag[1:, :]
@@ -199,6 +200,7 @@ class RLAgent:
         buffer_temp = {'obs': np.expand_dims(mb_obs, 0),
                        'ag': np.expand_dims(mb_ag, 0),
                        'g': np.expand_dims(mb_g, 0),
+                       'masks': np.expand_dims(mb_masks, 0),
                        'actions': np.expand_dims(mb_actions, 0),
                        'obs_next': np.expand_dims(mb_obs_next, 0),
                        'ag_next': np.expand_dims(mb_ag_next, 0),

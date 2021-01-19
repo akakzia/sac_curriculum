@@ -10,7 +10,7 @@ import torch
 from rollout import RolloutWorker
 from temporary_lg_goal_sampler import LanguageGoalSampler
 from goal_sampler import GoalSampler
-from utils import init_storage, get_instruction, get_eval_goals
+from utils import init_storage, get_instruction, get_eval_goals, get_eval_masks
 import time
 from mpi_utils import logger
 from language.build_dataset import sentence_from_configuration
@@ -95,7 +95,7 @@ def launch(args):
 
             # Sample goals
             t_i = time.time()
-            goals, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi)
+            goals, masks, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False)
             if args.algo == 'language':
                 language_goal_ep = np.random.choice(language_goal, size=args.num_rollouts_per_mpi)
             else:
@@ -111,6 +111,7 @@ def launch(args):
             # Environment interactions
             t_i = time.time()
             episodes = rollout_worker.generate_rollout(goals=goals,  # list of goal configurations
+                                                       masks=masks,
                                                        self_eval=self_eval,  # whether the agent performs self-evaluations
                                                        true_eval=False,  # these are not offline evaluation episodes
                                                        biased_init=biased_init,
@@ -153,15 +154,18 @@ def launch(args):
             # Performing evaluations
             t_i = time.time()
             eval_goals = []
-            instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'stack_3', '2stacks_2_2', '2stacks_2_3', 'pyramid_3',
-                            'mixed_2_3', 'trapeze_2_3', 'stack_4', 'stack_5']
+            # instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'stack_3', '2stacks_2_2', '2stacks_2_3', 'pyramid_3',
+            #                 'mixed_2_3', 'trapeze_2_3', 'stack_4', 'stack_5']
+            instructions = ['close_1', 'close_3', 'pyramid_3', 'stack_5']
             for instruction in instructions:
                 eval_goal = get_eval_goals(instruction)
                 eval_goals.append(eval_goal.squeeze(0))
             eval_goals = np.array(eval_goals)
+            eval_goals, eval_masks = get_eval_masks(eval_goals)
             # ids = np.random.choice(np.arange(len(goal_sampler.discovered_goals)), size=args.n_test_rollouts)
             # eval_goals = np.array(goal_sampler.discovered_goals)[ids]
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
+                                                       masks=eval_masks,
                                                        self_eval=True,  # this parameter is overridden by true_eval
                                                        true_eval=True,  # this is offline evaluations
                                                        biased_init=False,

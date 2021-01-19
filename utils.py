@@ -433,7 +433,7 @@ def get_eval_goals(instruction, nb_goals=1):
                         id.append(k + 10)
             ids.append(np.array(id))
         for id in ids:
-            g = np.zeros(30)
+            g = -np.ones(30)
             g[id] = 1.
             res.append(g)
         return np.array(res)
@@ -476,7 +476,7 @@ def get_eval_goals(instruction, nb_goals=1):
                     id.append(k + 10)
             ids.append(np.array(id))
         for id in ids:
-            g = np.zeros(30)
+            g = -np.ones(30)
             g[id] = 1.
             res.append(g)
         return np.array(res)
@@ -507,7 +507,7 @@ def get_eval_goals(instruction, nb_goals=1):
                         id.append(k + 10)
             ids.append(np.array(id))
         for id in ids:
-            g = np.zeros(30)
+            g = -np.ones(30)
             g[id] = 1.
             res.append(g)
         return np.array(res)
@@ -535,7 +535,7 @@ def get_eval_goals(instruction, nb_goals=1):
                         id.append(k+10)
             ids.append(np.array(id))
         for id in ids:
-            g = np.zeros(30)
+            g = -np.ones(30)
             g[id] = 1.
             res.append(g)
         return np.array(res)
@@ -553,7 +553,7 @@ def get_eval_goals(instruction, nb_goals=1):
             id = np.random.choice(np.arange(10), size=close_pairs, replace=False)
             ids.append(id)
         for id in ids:
-            g = np.zeros(30)
+            g = -np.ones(30)
             g[id] = 1.
             res.append(g)
         return np.array(res)
@@ -573,8 +573,69 @@ def get_eval_goals(instruction, nb_goals=1):
                         id.append(k+10)
             ids.append(np.array(id))
         for id in ids:
-            g = np.zeros(30)
+            g = -np.ones(30)
             g[id] = 1.
             res.append(g)
         return np.array(res)
+
+
+def get_mask_ids():
+    n = 5
+    g_dim = 30
+    configuration_mapping = list(combinations(np.arange(n), 2)) + list(permutations(np.arange(n), 2))
+    pairs_list = list(combinations(np.arange(n), 2))
+    atomic_masks = []
+
+    for pair in pairs_list:
+        ids = [i for i, k in enumerate(configuration_mapping) if set(k) == set(pair)]
+        temp = np.ones(g_dim)
+        temp[ids] = 0.
+        atomic_masks.append(temp)
+
+    atomic_mask_ids = [np.where(e == 0.)[0] for e in atomic_masks]
+
+    return np.array(atomic_mask_ids)
+
+
+def get_atomic_masks():
+    n = 5
+    g_dim = 30
+    configuration_mapping = list(combinations(np.arange(n), 2)) + list(permutations(np.arange(n), 2))
+    pairs_list = list(combinations(np.arange(n), 2))
+    atomic_masks = []
+
+    for pair in pairs_list:
+        ids = [i for i, k in enumerate(configuration_mapping) if set(k) == set(pair)]
+        temp = np.ones(g_dim)
+        temp[ids] = 0.
+        atomic_masks.append(temp)
+
+    return np.array(atomic_masks)
+
+
+def get_eval_masks(goals):
+    """
+    Given an array of goals, returns a list of masks while including positive predicates
+    """
+    masks_ids = get_mask_ids()
+    atomic_masks = get_atomic_masks()
+    res_goals = []
+    res_masks = []
+    for g in goals:
+        positive_predicates = np.where(g == 1.)[0]
+        possible_mask_ids = [i for i in range(len(masks_ids)) if len(np.intersect1d(masks_ids[i], positive_predicates)) > 0]
+        if len(possible_mask_ids) == 1:
+            res_goals.append(g)
+            res_masks.append(atomic_masks[possible_mask_ids[0]])
+        else:
+            all_comb = [list(combinations(possible_mask_ids, i+1)) for i in range(1, len(possible_mask_ids))]
+            for comb_list in all_comb:
+                for comb in comb_list:
+                    temp = 1 - sum([1 - atomic_masks[i] for i in comb])
+                    res_goals.append(g)
+                    res_masks.append(temp)
+
+    return np.array(res_goals), np.array(res_masks)
+
+
 
