@@ -412,3 +412,15 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), obj.copy())
         self.sim.data.set_joint_qpos('robot0:r_gripper_finger_joint', 0.0240)
         self.sim.data.set_joint_qpos('robot0:l_gripper_finger_joint', 0.0240)
+
+    def set_new_goal(self, goal, mask):
+        obs = self._get_obs()
+
+        if mask is not None:
+            self.mask = mask
+            self.target_goal = goal * (1 - mask) + obs['achieved_goal'] * mask
+            self.target_goal = np.squeeze(self.target_goal)
+        else:
+            self.target_goal = goal
+        obs = self._get_obs()
+        return obs
