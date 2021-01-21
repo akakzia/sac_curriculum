@@ -22,10 +22,14 @@ class GnnCritic(nn.Module):
         self.aggregation = aggregation
         self.readout = readout
 
+        # Pre-aggregation network
         self.mp_critic = GnnMessagePassing(dim_mp_input, dim_mp_output)
+        # Node-wise aggregation network
         self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 256, dim_phi_critic_output)
+        # Readout network
         self.rho_critic = RhoCriticDeepSet(dim_rho_critic_input, dim_rho_critic_output)
 
+        # Index of edges for each node
         self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
 
     def forward(self, obs, act, edge_features):
@@ -100,9 +104,12 @@ class GnnActor(nn.Module):
         self.aggregation = aggregation
         self.readout = readout
 
+        # Node-wise aggregation network
         self.phi_actor = PhiActorDeepSet(dim_phi_actor_input, 256, dim_phi_actor_output)
+        # Readout network
         self.rho_actor = RhoActorDeepSet(dim_rho_actor_input, dim_rho_actor_output)
 
+        # Indexes of edges for each node
         self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
 
         # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
