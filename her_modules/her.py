@@ -123,6 +123,6 @@ def compute_reward_masks(ag, g, mask):
     ids = np.where(mask != 1.)[0]
     semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
     for subgoal in semantic_ids:
-        if (len(subgoal) > 0) and (ag[subgoal] == g[subgoal]).all():
+        if (ag[subgoal] == g[subgoal]).all():
             reward = reward + 1.
     return reward

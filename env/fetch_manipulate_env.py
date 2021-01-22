@@ -5,6 +5,10 @@ import itertools
 from env import rotations, robot_env, utils
 
 
+# At each episode, put achieved values in masked bits
+DYNAMIC_GOALS = False
+
+
 def objects_distance(x, y):
     """
     A function that returns the euclidean distance between two objects x and y
@@ -135,7 +139,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             ids = np.where(self.mask != 1.)[1]
             semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
             for subgoal in semantic_ids:
-                if len(subgoal) > 0 and (achieved_goal[subgoal] == goal[subgoal]).all():
+                if (achieved_goal[subgoal] == goal[subgoal]).all():
                     reward = reward + 1.
         return reward
 
@@ -251,19 +255,17 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         achieved_goal = np.squeeze(achieved_goal)
 
         # Reflect achieved goal in goal according to mask
-        if self.mask is not None:
-            desired_goal = achieved_goal * self.mask + self.target_goal * (1 - self.mask)
-        else:
-            desired_goal = self.target_goal.copy()
-
-        desired_goal = np.squeeze(desired_goal)
+        if DYNAMIC_GOALS:
+            if self.mask is not None:
+                self.target_goal = achieved_goal * self.mask + self.target_goal * (1 - self.mask)
+                self.target_goal = np.squeeze(self.target_goal)
 
         return {
             'observation': obs.copy(),
             'achieved_goal': achieved_goal.copy(),
-            'desired_goal': desired_goal.copy(),
+            'desired_goal': self.target_goal.copy(),
             'achieved_goal_binary': achieved_goal.copy(),
-            'desired_goal_binary': desired_goal.copy()}
+            'desired_goal_binary': self.target_goal.copy()}
 
     def _viewer_setup(self):
         body_id = self.sim.model.body_name2id('robot0:gripper_link')
