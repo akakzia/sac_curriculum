@@ -82,8 +82,8 @@ class GoalSampler:
                 instruction = np.random.choice(instructions)
                 goal = get_eval_goals(instruction)
                 gs, ms = get_eval_masks(goal)
-                goals.append(gs[-1])
-                masks.append(ms[-1])
+                goals.append(gs[np.random.choice(np.arange(gs.shape[0]))])
+                masks.append(ms[np.random.choice(np.arange(ms.shape[0]))])
             goals = np.array(goals)
             masks = np.array(masks)
             self_eval = False
