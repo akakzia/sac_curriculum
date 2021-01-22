@@ -7,6 +7,7 @@ import pickle
 import pandas as pd
 from mpi_utils import logger
 from itertools import combinations, permutations
+from utils import get_eval_goals, get_eval_masks
 
 
 class GoalSampler:
@@ -63,18 +64,29 @@ class GoalSampler:
             masks = np.zeros((n_goals, self.goal_dim))
             self_eval = False
         else:
-            if len(self.discovered_goals) == 0:
-                goals = np.random.choice([-1., 1.], size=(n_goals, self.goal_dim))
-                # masks = np.zeros((n_goals, self.goal_dim))
-                masks = np.random.choice([0., 1.], size=(n_goals, self.goal_dim))
-                self_eval = False
-            # if no curriculum learning
-            else:
+            # if len(self.discovered_goals) == 0:
+            #     goals = np.random.choice([-1., 1.], size=(n_goals, self.goal_dim))
+            #     # masks = np.zeros((n_goals, self.goal_dim))
+            #     masks = np.random.choice([0., 1.], size=(n_goals, self.goal_dim))
+            #     self_eval = False
+            # # if no curriculum learning
+            # else:
                 # sample uniformly from discovered goals
-                goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
-                goals = np.array(self.discovered_goals)[goal_ids]
-                masks = self.masks[np.random.choice(range(self.n_masks), size=n_goals)]
-                self_eval = False
+                # goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
+                # goals = np.array(self.discovered_goals)[goal_ids]
+                # masks = self.masks[np.random.choice(range(self.n_masks), size=n_goals)]
+            instructions = ['close_1', 'close_3', 'pyramid_3', 'stack_5']
+            goals = []
+            masks = []
+            for _ in range(n_goals):
+                instruction = np.random.choice(instructions)
+                goal = get_eval_goals(instruction)
+                gs, ms = get_eval_masks(goal)
+                goals.append(gs[-1])
+                masks.append(ms[-1])
+            goals = np.array(goals)
+            masks = np.array(masks)
+            self_eval = False
         return goals, masks, self_eval
 
     def update(self, episodes, t):
