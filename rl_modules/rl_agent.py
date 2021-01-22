@@ -6,7 +6,7 @@ from rl_modules.networks import QNetworkFlat, GaussianPolicyFlat
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from updates import update_flat, update_deepsets
-from utils import id_to_language
+from utils import id_to_language, get_mask_ids
 
 
 """
@@ -306,7 +306,16 @@ class RLAgent:
             o_mean, o_std, g_mean, g_std, actor, critic = torch.load(model_path, map_location=lambda storage, loc: storage)
             self.model.actor.load_state_dict(actor)
             self.model.critic.load_state_dict(critic)
-            self.o_norm.mean = o_mean
-            self.o_norm.std = o_std
-            self.g_norm.mean = g_mean
-            self.g_norm.std = g_std
+            # self.o_norm.mean = o_mean
+            # self.o_norm.std = o_std
+            # self.g_norm.mean = g_mean
+            # self.g_norm.std = g_std
+            self.o_norm.mean[:10] = o_mean[:10]
+            self.o_norm.std[:10] = o_std[:10]
+            relation_ids = get_mask_ids()
+            for i in range(5):
+                self.o_norm.mean[10+15*i:25+15*i] = o_mean[10:25]
+                self.o_norm.std[10 + 15 * i:25 + 15 * i] = o_std[10:25]
+            for ids in relation_ids:
+                self.g_norm.mean[ids] = g_mean[[0, 3, 4]]
+                self.g_norm.std[ids] = g_std[[0, 3, 4]]

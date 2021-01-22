@@ -15,6 +15,10 @@ import time
 from mpi_utils import logger
 from language.build_dataset import sentence_from_configuration
 
+
+FINE_TUNING = True
+
+
 def get_env_params(env):
     obs = env.reset()
 
@@ -65,6 +69,9 @@ def launch(args):
     # Initialize RL Agent
     if args.agent == "SAC":
         policy = RLAgent(args, env.compute_reward, goal_sampler)
+        if FINE_TUNING:
+            pol_path = './model_220.pt'
+            policy.load(pol_path, args)
     else:
         raise NotImplementedError
 
@@ -129,10 +136,10 @@ def launch(args):
             time_dict['store'] += time.time() - t_i
 
             # Updating observation normalization
-            t_i = time.time()
-            for e in episodes:
-                policy._update_normalizer(e)
-            time_dict['norm_update'] += time.time() - t_i
+            # t_i = time.time()
+            # for e in episodes:
+            #     policy._update_normalizer(e)
+            # time_dict['norm_update'] += time.time() - t_i
 
             # Policy updates
             t_i = time.time()
