@@ -12,6 +12,7 @@ class GoalSampler:
     def __init__(self, args):
         self.continuous = args.algo == 'continuous'
         self.curriculum_learning = args.curriculum_learning
+        self.curriculum_goal_sampling = args.curriculum_goal_sampling
         self.automatic_buckets = args.automatic_buckets
         self.num_buckets = args.num_buckets
         self.queue_length = args.queue_length
@@ -27,7 +28,6 @@ class GoalSampler:
         all_goals = generate_all_goals_in_goal_space().astype(np.float32)
         valid_goals = []
         for k in buckets.keys():
-            # if k < 4:
             valid_goals += buckets[k]
         self.valid_goals = np.array(valid_goals)
         self.all_goals = np.array(all_goals)
@@ -94,12 +94,15 @@ class GoalSampler:
 
             # if goals have been discovered
             else:
-                # if no curriculum learning
-                if not self.curriculum_learning:
-                    # sample uniformly from discovered goals
+                # If no curriculum learning
+                if not self.curriculum_learning or not self.curriculum_goal_sampling:
+                    # Sample uniformly from discovered goals
                     goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
                     goals = np.array(self.discovered_goals)[goal_ids]
-                    self_eval = False
+                    if not self.curriculum_learning:
+                        self_eval = False
+                    else:
+                        self_eval = True if np.random.random() < self.self_eval_prob else False
                 else:
                     # decide whether to self evaluate
                     self_eval = True if np.random.random() < self.self_eval_prob else False
