@@ -4,7 +4,7 @@ from language.build_dataset import sentence_from_configuration
 from utils import id_to_language, language_to_id
 
 
-MC_MASK = True
+MC_MASK = False
 
 class her_sampler:
     def __init__(self, args, reward_func=None):
@@ -19,8 +19,8 @@ class her_sampler:
         self.language = args.algo == 'language'
         self.multi_criteria_her = args.multi_criteria_her
         self.obj_ind = np.array([np.arange(i * 3, (i + 1) * 3) for i in range(3)])
-        # self.semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
-        self.semantic_ids = np.array([np.array([0, 3, 4]), np.array([1, 5, 6]), np.array([2, 7, 8])])
+        self.semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
+
         self.mask_ids = np.array([np.array([0, 3, 4]), np.array([1, 5, 6]), np.array([2, 7, 8])])
         self.mask_p = args.mask_p
 
@@ -114,3 +114,14 @@ def compute_reward_language(ags, lg_ids):
     lgs = [id_to_language[lg_id] for lg_id in lg_ids]
     r = np.array([lg in sentence_from_configuration(ag, all=True) for ag, lg in zip(ags, lgs)]).astype(np.float32)
     return r
+
+
+def compute_reward_masks(ag, g, mask):
+    reward = 0.
+    semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
+    ids = np.where(mask != 1.)[0]
+    semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
+    for subgoal in semantic_ids:
+        if (ag[subgoal] == g[subgoal]).all():
+            reward = reward + 1.
+    return reward

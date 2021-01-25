@@ -8,7 +8,7 @@ import pandas as pd
 from mpi_utils import logger
 
 
-ALL_MASKS = True
+ALL_MASKS = False
 
 
 class GoalSampler:
