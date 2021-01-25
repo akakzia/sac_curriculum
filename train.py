@@ -70,7 +70,7 @@ def launch(args):
     if args.agent == "SAC":
         policy = RLAgent(args, env.compute_reward, goal_sampler)
         if FINE_TUNING:
-            pol_path = './model_220.pt'
+            pol_path = './model_80.pt'
             policy.load(pol_path, args)
     else:
         raise NotImplementedError
