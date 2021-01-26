@@ -11,7 +11,7 @@ epsilon = 1e-6
 
 class GnnCritic(nn.Module):
     def __init__(self, nb_objects, dim_body, dim_object, dim_mp_interaction, dim_edge_interaction, dim_phi_interaction, dim_node_interaction,
-                 dim_rho_critic_input, dim_rho_critic_output):
+                 dim_phi_critic_input, dim_rho_critic_output):
         super(GnnCritic, self).__init__()
 
         # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
@@ -28,9 +28,10 @@ class GnnCritic(nn.Module):
         self.mp_interaction = GnnMessagePassing(dim_mp_input, dim_mp_output)
         self.phi_interaction = PhiActorDeepSet(dim_phi_interaction_input, 256, dim_phi_interaction_output)
 
-        self.mp_star = GnnMessagePassing(10+9+6, 6)
+        # self.mp_star = GnnMessagePassing(10+9+6, 6)
 
-        self.rho_critic = RhoCriticDeepSet(dim_rho_critic_input, dim_rho_critic_output)
+        self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 25, 3 * dim_phi_critic_input)
+        self.rho_critic = RhoCriticDeepSet(3 * dim_phi_critic_input, dim_rho_critic_output)
 
         self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
 
@@ -38,22 +39,22 @@ class GnnCritic(nn.Module):
         batch_size = obs.shape[0]
         assert batch_size == len(obs)
 
-        obs_body = obs[:, :self.dim_body]
+        # obs_body = obs[:, :self.dim_body]
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
-        inp = torch.stack([torch.cat([obj[:, :9], torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
+        inp = torch.stack([torch.cat([obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
                            for i, obj in enumerate(obs_objects)])
 
         output_phi_interaction = self.phi_interaction(inp)
 
-        inp_mp_star = torch.stack([torch.cat([obs_objects[i][:, 9:], obs_body, output_phi_interaction[i, :, :]], dim=-1) for i in range(3)])
+        # inp_mp_star = torch.stack([torch.cat([obs_objects[i][:, 9:], obs_body, output_phi_interaction[i, :, :]], dim=-1) for i in range(3)])
 
-        output_mp_star = self.mp_star(inp_mp_star)
+        # output_mp_star = self.mp_star(inp_mp_star)
 
-        return output_phi_interaction, output_mp_star
+        return output_phi_interaction
 
-    def forward(self, obs, act, nodes, edges):
+    def forward(self, obs, act, nodes):
         batch_size = obs.shape[0]
         assert batch_size == len(obs)
 
@@ -61,18 +62,20 @@ class GnnCritic(nn.Module):
         # obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.nb_objects),
         #                           obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
         #                for i in range(self.nb_objects)]
-        # obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
-        #                for i in range(self.nb_objects)]
+        obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
+                       for i in range(self.nb_objects)]
 
         # inp = torch.stack([torch.cat([act, obs_body, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
         #                    for i, obj in enumerate(obs_objects)])
 
-        inp = torch.cat([act, obs_body, torch.max(torch.cat([nodes, edges], dim=-1), dim=0).values], dim=1)
+        inp_phi = torch.stack([torch.cat([act, obs_body, obj, nodes[i, :, :]], dim=-1) for i, obj in enumerate(obs_objects)])
 
-        # output_phi_critic_1, output_phi_critic_2 = self.phi_critic(inp)
-        # output_phi_critic_1 = output_phi_critic_1.sum(dim=0)
-        # output_phi_critic_2 = output_phi_critic_2.sum(dim=0)
-        q1_pi_tensor, q2_pi_tensor = self.rho_critic(inp, inp)
+        # inp = torch.cat([act, obs_body, torch.max(aa, dim=0).values], dim=1)
+
+        output_phi_critic_1, output_phi_critic_2 = self.phi_critic(inp_phi)
+        output_phi_critic_1 = output_phi_critic_1.sum(dim=0)
+        output_phi_critic_2 = output_phi_critic_2.sum(dim=0)
+        q1_pi_tensor, q2_pi_tensor = self.rho_critic(output_phi_critic_1, output_phi_critic_2)
         return q1_pi_tensor, q2_pi_tensor
 
     def message_passing(self, obs, ag, g):
@@ -91,8 +94,8 @@ class GnnCritic(nn.Module):
 
         delta_g = g - ag
 
-        inp_mp = torch.stack([torch.cat([delta_g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :9],
-                                         obs_objects[obj_ids[i][1]][:, :9], obs_objects[obj_ids[i][0]][:, :9] - obs_objects[obj_ids[i][1]][:, :9]],
+        inp_mp = torch.stack([torch.cat([delta_g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :9] - obs_objects[obj_ids[i][1]][:, :9],
+                                         obs_objects[obj_ids[i][0]], obs_objects[obj_ids[i][1]]],
                                         dim=-1) for i in range(6)])
 
         # inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3],
@@ -106,21 +109,21 @@ class GnnCritic(nn.Module):
 
 
 class GnnActor(nn.Module):
-    def __init__(self, nb_objects, dim_body, dim_object, dim_rho_actor_input, dim_rho_actor_output):
+    def __init__(self, nb_objects, dim_body, dim_object, dim_phi_actor_input, dim_rho_actor_output):
         super(GnnActor, self).__init__()
 
         self.nb_objects = nb_objects
         self.dim_body = dim_body
         self.dim_object = dim_object
 
-        # self.phi_actor = PhiActorDeepSet(dim_phi_actor_input, 256, dim_phi_actor_output)
-        self.rho_actor = RhoActorDeepSet(dim_rho_actor_input, dim_rho_actor_output)
+        self.phi_actor = PhiActorDeepSet(dim_phi_actor_input, 256, 3 * dim_phi_actor_input)
+        self.rho_actor = RhoActorDeepSet(3 * dim_phi_actor_input, dim_rho_actor_output)
 
         self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
 
         # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
 
-    def forward(self, obs, nodes, edges):
+    def forward(self, obs, nodes):
         batch_size = obs.shape[0]
         assert batch_size == len(obs)
 
@@ -128,18 +131,20 @@ class GnnActor(nn.Module):
         # obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.nb_objects),
         #                           obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
         #                for i in range(self.nb_objects)]
-        # obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
-        #                for i in range(self.nb_objects)]
+        obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
+                       for i in range(self.nb_objects)]
 
-        inp = torch.cat([obs_body, torch.max(torch.cat([nodes, edges], dim=-1), dim=0).values], dim=1)
+        inp_phi = torch.stack([torch.cat([obs_body, obj, nodes[i, :, :]], dim=-1) for i, obj in enumerate(obs_objects)])
 
-        # output_phi_actor = self.phi_actor(inp)
-        # output_phi_actor = output_phi_actor.sum(dim=0)
-        mean, logstd = self.rho_actor(inp)
+        # inp = torch.cat([obs_body, torch.max(aa, dim=0).values], dim=1)
+
+        output_phi_actor = self.phi_actor(inp_phi)
+        output_phi_actor = output_phi_actor.sum(dim=0)
+        mean, logstd = self.rho_actor(output_phi_actor)
         return mean, logstd
 
-    def sample(self, obs, nodes, edges):
-        mean, log_std = self.forward(obs, nodes, edges)
+    def sample(self, obs, nodes):
+        mean, log_std = self.forward(obs, nodes)
         std = log_std.exp()
         normal = Normal(mean, std)
         x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
@@ -183,44 +188,48 @@ class GnnSemantic:
 
         # Interaction Network dimensions
         interaction_dim_edge = 11
-        interaction_dim_node = 9
+        interaction_dim_node = 15
         interaction_dim_mp_i = interaction_dim_edge + 2 * interaction_dim_node
         interaction_dim_phi_i = interaction_dim_node + interaction_dim_edge
 
         star_edge_dim = 6
 
         # Critic Network dimensions
-        dim_rho_critic_input = star_edge_dim + self.dim_body + self.dim_act + interaction_dim_node
+        dim_phi_critic_input = self.dim_body + self.dim_act + 2*interaction_dim_node
+        dim_phi_critic_output = 3 * dim_phi_critic_input
+        dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
 
         # Actor Network dimensions
-        dim_rho_actor_input = star_edge_dim + self.dim_body + interaction_dim_node
+        dim_phi_actor_input = self.dim_body + 2*interaction_dim_node
+        dim_phi_actor_output = 3 * dim_phi_actor_input
+        dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
 
         self.critic = GnnCritic(self.nb_objects, self.dim_body, self.dim_object, interaction_dim_mp_i, interaction_dim_edge, interaction_dim_phi_i,
-                                interaction_dim_node, dim_rho_critic_input, dim_rho_critic_output)
+                                interaction_dim_node, dim_phi_critic_input, dim_rho_critic_output)
         self.critic_target = GnnCritic(self.nb_objects, self.dim_body, self.dim_object, interaction_dim_mp_i, interaction_dim_edge, interaction_dim_phi_i,
-                                       interaction_dim_node, dim_rho_critic_input, dim_rho_critic_output)
-        self.actor = GnnActor(self.nb_objects, self.dim_body, self.dim_object, dim_rho_actor_input, dim_rho_actor_output)
+                                       interaction_dim_node, dim_phi_critic_input, dim_rho_critic_output)
+        self.actor = GnnActor(self.nb_objects, self.dim_body, self.dim_object, dim_phi_actor_input, dim_rho_actor_output)
 
     def policy_forward_pass(self, obs, ag, g, no_noise=False):
         edge_features = self.critic.message_passing(obs, ag, g)
-        updated_nodes, updated_edges = self.critic.forward_interaction(obs, edge_features)
+        updated_nodes = self.critic.forward_interaction(obs, edge_features)
         if not no_noise:
-            self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, updated_nodes, updated_edges)
+            self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, updated_nodes)
         else:
-            _, self.log_prob, self.pi_tensor = self.actor.sample(obs, updated_nodes, updated_edges)
+            _, self.log_prob, self.pi_tensor = self.actor.sample(obs, updated_nodes)
 
     def forward_pass(self, obs, ag, g, actions=None):
         edge_features = self.critic.message_passing(obs, ag, g)
-        updated_nodes, updated_edges = self.critic.forward_interaction(obs, edge_features)
+        updated_nodes = self.critic.forward_interaction(obs, edge_features)
 
-        self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, updated_nodes, updated_edges)
+        self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, updated_nodes)
 
         if actions is not None:
-            self.q1_pi_tensor, self.q2_pi_tensor = self.critic.forward(obs, self.pi_tensor, updated_nodes, updated_edges)
-            return self.critic.forward(obs, actions, updated_nodes, updated_edges)
+            self.q1_pi_tensor, self.q2_pi_tensor = self.critic.forward(obs, self.pi_tensor, updated_nodes)
+            return self.critic.forward(obs, actions, updated_nodes)
         else:
             with torch.no_grad():
-                self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.critic_target.forward(obs, self.pi_tensor, updated_nodes, updated_edges)
+                self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.critic_target.forward(obs, self.pi_tensor, updated_nodes)
             self.q1_pi_tensor, self.q2_pi_tensor = None, None
