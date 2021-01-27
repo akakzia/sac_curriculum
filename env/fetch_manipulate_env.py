@@ -262,19 +262,19 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         achieved_goal = np.squeeze(achieved_goal)
 
         # Reflect achieved goal in goal according to mask
-        # if self.mask is not None:
-        #     desired_goal = achieved_goal * self.mask + self.target_goal * (1 - self.mask)
-        # else:
-        #     desired_goal = self.target_goal.copy()
-        #
-        # desired_goal = np.squeeze(desired_goal)
+        if self.mask is not None:
+            desired_goal = achieved_goal * self.mask + self.target_goal * (1 - self.mask)
+        else:
+            desired_goal = self.target_goal.copy()
+
+        desired_goal = np.squeeze(desired_goal)
 
         return {
             'observation': obs.copy(),
             'achieved_goal': achieved_goal.copy(),
-            'desired_goal': self.target_goal.copy(),
+            'desired_goal': desired_goal.copy(),
             'achieved_goal_binary': achieved_goal.copy(),
-            'desired_goal_binary': self.target_goal.copy()}
+            'desired_goal_binary': desired_goal.copy()}
 
     def _viewer_setup(self):
         body_id = self.sim.model.body_name2id('robot0:gripper_link')
@@ -339,7 +339,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
                 stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
                 z_stack = [0.525, 0.475, 0.425]
             else:
-                n_stacks = np.random.randint(2, self.num_blocks+1)
+                n_stacks = np.random.randint(3, self.num_blocks+1)
                 stack = list(np.random.choice([i for i in range(self.num_blocks)], n_stacks, replace=False))
                 z_stack = [0.425 + 0.025*i for i in reversed(range(n_stacks))]
 

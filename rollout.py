@@ -58,6 +58,8 @@ class RolloutWorker:
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
                 ag_new_bin = observation_new['achieved_goal_binary']
+                g_new = observation_new['desired_goal']
+                g_bin_new = observation_new['desired_goal_binary']
 
 
                 # Append rollouts
@@ -76,6 +78,8 @@ class RolloutWorker:
                 obs = obs_new
                 ag = ag_new
                 ag_bin = ag_new_bin
+                g = g_new
+                g_bin = g_bin_new
 
             ep_obs.append(obs.copy())
             ep_ag.append(ag.copy())
