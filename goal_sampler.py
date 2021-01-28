@@ -122,7 +122,7 @@ class GoalSampler:
 
     def init_stats(self):
         self.stats = dict()
-        for i in range(20):
+        for i in range(4):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_R_{}'.format(i)] = []
         self.stats['epoch'] = []

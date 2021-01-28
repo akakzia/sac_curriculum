@@ -56,7 +56,7 @@ class her_sampler:
                         transitions['g'][her_indexes] = transition_goals
 
                         # Mask sub goals
-                        if count < 6:
+                        if count < 8:
                             count += 1
                             mask_indexes = np.where(np.random.uniform(size=batch_size) < self.mask_p)
                             transition_masks = transitions['masks'][mask_indexes]

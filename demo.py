@@ -61,8 +61,8 @@ def get_env_params(env):
 
 if __name__ == '__main__':
     num_eval = 1
-    path = '/home/akakzia/'
-    model_path = path + 'model_570.pt'
+    path = '/home/silvestre/'
+    model_path = path + 'model_80.pt'
 
     # with open(path + 'config.json', 'r') as f:
     #     params = json.load(f)
@@ -102,7 +102,8 @@ if __name__ == '__main__':
     rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
 
     # eval_goals = goal_sampler.valid_goals
-    eval_goals = get_eval_goals('mixed_3_2', nb_goals=10)
+    eval_goals = get_eval_goals('stack_2', nb_goals=1)
+    eval_masks = np.array([np.zeros(30)])
     if args.algo == 'language':
         language_goal = get_instruction()
         eval_goals = np.array([goal_sampler.valid_goals[0] for _ in range(len(language_goal))])
@@ -111,13 +112,13 @@ if __name__ == '__main__':
     inits = [None] * len(eval_goals)
     all_results = []
     for i in range(num_eval):
-        episodes = rollout_worker.generate_rollout(eval_goals, self_eval=True, true_eval=True, animated=True, language_goal=language_goal)
+        episodes = rollout_worker.generate_rollout(eval_goals, eval_masks, self_eval=True, true_eval=True, animated=True, language_goal=language_goal)
         if args.algo == 'language':
             results = np.array([e['language_goal'] in sentence_from_configuration(e['ag'][-1], all=True) for e in episodes]).astype(np.int)
         elif args.algo == 'continuous':
             results = np.array([e['rewards'][-1] == 3. for e in episodes])
         else:
-            results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
+            results = np.array([str(e['g'][-1]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
         all_results.append(results)
 
     results = np.array(all_results)

@@ -339,7 +339,9 @@ class FetchManipulateEnv(robot_env.RobotEnv):
                 stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
                 z_stack = [0.525, 0.475, 0.425]
             else:
-                n_stacks = np.random.randint(3, self.num_blocks+1)
+                # n_stacks = 3
+                # stack = [2, 1, 0]
+                n_stacks = 3
                 stack = list(np.random.choice([i for i in range(self.num_blocks)], n_stacks, replace=False))
                 z_stack = [0.425 + 0.025*i for i in reversed(range(n_stacks))]
 
@@ -407,12 +409,24 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             self._grasp(idx_grasp)
 
         self.sim.forward()
+        # Step simulation with null action to avoid crushing blocks
+        self._set_action(np.array([0., 0., 0., 0.]))
+        self.sim.step()
+        self._step_callback()
         obs = self._get_obs()
 
         if mask is not None:
-            self.mask = mask
-            self.target_goal = goal * (1 - mask) + obs['achieved_goal'] * mask
-            self.target_goal = np.squeeze(self.target_goal)
+            # ZPD : SP changes the goal of the agent
+            if np.random.uniform() > 1. or not biased_init:
+                self.mask = mask
+                self.target_goal = goal * (1 - mask) + obs['achieved_goal'] * mask
+                self.target_goal = np.squeeze(self.target_goal)
+            else:
+                achieved_stacks = self._get_achieved_stacks(obs['achieved_goal'])
+                goal, mask = self._get_SP_target(achieved_stacks)
+                self.mask = np.expand_dims(mask, axis=0)
+                self.target_goal = goal * (1 - mask) + obs['achieved_goal'] * mask
+                self.target_goal = np.squeeze(self.target_goal)
         else:
             self.target_goal = goal
         obs = self._get_obs()
@@ -424,3 +438,45 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.sim.data.set_joint_qpos('{}:joint'.format(self.object_names[i]), obj.copy())
         self.sim.data.set_joint_qpos('robot0:r_gripper_finger_joint', 0.0240)
         self.sim.data.set_joint_qpos('robot0:l_gripper_finger_joint', 0.0240)
+
+    def _get_achieved_stacks(self, ag):
+        stacks_ids = np.where(ag[10:] == 1.)[0]
+        map_list = list(itertools.permutations(np.arange(self.num_blocks), 2))
+        stacks = np.array(map_list)[stacks_ids]
+        return stacks
+
+    def _get_SP_target(self, stacks):
+        mask = np.ones(self.goal_size)
+        goal = -np.ones(self.goal_size)
+        # middle_blocks = []
+        # n_stacks = stacks.shape[0]
+        # for p in itertools.combinations(np.arange(n_stacks), 2):
+        #     temp = np.intersect1d(stacks[p[0]], stacks[p[1]])
+        #     if len(temp) > 0:
+        #         middle_blocks.append(temp)
+
+        upper_block = 0
+        for i in range(self.num_blocks):
+            count = 0
+            if i in set(stacks.flatten()):
+                for p in stacks:
+                    if p[0] == i:
+                        count += 1
+                    if p[1] == i:
+                        count -= 1
+                if count > 0:
+                    upper_block = i
+
+        new_block = np.random.choice(np.arange(self.num_blocks))
+        while new_block in set(stacks.flatten()):
+            new_block = np.random.choice(np.arange(self.num_blocks))
+
+        map_list = list(itertools.combinations(np.arange(self.num_blocks), 2)) + list(itertools.permutations(np.arange(self.num_blocks), 2))
+
+        ids_m = [i for i in range(len(map_list)) if set(map_list[i]) == {upper_block, new_block}]
+        ids_g = [i for i in range(len(map_list)) if (set(map_list[i]) == {upper_block, new_block} and i < 10) or (map_list[i] == (new_block, upper_block) and i > 9)]
+
+        mask[ids_m] = 0
+        goal[ids_g] = 1.
+
+        return goal, mask

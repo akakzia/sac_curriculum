@@ -163,12 +163,13 @@ def launch(args):
             eval_goals = []
             # instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'stack_3', '2stacks_2_2', '2stacks_2_3', 'pyramid_3',
             #                 'mixed_2_3', 'trapeze_2_3', 'stack_4', 'stack_5']
-            instructions = ['close_1', 'close_3', 'pyramid_3', 'stack_5']
+            instructions = ['pyramid_3', 'stack_3', 'stack_4', 'stack_5']
             for instruction in instructions:
                 eval_goal = get_eval_goals(instruction)
                 eval_goals.append(eval_goal.squeeze(0))
             eval_goals = np.array(eval_goals)
-            eval_goals, eval_masks = get_eval_masks(eval_goals)
+            eval_masks =np.array(np.zeros((eval_goals.shape[0], 30)))
+            # eval_goals, eval_masks = get_eval_masks(eval_goals)
             # ids = np.random.choice(np.arange(len(goal_sampler.discovered_goals)), size=args.n_test_rollouts)
             # eval_goals = np.array(goal_sampler.discovered_goals)[ids]
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
@@ -184,7 +185,7 @@ def launch(args):
             elif args.algo == 'language':
                 results = np.array([e['language_goal'] in sentence_from_configuration(config=e['ag'][-1], all=True) for e in episodes]).astype(np.int)
             else:
-                results = np.array([str(e['g'][0]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
+                results = np.array([str(e['g'][-1]) == str(e['ag'][-1]) for e in episodes]).astype(np.int)
             rewards = np.array([e['rewards'][-1] for e in episodes])
             all_results = MPI.COMM_WORLD.gather(results, root=0)
             all_rewards = MPI.COMM_WORLD.gather(rewards, root=0)
