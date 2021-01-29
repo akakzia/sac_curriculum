@@ -69,9 +69,9 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.p_stack_two = p_stack_two
         self.p_grasp = p_grasp
 
-        self.mask = np.zeros(9)
+        self.goal_size = self.num_blocks * (self.num_blocks - 1) * 3 // 2
 
-        self.goal_size = 0
+        self.mask = np.zeros(self.goal_size)
 
         self.object_names = ['object{}'.format(i) for i in range(self.num_blocks)]
 
@@ -130,7 +130,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             reward = (achieved_goal == goal).all().astype(np.float32)
         else:
             reward = 0.
-            semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
+            semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 7]), np.array([0, 2, 3, 5, 6, 8]), np.array([1, 2, 4, 6, 7, 8])])
             ids = np.where(self.mask != 1.)[1]
             semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
             for subgoal in semantic_ids:
@@ -185,11 +185,12 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
             close_config = np.array([self._is_close(distance) for distance in object_rel_distances])
         if "above" in self.predicates:
-            if self.num_blocks == 3:
-                object_permutations = [(positions[0], positions[1]), (positions[1], positions[0]), (positions[0], positions[2]),
-                                       (positions[2], positions[0]), (positions[1], positions[2]), (positions[2], positions[1])]
-            else:
-                raise NotImplementedError
+            # if self.num_blocks == 3:
+            #     object_permutations = [(positions[0], positions[1]), (positions[1], positions[0]), (positions[0], positions[2]),
+            #                            (positions[2], positions[0]), (positions[1], positions[2]), (positions[2], positions[1])]
+            # else:
+            #     raise NotImplementedError
+            object_permutations = itertools.permutations(positions, 2)
 
             above_config = np.array([is_above(obj[0], obj[1]) for obj in object_permutations])
         
@@ -242,27 +243,26 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         objects_positions = objects_positions.reshape(self.num_blocks, 3)
         object_combinations = itertools.combinations(objects_positions, 2)
         object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
-
-        self.goal_size = len(object_rel_distances)
         
         achieved_goal = self._get_configuration(objects_positions)
 
         achieved_goal = np.squeeze(achieved_goal)
 
         # Reflect achieved goal in goal according to mask
-        # if self.mask is not None:
-        #     desired_goal = achieved_goal * self.mask + self.target_goal * (1 - self.mask)
-        # else:
-        #     desired_goal = self.target_goal.copy()
-        #
-        # desired_goal = np.squeeze(desired_goal)
+        if self.mask is not None:
+            desired_goal = achieved_goal * self.mask + self.target_goal * (1 - self.mask)
+        else:
+            desired_goal = self.target_goal.copy()
+
+        desired_goal = np.squeeze(desired_goal)
 
         return {
             'observation': obs.copy(),
             'achieved_goal': achieved_goal.copy(),
-            'desired_goal': self.target_goal.copy(),
+            'desired_goal': desired_goal.copy(),
             'achieved_goal_binary': achieved_goal.copy(),
-            'desired_goal_binary': self.target_goal.copy()}
+            'desired_goal_binary': desired_goal.copy(),
+            'mask': np.squeeze(self.mask).copy()}
 
     def _viewer_setup(self):
         body_id = self.sim.model.body_name2id('robot0:gripper_link')
@@ -280,13 +280,13 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
     def reset(self):
         # Usual reset overriden by reset_goal, that specifies a goal
-        return self.reset_goal(-np.ones(9), biased_init=False)
+        return self.reset_goal(-np.ones(self.goal_size), biased_init=False)
 
     def _generate_valid_goal(self):
         raise NotImplementedError
 
     def _sample_goal(self):
-        self.target_goal = np.random.choice([-1., 1.], size=9).astype(np.float32)
+        self.target_goal = np.random.choice([-1., 1.], size=self.goal_size).astype(np.float32)
         
         return self.target_goal
 
@@ -322,8 +322,9 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             biased_init: Whether or not to initialize the blocks in non-trivial configuration
         """
         self.sim.set_state(self.initial_state)
-
+        sp = False
         if biased_init and np.random.uniform() > self.p_coplanar:
+            sp = True
             if np.random.uniform() > self.p_stack_two:
                 stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
                 z_stack = [0.525, 0.475, 0.425]
@@ -395,12 +396,24 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             self._grasp(idx_grasp)
 
         self.sim.forward()
+        # Step simulation with null action to avoid crushing blocks
+        self._set_action(np.array([0., 0., 0., 0.]))
+        self.sim.step()
+        self._step_callback()
         obs = self._get_obs()
 
         if mask is not None:
-            self.mask = mask
-            self.target_goal = goal * (1 - mask) + obs['achieved_goal'] * mask
-            self.target_goal = np.squeeze(self.target_goal)
+            # ZPD : SP changes the goal of the agent
+            if not sp:
+                self.mask = mask
+                self.target_goal = goal * (1 - mask) + obs['achieved_goal'] * mask
+                self.target_goal = np.squeeze(self.target_goal)
+            else:
+                achieved_stacks = self._get_achieved_stacks(obs['achieved_goal'])
+                goal, mask = self._get_SP_target(achieved_stacks)
+                self.mask = np.expand_dims(mask, axis=0)
+                self.target_goal = goal * (1 - mask) + obs['achieved_goal'] * mask
+                self.target_goal = np.squeeze(self.target_goal)
         else:
             self.target_goal = goal
         obs = self._get_obs()
@@ -413,14 +426,46 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.sim.data.set_joint_qpos('robot0:r_gripper_finger_joint', 0.0240)
         self.sim.data.set_joint_qpos('robot0:l_gripper_finger_joint', 0.0240)
 
-    def set_new_goal(self, goal, mask):
-        obs = self._get_obs()
+    def _get_achieved_stacks(self, ag):
+        n_comb = self.num_blocks * (self.num_blocks - 1) // 2
+        stacks_ids = np.where(ag[n_comb:] == 1.)[0]
+        map_list = list(itertools.permutations(np.arange(self.num_blocks), 2))
+        stacks = np.array(map_list)[stacks_ids]
+        return stacks
 
-        if mask is not None:
-            self.mask = mask
-            self.target_goal = goal * (1 - mask) + obs['achieved_goal'] * mask
-            self.target_goal = np.squeeze(self.target_goal)
-        else:
-            self.target_goal = goal
-        obs = self._get_obs()
-        return obs
+    def _get_SP_target(self, stacks):
+        n_comb = self.num_blocks * (self.num_blocks - 1) // 2
+        mask = np.ones(self.goal_size)
+        goal = -np.ones(self.goal_size)
+        # middle_blocks = []
+        # n_stacks = stacks.shape[0]
+        # for p in itertools.combinations(np.arange(n_stacks), 2):
+        #     temp = np.intersect1d(stacks[p[0]], stacks[p[1]])
+        #     if len(temp) > 0:
+        #         middle_blocks.append(temp)
+
+        upper_block = 0
+        for i in range(self.num_blocks):
+            count = 0
+            if i in set(stacks.flatten()):
+                for p in stacks:
+                    if p[0] == i:
+                        count += 1
+                    if p[1] == i:
+                        count -= 1
+                if count > 0:
+                    upper_block = i
+
+        new_block = np.random.choice(np.arange(self.num_blocks))
+        while new_block in set(stacks.flatten()):
+            new_block = np.random.choice(np.arange(self.num_blocks))
+
+        map_list = list(itertools.combinations(np.arange(self.num_blocks), 2)) + list(itertools.permutations(np.arange(self.num_blocks), 2))
+
+        ids_m = [i for i in range(len(map_list)) if set(map_list[i]) == {upper_block, new_block}]
+        ids_g = [i for i in range(len(map_list)) if (set(map_list[i]) == {upper_block, new_block} and i < n_comb) or (map_list[i] == (new_block, upper_block) and i >= n_comb)]
+
+        mask[ids_m] = 0
+        goal[ids_g] = 1.
+
+        return goal, mask

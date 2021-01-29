@@ -23,6 +23,7 @@ class RolloutWorker:
             ag_bin = observation['achieved_goal_binary']
             g = observation['desired_goal']
             g_bin = observation['desired_goal_binary']
+            mask = observation['mask']
 
             # in the language condition, we need to sample a language goal
             # here we sampled a configuration goal like in DECSTR, so we just use a language goal describing one of the predicates
@@ -58,6 +59,8 @@ class RolloutWorker:
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
                 ag_new_bin = observation_new['achieved_goal_binary']
+                g_new = observation_new['desired_goal']
+                g_new_bin = observation_new['desired_goal_binary']
 
 
                 # Append rollouts
@@ -70,12 +73,14 @@ class RolloutWorker:
                 ep_rewards.append(r)
                 ep_lg_id.append(lg_id)
                 ep_success.append(info['is_success'])
-                ep_masks.append(np.array(masks[i]).copy())
+                ep_masks.append(mask.copy())
 
                 # Re-assign the observation
                 obs = obs_new
                 ag = ag_new
                 ag_bin = ag_new_bin
+                g = g_new
+                g_bin = g_new_bin
 
             ep_obs.append(obs.copy())
             ep_ag.append(ag.copy())

@@ -19,9 +19,9 @@ class her_sampler:
         self.language = args.algo == 'language'
         self.multi_criteria_her = args.multi_criteria_her
         self.obj_ind = np.array([np.arange(i * 3, (i + 1) * 3) for i in range(3)])
-        self.semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
+        self.semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 7]), np.array([0, 2, 3, 5, 6, 8]), np.array([1, 2, 4, 6, 7, 8])])
 
-        self.mask_ids = np.array([np.array([0, 3, 4]), np.array([1, 5, 6]), np.array([2, 7, 8])])
+        self.mask_ids = np.array([np.array([0, 3, 5]), np.array([1, 4, 7]), np.array([2, 6, 8])])
         self.mask_p = args.mask_p
 
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions):
@@ -118,7 +118,7 @@ def compute_reward_language(ags, lg_ids):
 
 def compute_reward_masks(ag, g, mask):
     reward = 0.
-    semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
+    semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 7]), np.array([0, 2, 3, 5, 6, 8]), np.array([1, 2, 4, 6, 7, 8])])
     ids = np.where(mask != 1.)[0]
     semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
     for subgoal in semantic_ids:
