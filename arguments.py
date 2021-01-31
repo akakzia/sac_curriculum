@@ -31,7 +31,7 @@ def get_args():
     parser.add_argument('--embedding-size', type=int, default=20, help='embedding size of the encoded language instructions')
 
     parser.add_argument('--normalize-goal', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
-    parser.add_argument('--start-biased-init', type=int, default=10, help='Number of epoch before biased initializations start')
+    parser.add_argument('--start-biased-init', type=int, default=15, help='Number of epoch before biased initializations start')
     parser.add_argument('--self-eval-prob', type=float, default=0.1, help='Probability to perform self-evaluation')
 
     parser.add_argument('--evaluations', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
