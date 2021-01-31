@@ -118,7 +118,8 @@ def compute_reward_language(ags, lg_ids):
 
 def compute_reward_masks(ag, g, mask):
     reward = 0.
-    semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 7]), np.array([0, 2, 3, 5, 6, 8]), np.array([1, 2, 4, 6, 7, 8])])
+    # semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 7]), np.array([0, 2, 3, 5, 6, 8]), np.array([1, 2, 4, 6, 7, 8])])
+    semantic_ids = np.array([np.array([0, 3, 5]), np.array([1, 4, 7]), np.array([2, 6, 8])])
     # ids = np.where(mask != 1.)[0]
     # semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
     for subgoal in semantic_ids:
