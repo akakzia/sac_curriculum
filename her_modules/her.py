@@ -4,7 +4,7 @@ from language.build_dataset import sentence_from_configuration
 from utils import id_to_language, language_to_id
 
 
-MC_MASK = False
+MC_MASK = True
 
 class her_sampler:
     def __init__(self, args, reward_func=None):
