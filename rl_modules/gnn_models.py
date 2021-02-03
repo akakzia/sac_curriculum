@@ -26,7 +26,8 @@ class GnnCritic(nn.Module):
         self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 256, dim_phi_critic_output)
         self.rho_critic = RhoCriticDeepSet(dim_rho_critic_input, dim_rho_critic_output)
 
-        self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        # self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        self.connectivity_mask = torch.tensor([[1, 0, 1, 0, 0, 0], [0, 1, 0, 0, 1, 0], [0, 0, 0, 1, 0, 1]])
 
     def forward(self, obs, act, edge_features):
         batch_size = obs.shape[0]
@@ -39,8 +40,13 @@ class GnnCritic(nn.Module):
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
+        connectivity_mask = self.connectivity_mask.unsqueeze(0).repeat(batch_size, 1, 1).permute(1, 0, 2)
+        neighborhood_features = [(connectivity_mask[i] * edge_features.T).T for i in range(3)]
+
         if self.aggregation == 'max':
-            inp = torch.stack([torch.cat([act, obs_body, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
+            # inp = torch.stack([torch.cat([act, obs_body, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
+            #                    for i, obj in enumerate(obs_objects)])
+            inp = torch.stack([torch.cat([act, obs_body, obj, torch.max(neighborhood_features[i], dim=0).values], dim=1)
                                for i, obj in enumerate(obs_objects)])
         elif self.aggregation == 'sum':
             inp = torch.stack([torch.cat([act, obs_body, obj, torch.sum(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
@@ -50,7 +56,6 @@ class GnnCritic(nn.Module):
                                for i, obj in enumerate(obs_objects)])
         else:
             raise NotImplementedError
-
         output_phi_critic_1, output_phi_critic_2 = self.phi_critic(inp)
         if self.readout == 'sum':
             output_phi_critic_1 = output_phi_critic_1.sum(dim=0)
@@ -105,7 +110,8 @@ class GnnActor(nn.Module):
         self.phi_actor = PhiActorDeepSet(dim_phi_actor_input, 256, dim_phi_actor_output)
         self.rho_actor = RhoActorDeepSet(dim_rho_actor_input, dim_rho_actor_output)
 
-        self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        # self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        self.connectivity_mask = torch.tensor([[1, 0, 1, 0, 0, 0], [0, 1, 0, 0, 1, 0], [0, 0, 0, 1, 0, 1]])
 
         # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
 
@@ -120,9 +126,14 @@ class GnnActor(nn.Module):
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
+        connectivity_mask = self.connectivity_mask.unsqueeze(0).repeat(batch_size, 1, 1).permute(1, 0, 2)
+        neighborhood_features = [(connectivity_mask[i] * edge_features.T).T for i in range(3)]
+
         if self.aggregation == 'max':
-            inp = torch.stack([torch.cat([obs_body, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
-                                       for i, obj in enumerate(obs_objects)])
+            # inp = torch.stack([torch.cat([obs_body, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
+            #                            for i, obj in enumerate(obs_objects)])
+            inp = torch.stack([torch.cat([obs_body, obj, torch.max(neighborhood_features[i], dim=0).values], dim=1)
+                               for i, obj in enumerate(obs_objects)])
         elif self.aggregation == 'sum':
             inp = torch.stack([torch.cat([obs_body, obj, torch.sum(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
                                for i, obj in enumerate(obs_objects)])
