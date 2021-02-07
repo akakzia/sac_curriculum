@@ -44,24 +44,60 @@ class GoalSampler:
         Sample n_goals goals to be targeted during rollouts
         evaluation controls whether or not to sample the goal uniformly or according to curriculum
         """
-        if evaluation and len(self.discovered_goals) > 0:
-            goals = np.random.choice(self.discovered_goals, size=self.num_rollouts_per_mpi)
-            masks = np.zeros((n_goals, self.goal_dim))
-            self_eval = False
-        else:
-            if len(self.discovered_goals) == 0:
-                goals = np.random.choice([-1., 1.], size=(n_goals, self.goal_dim))
-                # masks = np.zeros((n_goals, self.goal_dim))
-                masks = np.random.choice([0., 1.], size=(n_goals, self.goal_dim))
-                self_eval = False
-            # if no curriculum learning
-            else:
-                # sample uniformly from discovered goals
-                goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
-                goals = np.array(self.discovered_goals)[goal_ids]
-                masks = np.array(self.masks_list)[np.random.choice(range(self.n_masks), size=n_goals)]
-                self_eval = False
+        goals, masks = self.sample_atomic(n_goals)
+        self_eval = False
+        # if evaluation and len(self.discovered_goals) > 0:
+        #     goals = np.random.choice(self.discovered_goals, size=self.num_rollouts_per_mpi)
+        #     masks = np.zeros((n_goals, self.goal_dim))
+        #     self_eval = False
+        # else:
+        #     if len(self.discovered_goals) == 0:
+        #         # goals = np.random.choice([-1., 1.], size=(n_goals, self.goal_dim))
+        #         # # masks = np.zeros((n_goals, self.goal_dim))
+        #         # masks = np.random.choice([0., 1.], size=(n_goals, self.goal_dim))
+        #         goals, masks = self.sample_atomic(n_goals)
+        #         self_eval = False
+        #     # if no curriculum learning
+        #     else:
+        #         # sample uniformly from discovered goals
+        #         goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
+        #         goals = np.array(self.discovered_goals)[goal_ids]
+        #         masks = np.array(self.masks_list)[np.random.choice(range(self.n_masks), size=n_goals)]
+        #         self_eval = False
         return goals, masks, self_eval
+
+    def sample_atomic(self, n_goals):
+        """
+        Sample n_goals as atomic relations, ie far, close x2, above only one pair
+        """
+        all_atomic_goals = np.array([[-1., -1., -1.], [1., -1., -1.], [1., 1., -1.], [1., -1., 1.]])
+        atomic_goals_ids = np.random.choice(np.arange(len(all_atomic_goals)), size=n_goals)
+        all_masks = np.array([[0, 1, 1, 0, 1, 0, 1, 1, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 1, 0, 1, 1, 1, 0, 1, 0]])
+        masks_ids = np.random.choice(np.arange(len(all_masks)), size=n_goals)
+        all_unmasked_ids = np.array([[0, 3, 5], [1, 4, 7], [2, 6, 8]])
+        unmasked_ids = all_unmasked_ids[masks_ids]
+        goals = np.zeros((n_goals, self.goal_dim))
+        goals[0, unmasked_ids[0]] = all_atomic_goals[atomic_goals_ids][0]
+        goals[1, unmasked_ids[1]] = all_atomic_goals[atomic_goals_ids][1]
+        masks = all_masks[masks_ids]
+
+        return goals, masks
+
+    def sample_sp_goal(self, n_goals):
+        all_masks = np.array([[0, 1, 1, 0, 1, 0, 1, 1, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 1, 0, 1, 1, 1, 0, 1, 0]])
+        masks_ids = np.random.choice(np.arange(len(all_masks)), size=n_goals)
+        all_unmasked_ids = np.array([[0, 3, 5], [1, 4, 7], [2, 6, 8]])
+        unmasked_ids = all_unmasked_ids[masks_ids]
+
+        all_atomic_goals = np.array([[1., -1., -1.], [1., 1., -1.], [1., -1., 1.]])
+        atomic_goals_ids = np.random.choice(np.arange(len(all_atomic_goals)), size=n_goals)
+
+        goals = np.zeros((n_goals, self.goal_dim))
+        goals[0, unmasked_ids[0]] = all_atomic_goals[atomic_goals_ids][0]
+        goals[1, unmasked_ids[1]] = all_atomic_goals[atomic_goals_ids][1]
+        masks = all_masks[masks_ids]
+
+        return goals, masks
 
     def update(self, episodes, t):
         """
