@@ -43,10 +43,7 @@ class RolloutWorker:
                 ep_masks = []
 
                 # Start to collect samples
-                t = 0
-                s = False
-                while t < self.env_params['max_timesteps'] and not s:
-                # for t in range(self.env_params['max_timesteps']):
+                for t in range(self.env_params['max_timesteps']):
                     # Run policy for one step
                     no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
                     # if self.args.algo == 'language':
@@ -132,9 +129,7 @@ class RolloutWorker:
                 ep_masks = []
 
                 # Start to collect samples
-                t = 0
-                s = False
-                while t < self.env_params['max_timesteps'] and not s:
+                for t in range(self.env_params['max_timesteps']):
                     # Run policy for one step
                     no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
                     # if self.args.algo == 'language':
@@ -172,8 +167,6 @@ class RolloutWorker:
                     ag_bin = ag_new_bin
                     g = g_new
                     g_bin = g_new_bin
-                    s = info['is_success'] and obs[2] > 0.55
-                    t = t + 1
 
                 ep_obs.append(obs.copy())
                 ep_ag.append(ag.copy())
