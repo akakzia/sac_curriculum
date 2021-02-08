@@ -9,7 +9,7 @@ from mpi_utils import logger
 
 
 ALL_MASKS = True
-
+BIAS_SP = 0.5
 
 class GoalSampler:
     def __init__(self, args):
@@ -39,12 +39,12 @@ class GoalSampler:
 
         self.init_stats()
 
-    def sample_goal(self, n_goals, evaluation):
+    def sample_goal(self, n_goals, evaluation, bias):
         """
         Sample n_goals goals to be targeted during rollouts
         evaluation controls whether or not to sample the goal uniformly or according to curriculum
         """
-        goals, masks = self.sample_atomic(n_goals)
+        goals, masks = self.sample_atomic(n_goals, bias)
         self_eval = False
         # if evaluation and len(self.discovered_goals) > 0:
         #     goals = np.random.choice(self.discovered_goals, size=self.num_rollouts_per_mpi)
@@ -66,20 +66,39 @@ class GoalSampler:
         #         self_eval = False
         return goals, masks, self_eval
 
-    def sample_atomic(self, n_goals):
+    def sample_atomic(self, n_goals, bias):
         """
         Sample n_goals as atomic relations, ie far, close x2, above only one pair
         """
-        all_atomic_goals = np.array([[-1., -1., -1.], [1., -1., -1.], [1., 1., -1.], [1., -1., 1.]])
-        atomic_goals_ids = np.random.choice(np.arange(len(all_atomic_goals)), size=n_goals)
-        all_masks = np.array([[0, 1, 1, 0, 1, 0, 1, 1, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 1, 0, 1, 1, 1, 0, 1, 0]])
-        masks_ids = np.random.choice(np.arange(len(all_masks)), size=n_goals)
-        all_unmasked_ids = np.array([[0, 3, 5], [1, 4, 7], [2, 6, 8]])
-        unmasked_ids = all_unmasked_ids[masks_ids]
-        goals = np.zeros((n_goals, self.goal_dim))
-        goals[0, unmasked_ids[0]] = all_atomic_goals[atomic_goals_ids][0]
-        goals[1, unmasked_ids[1]] = all_atomic_goals[atomic_goals_ids][1]
-        masks = all_masks[masks_ids]
+        if not bias or np.random.uniform() > BIAS_SP:
+            all_atomic_goals = np.array([[-1., -1., -1.], [1., -1., -1.], [1., 1., -1.], [1., -1., 1.]])
+            atomic_goals_ids = np.random.choice(np.arange(len(all_atomic_goals)), size=n_goals)
+            all_masks = np.array([[0, 1, 1, 0, 1, 0, 1, 1, 1], [1, 0, 1, 1, 0, 1, 1, 0, 1], [1, 1, 0, 1, 1, 1, 0, 1, 0]])
+            masks_ids = np.random.choice(np.arange(len(all_masks)), size=n_goals)
+            all_unmasked_ids = np.array([[0, 3, 5], [1, 4, 7], [2, 6, 8]])
+            unmasked_ids = all_unmasked_ids[masks_ids]
+            goals = np.zeros((n_goals, self.goal_dim))
+            goals[0, unmasked_ids[0]] = all_atomic_goals[atomic_goals_ids][0]
+            goals[1, unmasked_ids[1]] = all_atomic_goals[atomic_goals_ids][1]
+            masks = all_masks[masks_ids]
+        else:
+            a = [np.array([[1., 0., 0., 1., 0., -1., 0., 0., 0.], [0., 0., 1., 0., 0., 0., 1., 0., -1.]]),
+                 np.array([[0., 1., 0., 0., 1., 0., 0., -1., 0.], [0., 0., 1., 0., 0., 0., -1., 0., 1.]]),
+                 np.array([[1., 0., 0., -1., 0., 1., 0., 0., 0.], [0., 1., 0., 0., 1., 0., 0., -1., 0.]]),
+                 np.array([[0., 0., 1., 0., 0., 0., 1., 0., -1.], [0., 1., 0., 0., -1., 0., 0., 1., 0.]]),
+                 np.array([[0., 1., 0., 0., -1., 0., 0., 1., 0.], [1., 0., 0., 1., 0., -1., 0., 0., 0.]]),
+                 np.array([[0., 0., 1., 0., 0., 0., -1., 0., 1.], [1., 0., 0., -1., 0., 1., 0., 0., 0.]])]
+
+            b = [np.array([[0., 1., 1., 0., 1., 0., 1., 1., 1.], [1., 1., 0., 1., 1., 1., 0., 1., 0.]]),
+                 np.array([[1., 0., 1., 1., 0., 1., 1., 0., 1.], [1., 1., 0., 1., 1., 1., 0., 1., 0.]]),
+                 np.array([[0., 1., 1., 0., 1., 0., 1., 1., 1.], [1., 0., 1., 1., 0., 1., 1., 0., 1.]]),
+                 np.array([[1., 1., 0., 1., 1., 1., 0., 1., 0.], [1., 0., 1., 1., 0., 1., 1., 0., 1.]]),
+                 np.array([[1., 0., 1., 1., 0., 1., 1., 0., 1.], [0., 1., 1., 0., 1., 0., 1., 1., 1.]]),
+                 np.array([[1., 1., 0., 1., 1., 1., 0., 1., 0.], [0., 1., 1., 0., 1., 0., 1., 1., 1.]])]
+
+            ids = np.random.choice(np.arange(len(a)))
+            goals = np.array(a)[ids]
+            masks = np.array(b)[ids]
 
         return goals, masks
 
@@ -126,6 +145,8 @@ class GoalSampler:
                         new_goal_found = True
                         self.discovered_goals.append(e['ag_binary'][-1].copy())
                         self.discovered_goals_str.append(str(e['ag_binary'][-1]))
+                    e['g'][:, :] = all_episode_list[-1]['g'][-1]
+
 
         self.sync()
 

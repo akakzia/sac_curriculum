@@ -87,21 +87,20 @@ def launch(args):
 
         # Cycles loop
         for _ in range(args.n_cycles):
-
-            # Sample goals
-            t_i = time.time()
-            goals, masks, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False)
-            if args.algo == 'language':
-                language_goal_ep = np.random.choice(language_goal, size=args.num_rollouts_per_mpi)
-            else:
-                language_goal_ep = None
-            time_dict['goal_sampler'] += time.time() - t_i
-
             # Control biased initializations
             if epoch < args.start_biased_init:
                 biased_init = False
             else:
                 biased_init = args.biased_init
+
+            # Sample goals
+            t_i = time.time()
+            goals, masks, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False, bias=biased_init)
+            if args.algo == 'language':
+                language_goal_ep = np.random.choice(language_goal, size=args.num_rollouts_per_mpi)
+            else:
+                language_goal_ep = None
+            time_dict['goal_sampler'] += time.time() - t_i
 
             # Environment interactions
             t_i = time.time()
