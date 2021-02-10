@@ -4,12 +4,62 @@ import env
 import gym
 from utils import generate_goals, generate_all_goals_in_goal_space
 
-def label_transitions(transitions, predicates, colors, n='all'):
+def label_transitions(transitions, predicates, colors, n='all', add_abstract=True):
     data_configs, data_sentences = [], []
     # get all possible transitions between configs and corresponding sentence from dataset
     for transition in transitions:
         delta = transition[1] - transition[0]
         sentences = []
+
+        if add_abstract:
+            if transitions[1][:3].sum() == 3:
+                sentences.append('Put them all close')
+                sentences.append('Get them all close')
+            if transitions[1][3:].sum() == 1:
+                sentences.append('Make a tower')
+                sentences.append('Build a tower')
+                sentences.append('Stack some blocks')
+                sentences.append('Make a stack of two')
+                sentences.append('Make a tower of two')
+                sentences.append('Build a tower of two')
+                sentences.append('Stack two blocks')
+                sentences.append('Make a construction')
+                sentences.append('Build a construction')
+                if int(predicates[np.argwhere(transitions[1][3:]==1) + 3][5]) == 0:
+                    sentences.append('Put red on top')
+                    sentences.append('Get red on top')
+                if int(predicates[np.argwhere(transitions[1][3:]==1) + 3][5]) == 1:
+                    sentences.append('Put green on top')
+                    sentences.append('Get green on top')
+                if int(predicates[np.argwhere(transitions[1][3:]==1) + 3][5]) == 2:
+                    sentences.append('Put blue on top')
+                    sentences.append('Get blue on top')
+            if transitions[1][3:].sum() == 2:
+                if transitions[1][np.array([3,5])].sum() == 2 or transitions[1][np.array([4, 7])].sum() == 2 or transitions[1][np.array([8, 6])].sum() == 2:
+                    sentences.append('Make a pyramid')
+                    sentences.append('Build a pyramid')
+                    sentences.append('Make a construction')
+                    sentences.append('Build a construction')
+                else:
+                    sentences.append('Make a tower')
+                    sentences.append('Build a tower')
+                    sentences.append('Stack some blocks')
+                    sentences.append('Make a stack of three')
+                    sentences.append('Make a tower of three')
+                    sentences.append('Build a tower of three')
+                    sentences.append('Stack two blocks')
+                    sentences.append('Make a construction')
+                    sentences.append('Build a construction')
+                    if (transitions[1][3] == 1 and transitions[1][7] == 1) or (transitions[1][5] == 1 and transitions[1][8] == 1):
+                        sentences.append('Put red on top')
+                        sentences.append('Get red on top')
+                    if (transitions[1][4] == 1 and transitions[1][5] == 1) or (transitions[1][7] == 1 and transitions[1][6] == 1):
+                        sentences.append('Put green on top')
+                        sentences.append('Get green on top')
+                    if (transitions[1][6] == 1 and transitions[1][3] == 1) or (transitions[1][8] == 1 and transitions[1][4] == 1):
+                        sentences.append('Put blue on top')
+                        sentences.append('Get blue on top')
+
         for i in range(len(predicates)):
             if delta[i] != 0:
                 p = predicates[i]
@@ -71,7 +121,6 @@ def label_transitions(transitions, predicates, colors, n='all'):
 def get_dataset(binary=True):
     unique_reached_config_transitions, predicates, \
     predicate_to_id, id_to_predicate, colors = get_data(binary)
-    env = gym.make('FetchManipulate3ObjectsContinuous-v0')
 
     # get synthetic valid goals
     all_valid_goals = []
