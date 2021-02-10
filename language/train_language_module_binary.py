@@ -64,6 +64,9 @@ def main(args):
     with open(SAVE_PATH + 'inst_to_one_hot.pkl', 'wb') as f:
         pickle.dump(inst_to_one_hot, f)
 
+    with open(SAVE_PATH + 'sentences_list.pkl', 'wb') as f:
+        pickle.dump(sorted(set_sentences), f)
+
     all_str = ['start' + str(c[0]) + s + str(c[1]) +'end' for c, s in zip(configs, sentences)]
     all_possible_configs_str = [str(c[0]) + s for c, s in zip(all_possible_configs, all_possible_sentences)]
 
@@ -77,7 +80,7 @@ def main(args):
     remove2_str = ['start' + str(np.array(r)) for r in remove2]
 
     # Test set 3
-    remove3 = ['Put green on_top_of red', 'Put blue far_from red']
+    remove3 = ['Put green on_top_of red', 'Put blue far_from red', 'Put green on top', 'Get green on top', 'Make a construction', 'Build a stack of two', 'Make a stack of two']
     remove3_str = remove3.copy()
 
     # Find indices of the different sets in the total dataset.
@@ -210,8 +213,17 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
         nb_cf_dataset = []
         found_beyond_dataset = []
         valid_goals = []
+        results_per_sentence = dict()
         data_set = get_test_sets(configs, sentences, set_inds[i_gen], all_possible_configs, str_to_index)
         for c_i, s, c_f_dataset, c_f_possible in zip(*data_set):
+            if s not in results_per_sentence.keys():
+                results_per_sentence[s] = dict(proba_valid=[],
+                                               coverage_possible=[],)
+                                               # coverage_dataset=[],
+                                               # nb_valid_goals_dataset=[],
+                                               # nb_valid_goals_oracle=[],
+                                               # nb_valid_goals_not_dataset=[],
+                                               # nb_different_valid_goals=[])
             c_f_possible = set(c_f_possible)
             c_f_dataset = set(c_f_dataset)
             count += 1
@@ -252,6 +264,26 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
             false_preds.append(count_false_pred / factor)
             nb_cf_possible.append(len(c_f_possible))
             nb_cf_dataset.append(len(c_f_dataset))
+
+            results_per_sentence[s]['proba_valid'].append(1-(count_false_pred / factor))
+            results_per_sentence[s]['coverage_possible'].append(count_found_possible / len(c_f_possible))
+            # results_per_sentence[s]['coverage_dataset'].append(count_found_dataset / len(c_f_dataset))
+            # results_per_sentence[s]['nb_valid_goals_dataset'].append(len(c_f_dataset))
+            # results_per_sentence[s]['nb_valid_goals_oracle'].append(len(c_f_possible))
+            # results_per_sentence[s]['nb_valid_goals_not_dataset'].append(count_found_not_dataset)
+            # results_per_sentence[s]['nb_different_valid_goals'].append(count_found_possible)
+
+
+        for s in results_per_sentence.keys():
+            filter = ['Remove', 'Put blue', 'Put green', 'Put red', 'Get red', 'Get blue', 'Get green', 'apart', 'together']
+            exceptions = ['Put red on ', 'Put blue on ', 'Put green on ', 'Get red on ', 'Get green on ', 'Get blue on ']
+            if any([f in s for f in filter]) and not any([e in s for e in exceptions]):
+                continue
+            else:
+                print(s)
+                for k in results_per_sentence[s]:
+                    print('\t', k, ':', np.mean(results_per_sentence[s][k]))
+
         print('\n{}: Probability that a sampled goal is valid {}'.format(set_name, 1 - np.mean(false_preds)))
         print('{}: Number of different valid sampled goals: {}'.format(set_name, np.mean(valid_goals)))
         print('{}: Number of valid sampled goals not in dataset: {}'.format(set_name, np.mean(found_beyond_dataset)))

@@ -9,7 +9,7 @@ def get_data(binary=True):
         reached_config_transitions = pickle.load(f)
 
 
-    reached_config_transitions = reached_config_transitions[:5000]
+    reached_config_transitions = reached_config_transitions#[:6000]
 
     predicates = ['close_0_1',
                   'close_0_2',

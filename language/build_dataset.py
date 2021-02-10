@@ -10,32 +10,32 @@ def label_transitions(transitions, predicates, colors, n='all', add_abstract=Tru
     for transition in transitions:
         delta = transition[1] - transition[0]
         sentences = []
-
         if add_abstract:
-            if transitions[1][:3].sum() == 3:
+            if transition[1][:3].sum() == 3:
                 sentences.append('Put them all close')
                 sentences.append('Get them all close')
-            if transitions[1][3:].sum() == 1:
+            if transition[1][3:].sum() == 1:
                 sentences.append('Make a tower')
                 sentences.append('Build a tower')
                 sentences.append('Stack some blocks')
                 sentences.append('Make a stack of two')
                 sentences.append('Make a tower of two')
                 sentences.append('Build a tower of two')
+                sentences.append('Build a stack of two')
                 sentences.append('Stack two blocks')
                 sentences.append('Make a construction')
                 sentences.append('Build a construction')
-                if int(predicates[np.argwhere(transitions[1][3:]==1) + 3][5]) == 0:
+                if int(predicates[int(np.argwhere(transition[1][3:]==1)) + 3][6]) == 0:
                     sentences.append('Put red on top')
                     sentences.append('Get red on top')
-                if int(predicates[np.argwhere(transitions[1][3:]==1) + 3][5]) == 1:
+                if int(predicates[int(np.argwhere(transition[1][3:]==1)) + 3][6]) == 1:
                     sentences.append('Put green on top')
                     sentences.append('Get green on top')
-                if int(predicates[np.argwhere(transitions[1][3:]==1) + 3][5]) == 2:
+                if int(predicates[int(np.argwhere(transition[1][3:]==1)) + 3][6]) == 2:
                     sentences.append('Put blue on top')
                     sentences.append('Get blue on top')
-            if transitions[1][3:].sum() == 2:
-                if transitions[1][np.array([3,5])].sum() == 2 or transitions[1][np.array([4, 7])].sum() == 2 or transitions[1][np.array([8, 6])].sum() == 2:
+            if transition[1][3:].sum() == 2:
+                if transition[1][np.array([3,5])].sum() == 2 or transition[1][np.array([4, 7])].sum() == 2 or transition[1][np.array([8, 6])].sum() == 2:
                     sentences.append('Make a pyramid')
                     sentences.append('Build a pyramid')
                     sentences.append('Make a construction')
@@ -46,20 +46,21 @@ def label_transitions(transitions, predicates, colors, n='all', add_abstract=Tru
                     sentences.append('Stack some blocks')
                     sentences.append('Make a stack of three')
                     sentences.append('Make a tower of three')
+                    sentences.append('Build a stack of three')
                     sentences.append('Build a tower of three')
                     sentences.append('Stack two blocks')
                     sentences.append('Make a construction')
                     sentences.append('Build a construction')
-                    if (transitions[1][3] == 1 and transitions[1][7] == 1) or (transitions[1][5] == 1 and transitions[1][8] == 1):
+                    if (transition[1][3] == 1 and transition[1][7] == 1) or (transition[1][5] == 1 and transition[1][8] == 1):
                         sentences.append('Put red on top')
                         sentences.append('Get red on top')
-                    if (transitions[1][4] == 1 and transitions[1][5] == 1) or (transitions[1][7] == 1 and transitions[1][6] == 1):
+                    if (transition[1][4] == 1 and transition[1][5] == 1) or (transition[1][7] == 1 and transition[1][6] == 1):
                         sentences.append('Put green on top')
                         sentences.append('Get green on top')
-                    if (transitions[1][6] == 1 and transitions[1][3] == 1) or (transitions[1][8] == 1 and transitions[1][4] == 1):
+                    if (transition[1][6] == 1 and transition[1][3] == 1) or (transition[1][8] == 1 and transition[1][4] == 1):
                         sentences.append('Put blue on top')
                         sentences.append('Get blue on top')
-
+        abstract_sentences = sentences.copy()
         for i in range(len(predicates)):
             if delta[i] != 0:
                 p = predicates[i]
@@ -113,7 +114,13 @@ def label_transitions(transitions, predicates, colors, n='all', add_abstract=Tru
                     data_sentences += sentences
                     data_configs += [transition.copy()] * len(sentences)
                 else:
-                    data_sentences += np.array(np.random.choice(sentences, size=n, replace=False)).flatten().tolist()
+                    if len(abstract_sentences) > 0:
+                        if np.random.rand() < 0.5:
+                            data_sentences += np.array(np.random.choice(abstract_sentences, size=n, replace=False)).flatten().tolist()
+                        else:
+                            data_sentences += np.array(np.random.choice(sentences, size=n, replace=False)).flatten().tolist()
+                    else:
+                        data_sentences += np.array(np.random.choice(sentences, size=n, replace=False)).flatten().tolist()
                     data_configs += [transition.copy()] * n
     return data_configs.copy(), data_sentences.copy()
 
