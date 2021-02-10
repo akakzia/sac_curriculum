@@ -28,10 +28,10 @@ colors = [[0, 0.447, 0.7410], [0.85, 0.325, 0.098],  [0.466, 0.674, 0.188], [0.9
 
 RESULTS_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/results/'
 SAVE_PATH = '/home/flowers/Desktop/Scratch/sac_curriculum/results/plots/'
-TO_PLOT = ['ablations','DECSTR', 'baselines','PRE', ]# 'study','plafrim', 'jz',   'tests', 'init_study', 'symmetry_bias', 'tests']
+TO_PLOT = ['lp_study'] #'baselines','ablations']#,'DECSTR', 'baselines','PRE', ]# 'study','plafrim', 'jz',   'tests', 'init_study', 'symmetry_bias', 'tests']
 
-LINE = 'mean'
-ERR = 'std'
+LINE = 'median'
+ERR = 'interquartile'
 DPI = 30
 N_SEEDS = None
 N_EPOCHS = None
@@ -462,35 +462,53 @@ if __name__ == '__main__':
             print('# epochs: {}, # seeds: {}'.format(min_len, min_seeds))
             # plot_c_lp_p_sr(experiment_path)
             conditions = ['DECSTR',
-                          'Flat',
                           'Without Curriculum',
+                          'Expert Buckets',
                           'Without Symmetry',
-                          'Without ZPD']
+                          'Flat',
+                          'Without ZPD',
+
+                          ]
             labels =  ['DECSTR',
-                       'Flat',
                        'w/o Curr.',
+                       'Exp. Buckets',
                        'w/o Asym.',
-                       'w/o ZPD']
+                       'Flat',
+                       'w/o ZPD',
+                       ]
             sr_per_cond_stats = get_mean_sr(experiment_path, max_len, max_seeds, conditions,labels,  ref='DECSTR')
+
+        if PLOT == 'lp_study':
+            max_len, max_seeds, min_len, min_seeds = check_length_and_seeds(experiment_path=experiment_path)
+            print('# epochs: {}, # seeds: {}'.format(min_len, min_seeds))
+            conditions = ['DECSTR',
+                          'lp_collection',
+                          'lp_exploitation',
+                          'no_lp'
+                          ]
+            labels = ['LP collection & exploitation',
+                      'LP collection',
+                      'LP exploitation',
+                      'No LP',
+                      ]
+            sr_per_cond_stats = get_mean_sr(experiment_path, max_len, max_seeds, conditions, labels, ref='DECSTR')
         if PLOT == 'baselines':
             max_len, max_seeds, min_len, min_seeds = check_length_and_seeds(experiment_path=experiment_path)
             print('# epochs: {}, # seeds: {}'.format(min_len, min_seeds))
             # plot_c_lp_p_sr(experiment_path)
             conditions = ['DECSTR',
-                          'Expert Buckets',
-                          'Language Goals',
-                          'Positions Goals']
+                          # 'Expert Buckets',
+                          # 'Language Goals',
+                          'LGB-C']
             labels = ['DECSTR',
-                          'Exp. Buckets',
-                          'Lang. Goals',
-                          'Pos. Goals']
+                      # 'Lang. Goals',
+                      'LGB-C']
             sr_per_cond_stats = get_mean_sr(experiment_path, max_len, max_seeds, conditions, labels, ref='DECSTR')
 
 
         if PLOT == 'DECSTR':
             max_len, max_seeds, min_len, min_seeds = check_length_and_seeds(experiment_path=experiment_path)
             plot_c_lp_p_sr(experiment_path)
-
             plot_sr_av(max_len, experiment_path, PLOT)
             plot_lp_av(max_len, experiment_path, PLOT)
 

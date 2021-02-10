@@ -1,5 +1,5 @@
 import torch
-from rl_modules.sac_agent import SACAgent
+from rl_modules.rl_agent import RLAgent
 import env
 import gym
 import numpy as np
@@ -87,10 +87,10 @@ def rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, env
         if sentence.lower() in inst_to_one_hot.keys():
             counter = 0
             while counter < 5:
-                goal = sample_vae(vae, inst_to_one_hot, observation['achieved_goal'], sentence).flatten()
+                # goal = sample_vae(vae, inst_to_one_hot, observation['achieved_goal'], sentence).flatten()
 
                 # goal = dict_goals[np.random.choice(list(goals_str))]
-                env.unwrapped.target_goal = goal.copy()
+                # env.unwrapped.target_goal = goal.copy()
                 observation = env.unwrapped._get_obs()
                 obs = observation['observation']
                 ag = observation['achieved_goal']
@@ -100,7 +100,7 @@ def rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, env
                 for t in range(env_params['max_timesteps']):
                     # run policy
                     no_noise = self_eval or true_eval
-                    action = policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
+                    action = policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=sentence)
                     # feed the actions into the environment
                     if animated:
                         env.render()
@@ -110,7 +110,7 @@ def rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, env
                 counter += 1
                 config_final = ag.copy()
                 true_sentences = sentence_generator(config_initial, config_final)
-                if sentence in true_sentences:
+                if sentence.lower() in true_sentences:
                     score.append(counter)
                     reached = True
                     print('\tSuccess!')
@@ -129,7 +129,7 @@ def rollout(sentence_generator, vae, sentences, inst_to_one_hot, dict_goals, env
 
 if __name__ == '__main__':
     num_eval = 5
-    path = './trained_model/'
+    path = './results/baselines/eval_LB/'
 
     with open(path + 'config.json', 'r') as f:
         params = json.load(f)
@@ -166,51 +166,55 @@ if __name__ == '__main__':
     dict_goals = dict(zip([str(g) for g in all_goals], all_goals))
 
     # Load policy
-    model_path = path + 'policy_model.pt'
-    # create the sac agent to interact with the environment
-    if args.agent == "SAC":
-        policy = SACAgent(args, env.compute_reward, goal_sampler)
-        policy.load(model_path, args)
-    else:
-        raise NotImplementedError
+    all_av_not_0 = []
+    all_ratio_success = []
+    all_ratio_success_1 = []
+    for i in range(5):
+        print("Seed: ", i + 1)
+        model_path = path + 'policy_models/model{}.pt'.format(i+1)
+        # create the sac agent to interact with the environment
+        if args.agent == "SAC":
+            policy = SACAgent(args, env.compute_reward, goal_sampler)
+            policy.load(model_path, args)
+        else:
+            raise NotImplementedError
 
-    # Initialize Rollout Worker
-    rollout_worker = RolloutWorker(env, policy, goal_sampler, args)
+        # Initialize Rollout Worker
+        rollout_worker = RolloutWorker(env, policy, goal_sampler, args)
 
-    # Load vae model
-    with open(path + 'vae_model.pkl', 'rb') as f:
-        vae = torch.load(f)
+        vae = None
+        scores = []
+        for i in range(num_eval):
+            print(i)
+            score = rollout(sentence_generator,
+                            vae,
+                            sentences,
+                            inst_to_one_hot,
+                            dict_goals,
+                            env,
+                            policy,
+                            args.env_params,
+                            inits,
+                            eval_goals,
+                            self_eval=True,
+                            true_eval=True,
+                            animated=False)
+            scores.append(score)
 
-    scores = []
-    for i in range(num_eval):
-        print(i)
-        score = rollout(sentence_generator,
-                        vae,
-                        sentences,
-                        inst_to_one_hot,
-                        dict_goals,
-                        env,
-                        policy,
-                        args.env_params,
-                        inits,
-                        eval_goals,
-                        self_eval=True,
-                        true_eval=True,
-                        animated=True)
-        scores.append(score)
-
-    ratio_success = []
-    av_not_0 = []
-    ratio_first_shot = []
-    for r in np.array(scores):
-        inds_not_0 = np.argwhere(r > 0).flatten()
-        ratio_success.append(inds_not_0.size / r.size)
-        ratio_first_shot.append(np.argwhere(r == 1).flatten().size / r.size)
-        av_not_0.append(r[inds_not_0].mean())
-    print('Success rate (5 attempts): ', np.mean(ratio_success))
-    print('Success rate (first_shot): ', np.mean(ratio_first_shot))
-    print('When success, average nb of attempts: ', np.mean(av_not_0))
-
-
-
-
+        ratio_success = []
+        av_not_0 = []
+        ratio_first_shot = []
+        for r in np.array(scores):
+            inds_not_0 = np.argwhere(r > 0).flatten()
+            ratio_success.append(inds_not_0.size / r.size)
+            ratio_first_shot.append(np.argwhere(r == 1).flatten().size / r.size)
+            av_not_0.append(r[inds_not_0].mean())
+        print('Success rate (5 attempts): ', np.mean(ratio_success))
+        print('Success rate (first_shot): ', np.mean(ratio_first_shot))
+        print('When success, average nb of attempts: ', np.mean(av_not_0))
+        all_ratio_success.append(ratio_success)
+        all_ratio_success_1.append(ratio_first_shot)
+        all_av_not_0.append(av_not_0)
+    np.savetxt(path + 'ratio_success.txt', all_ratio_success)
+    np.savetxt(path + 'ratio_first_shot.txt', all_ratio_success_1)
+    np.savetxt(path + 'av_not_0.txt', all_av_not_0)
