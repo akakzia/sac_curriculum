@@ -83,7 +83,8 @@ class GnnCritic(nn.Module):
                                              obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(6)])
 
         else:
-            inp_mp = torch.stack([torch.cat([g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3] - obs_objects[obj_ids[i][1]][:, :3]],
+            inp_mp = torch.stack([torch.cat([g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3] - obs_objects[obj_ids[i][1]][:, :3],
+                                            obs_objects[obj_ids[i][0]][:, :3], obs_objects[obj_ids[i][1]][:, :3]],
                                             dim=-1) for i in range(6)])
 
         # inp_mp = torch.stack([torch.cat([g, ag, obj[0], obj[1]], dim=-1) for obj in permutations(obs_objects, 2)])
@@ -184,7 +185,7 @@ class GnnSemantic:
         if HIGH_AG:
             dim_mp_input = 6 + 4
         else:
-            dim_mp_input = 3 + 2
+            dim_mp_input = 6 + 2 + 3
         dim_mp_output = 3 * dim_mp_input
 
         dim_phi_actor_input = self.dim_body + self.dim_object + dim_mp_output
