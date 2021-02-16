@@ -28,7 +28,7 @@ class GnnCritic(nn.Module):
 
         self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
 
-    def forward(self, obs, act, edge_features):
+    def forward(self, obs, act, g, edge_features):
         batch_size = obs.shape[0]
         assert batch_size == len(obs)
 
@@ -40,13 +40,13 @@ class GnnCritic(nn.Module):
                        for i in range(self.nb_objects)]
 
         if self.aggregation == 'max':
-            inp = torch.stack([torch.cat([act, obs_body, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
+            inp = torch.stack([torch.cat([act, obs_body, g, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
                                for i, obj in enumerate(obs_objects)])
         elif self.aggregation == 'sum':
-            inp = torch.stack([torch.cat([act, obs_body, obj, torch.sum(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
+            inp = torch.stack([torch.cat([act, obs_body, g, obj, torch.sum(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
                                for i, obj in enumerate(obs_objects)])
         elif self.aggregation == 'mean':
-            inp = torch.stack([torch.cat([act, obs_body, obj, torch.mean(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
+            inp = torch.stack([torch.cat([act, obs_body, g, obj, torch.mean(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
                                for i, obj in enumerate(obs_objects)])
         else:
             raise NotImplementedError
@@ -83,7 +83,7 @@ class GnnCritic(nn.Module):
                                              obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(6)])
 
         else:
-            inp_mp = torch.stack([torch.cat([g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3] - obs_objects[obj_ids[i][1]][:, :3],
+            inp_mp = torch.stack([torch.cat([obs_objects[obj_ids[i][0]][:, :3] - obs_objects[obj_ids[i][1]][:, :3],
                                             obs_objects[obj_ids[i][0]][:, :3], obs_objects[obj_ids[i][1]][:, :3]],
                                             dim=-1) for i in range(6)])
 
@@ -113,7 +113,7 @@ class GnnActor(nn.Module):
 
         # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
 
-    def forward(self, obs, edge_features):
+    def forward(self, obs, g, edge_features):
         batch_size = obs.shape[0]
         assert batch_size == len(obs)
 
@@ -125,13 +125,13 @@ class GnnActor(nn.Module):
                        for i in range(self.nb_objects)]
 
         if self.aggregation == 'max':
-            inp = torch.stack([torch.cat([obs_body, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
+            inp = torch.stack([torch.cat([obs_body, g, obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
                                        for i, obj in enumerate(obs_objects)])
         elif self.aggregation == 'sum':
-            inp = torch.stack([torch.cat([obs_body, obj, torch.sum(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
+            inp = torch.stack([torch.cat([obs_body, g, obj, torch.sum(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
                                for i, obj in enumerate(obs_objects)])
         elif self.aggregation == 'mean':
-            inp = torch.stack([torch.cat([obs_body, obj, torch.mean(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
+            inp = torch.stack([torch.cat([obs_body, g, obj, torch.mean(edge_features[self.edge_ids[i], :, :], dim=0)], dim=1)
                                for i, obj in enumerate(obs_objects)])
         else:
             raise NotImplementedError
@@ -149,8 +149,8 @@ class GnnActor(nn.Module):
         mean, logstd = self.rho_actor(output_phi_actor)
         return mean, logstd
 
-    def sample(self, obs, edge_features):
-        mean, log_std = self.forward(obs, edge_features)
+    def sample(self, obs, g, edge_features):
+        mean, log_std = self.forward(obs, g, edge_features)
         std = log_std.exp()
         normal = Normal(mean, std)
         x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
@@ -185,15 +185,15 @@ class GnnSemantic:
         if HIGH_AG:
             dim_mp_input = 6 + 4
         else:
-            dim_mp_input = 6 + 2 + 3
+            dim_mp_input = 6 + 3
         dim_mp_output = 3 * dim_mp_input
 
-        dim_phi_actor_input = self.dim_body + self.dim_object + dim_mp_output
+        dim_phi_actor_input = self.dim_body + self.dim_object + dim_mp_output + self.dim_goal
         dim_phi_actor_output = 3 * dim_phi_actor_input
         dim_rho_actor_input = dim_phi_actor_output
         dim_rho_actor_output = self.dim_act
 
-        dim_phi_critic_input = self.dim_body + self.dim_object + dim_mp_output + self.dim_act
+        dim_phi_critic_input = self.dim_body + self.dim_object + dim_mp_output + self.dim_act + self.dim_goal
         dim_phi_critic_output = 3 * dim_phi_critic_input
         dim_rho_critic_input = dim_phi_critic_output
         dim_rho_critic_output = 1
@@ -208,19 +208,19 @@ class GnnSemantic:
     def policy_forward_pass(self, obs, ag, g, no_noise=False):
         edge_features = self.critic.message_passing(obs, ag, g)
         if not no_noise:
-            self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, edge_features)
+            self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, g, edge_features)
         else:
-            _, self.log_prob, self.pi_tensor = self.actor.sample(obs, edge_features)
+            _, self.log_prob, self.pi_tensor = self.actor.sample(obs, g, edge_features)
 
     def forward_pass(self, obs, ag, g, actions=None):
         edge_features = self.critic.message_passing(obs, ag, g)
 
-        self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, edge_features)
+        self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, g, edge_features)
 
         if actions is not None:
-            self.q1_pi_tensor, self.q2_pi_tensor = self.critic.forward(obs, self.pi_tensor, edge_features)
-            return self.critic.forward(obs, actions, edge_features)
+            self.q1_pi_tensor, self.q2_pi_tensor = self.critic.forward(obs, self.pi_tensor, g, edge_features)
+            return self.critic.forward(obs, actions, g, edge_features)
         else:
             with torch.no_grad():
-                self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.critic_target.forward(obs, self.pi_tensor, edge_features)
+                self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.critic_target.forward(obs, self.pi_tensor, g, edge_features)
             self.q1_pi_tensor, self.q2_pi_tensor = None, None
