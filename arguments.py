@@ -21,7 +21,7 @@ def get_args():
 
     parser.add_argument('--multi-criteria-her', type=bool, default=True, help='test')
 
-    parser.add_argument('--normalize_goal', type=bool, default=True, help='do evaluation at the end of the epoch w/ frequency')
+    parser.add_argument('--normalize_goal', type=bool, default=False, help='do evaluation at the end of the epoch w/ frequency')
     parser.add_argument('--start-biased-init', type=int, default=10, help='Number of epoch before biased initializations start')
     parser.add_argument('--self-eval-prob', type=float, default=0.1, help='Probability to perform self-evaluation')
 

@@ -7,7 +7,7 @@ import numpy as np
 from rl_modules.networks import GnnMessagePassing, PhiCriticDeepSet, PhiActorDeepSet, RhoActorDeepSet, RhoCriticDeepSet
 
 epsilon = 1e-6
-
+HIGH_AG = False
 
 class GnnCritic(nn.Module):
     def __init__(self, nb_objects, aggregation, readout, dim_body, dim_object, dim_mp_input, dim_mp_output, dim_phi_critic_input,
@@ -78,8 +78,13 @@ class GnnCritic(nn.Module):
         obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
         goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
 
-        inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3],
-                                         obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(6)])
+        if HIGH_AG:
+            inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3],
+                                             obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(6)])
+
+        else:
+            inp_mp = torch.stack([torch.cat([g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3] - obs_objects[obj_ids[i][1]][:, :3]],
+                                            dim=-1) for i in range(6)])
 
         # inp_mp = torch.stack([torch.cat([g, ag, obj[0], obj[1]], dim=-1) for obj in permutations(obs_objects, 2)])
 
@@ -176,7 +181,10 @@ class GnnSemantic:
         self.log_prob = None
 
         # dim_input_objects = 2 * (self.nb_objects + self.dim_object)
-        dim_mp_input = 6 + 4
+        if HIGH_AG:
+            dim_mp_input = 6 + 4
+        else:
+            dim_mp_input = 3 + 2
         dim_mp_output = 3 * dim_mp_input
 
         dim_phi_actor_input = self.dim_body + self.dim_object + dim_mp_output
