@@ -164,7 +164,6 @@ class GnnSemantic:
         self.dim_goal = env_params['goal']
         self.dim_act = env_params['action']
         self.nb_objects = 3
-        self.n_permutations = 3
 
         self.aggregation = args.aggregation_fct
         self.readout = args.readout_fct

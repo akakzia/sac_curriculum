@@ -13,12 +13,15 @@ def objects_distance(x, y):
     return np.linalg.norm(x - y)
 
 
-def above(x, y):
+def is_above(x, y):
     """
     A function that returns whether the object x is above y
     """
     assert x.shape == y.shape
-    return np.linalg.norm(x[:2] - y[:2]) < 0.05 and 0.06 > x[2] - y[2] > 0.03
+    if np.linalg.norm(x[:2] - y[:2]) < 0.05 and 0.06 > x[2] - y[2] > 0.03:
+        return 1.
+    else:
+        return -1.
 
 
 class FetchManipulateEnv(robot_env.RobotEnv):
@@ -158,6 +161,13 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         utils.ctrl_set_action(self.sim, action)
         utils.mocap_set_action(self.sim, action)
     
+    def _is_close(self, d):
+        """ Return the value of the close predicate for a given distance between two pairs """
+        if d < self.predicate_threshold:
+            return 1.
+        else:
+            return -1
+
     def _get_configuration(self, positions):
         """
         This functions takes as input the positions of the objects in the scene and outputs the corresponding semantic configuration
@@ -169,8 +179,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             object_combinations = itertools.combinations(positions, 2)
             object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
 
-            close_config = np.array([(distance <= self.predicate_threshold).astype(np.float32)
-                                     for distance in object_rel_distances])
+            close_config = np.array([self._is_close(distance) for distance in object_rel_distances])
         if "above" in self.predicates:
             if self.num_blocks == 3:
                 object_permutations = [(positions[0], positions[1]), (positions[1], positions[0]), (positions[0], positions[2]),
@@ -178,7 +187,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             else:
                 raise NotImplementedError
 
-            above_config = np.array([int(above(obj[0], obj[1])) for obj in object_permutations]).astype(np.float32)
+            above_config = np.array([is_above(obj[0], obj[1]) for obj in object_permutations])
         
         res = np.concatenate([close_config, above_config])
         return res

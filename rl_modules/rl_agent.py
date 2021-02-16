@@ -71,7 +71,7 @@ class RLAgent:
             self.critic_optim = torch.optim.Adam(list(self.model.critic.parameters()),
                                                  lr=self.args.lr_critic)
         elif self.architecture == 'gnn':
-            from rl_modules.gnn_models_bis import GnnSemantic
+            from rl_modules.gnn_models import GnnSemantic
             self.model = GnnSemantic(self.env_params, args)
             # sync the networks across the CPUs
             sync_networks(self.model.critic)
@@ -90,7 +90,7 @@ class RLAgent:
 
         # create the normalizer
         self.o_norm = normalizer(size=self.env_params['obs'], default_clip_range=self.args.clip_range)
-        self.g_norm = normalizer(size=3, default_clip_range=self.args.clip_range)
+        self.g_norm = normalizer(size=self.env_params['goal'], default_clip_range=self.args.clip_range)
 
         # if use GPU
         if self.args.cuda:
@@ -128,12 +128,12 @@ class RLAgent:
         with torch.no_grad():
             # normalize policy inputs
             obs_norm = self.o_norm.normalize(obs)
-            ag_norm = torch.tensor(self.g_norm.normalize(ag, goal=True), dtype=torch.float32).unsqueeze(0)
+            ag_norm = torch.tensor(self.g_norm.normalize(ag), dtype=torch.float32).unsqueeze(0)
 
             if self.language:
                 g_norm = g
             else:
-                g_norm = torch.tensor(self.g_norm.normalize(g, goal=True), dtype=torch.float32).unsqueeze(0)
+                g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
             if self.architecture == 'gnn':
                 obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
                 if self.args.algo == 'language':
@@ -156,8 +156,8 @@ class RLAgent:
     # pre_process the inputs
     def _preproc_inputs(self, obs, ag, g):
         obs_norm = self.o_norm.normalize(obs)
-        ag_norm = self.g_norm.normalize(ag, goal=True)
-        g_norm = self.g_norm.normalize(g, goal=True)
+        ag_norm = self.g_norm.normalize(ag)
+        g_norm = self.g_norm.normalize(g)
         # concatenate the stuffs
         inputs = np.concatenate([obs_norm, ag_norm, g_norm])
         inputs = torch.tensor(inputs, dtype=torch.float32).unsqueeze(0)
@@ -218,10 +218,8 @@ class RLAgent:
         self.o_norm.recompute_stats()
 
         if self.args.normalize_goal:
-            ids = [[0, 3, 4], [1, 5, 6], [2, 7, 8]]
-            for id in ids:
-                self.g_norm.update(transitions['g'][id])
-                self.g_norm.recompute_stats()
+            self.g_norm.update(transitions['g'])
+            self.g_norm.recompute_stats()
 
     def _preproc_og(self, o, g):
         o = np.clip(o, -self.args.clip_obs, self.args.clip_obs)
@@ -255,11 +253,11 @@ class RLAgent:
             language_goals = np.array([id_to_language[lg_id] for lg_id in lg_ids])
             # language_goals = transitions['language_goal']
         else:
-            g_norm = self.g_norm.normalize(transitions['g'], goal=True)
+            g_norm = self.g_norm.normalize(transitions['g'])
             language_goals = None
-        ag_norm = self.g_norm.normalize(transitions['ag'], goal=True)
+        ag_norm = self.g_norm.normalize(transitions['ag'])
         obs_next_norm = self.o_norm.normalize(transitions['obs_next'])
-        ag_next_norm = self.g_norm.normalize(transitions['ag_next'], goal=True)
+        ag_next_norm = self.g_norm.normalize(transitions['ag_next'])
 
         anchor_g = transitions['g']
 
