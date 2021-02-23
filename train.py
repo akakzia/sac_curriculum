@@ -48,7 +48,7 @@ def launch(args):
 
     # get saving paths
     if rank == 0:
-        logdir, model_path, bucket_path = init_storage(args)
+        logdir, model_path = init_storage(args)
         logger.configure(dir=logdir)
         logger.info(vars(args))
 
@@ -83,7 +83,6 @@ def launch(args):
                          store=0,
                          norm_update=0,
                          policy_train=0,
-                         lp_update=0,
                          eval=0,
                          epoch=0)
 
@@ -141,13 +140,6 @@ def launch(args):
             time_dict['policy_train'] += time.time() - t_i
             episode_count += args.num_rollouts_per_mpi * args.num_workers
 
-        # Updating Learning Progress
-        t_i = time.time()
-        if goal_sampler.curriculum_learning and rank == 0:
-            goal_sampler.update_LP()
-        goal_sampler.sync()
-
-        time_dict['lp_update'] += time.time() - t_i
         time_dict['epoch'] += time.time() -t_init
         time_dict['total'] = time.time() - t_total_init
 
@@ -181,7 +173,6 @@ def launch(args):
                 # Saving policy models
                 if epoch % args.save_freq == 0:
                     policy.save(model_path, epoch)
-                    # goal_sampler.save_bucket_contents(bucket_path, epoch)
                 if rank==0: logger.info('\tEpoch #{}: SR: {}'.format(epoch, global_sr))
 
 

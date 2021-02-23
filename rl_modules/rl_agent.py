@@ -71,7 +71,10 @@ class RLAgent:
             self.critic_optim = torch.optim.Adam(list(self.model.critic.parameters()),
                                                  lr=self.args.lr_critic)
         elif self.architecture == 'gnn':
-            from rl_modules.gnn_models_v2 import GnnSemantic
+            if self.args.variant == 2:
+                from rl_modules.gnn_models_v2 import GnnSemantic
+            else:
+                from rl_modules.gnn_models import GnnSemantic
             self.model = GnnSemantic(self.env_params, args)
             # sync the networks across the CPUs
             sync_networks(self.model.critic)

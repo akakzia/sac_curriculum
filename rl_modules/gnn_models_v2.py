@@ -30,7 +30,7 @@ class GnnCritic(nn.Module):
 
         # self.mp_star = GnnMessagePassing(10+9+6, 6)
 
-        self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 25, 3 * dim_phi_critic_input)
+        self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 256, 3 * dim_phi_critic_input)
         self.rho_critic = RhoCriticDeepSet(3 * dim_phi_critic_input, dim_rho_critic_output)
 
         self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]

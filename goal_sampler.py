@@ -13,13 +13,10 @@ ALL_MASKS = True
 
 class GoalSampler:
     def __init__(self, args):
-        self.continuous = args.algo == 'continuous'
-        self.curriculum_learning = args.curriculum_learning
-        self.automatic_buckets = args.automatic_buckets
         self.num_rollouts_per_mpi = args.num_rollouts_per_mpi
         self.rank = MPI.COMM_WORLD.Get_rank()
 
-        self.goal_dim = 9
+        self.goal_dim = args.env_params['goal']
 
         if ALL_MASKS:
             self.masks_list = [np.array([1, 0, 0, 1, 1, 0, 0, 0, 0]), np.array([0, 1, 0, 0, 0, 1, 1, 0, 0]),
@@ -72,24 +69,12 @@ class GoalSampler:
         all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
 
         if self.rank == 0:
-            all_episode_list = []
-            for eps in all_episodes:
-                all_episode_list += eps
+            all_episode_list = [e for eps in all_episodes for e in eps]
 
-            # for e in all_episode_list:
-            #     reached_oracle_id = self.g_str_to_oracle_id[str(e['ag_binary'][-1])]
-            #     target_oracle_id = self.g_str_to_oracle_id[str(e['g_binary'][0])]
-            #     self.rew_counters[reached_oracle_id] += 1
-            #     self.target_counters[target_oracle_id] += 1
-            # find out if new goals were discovered
-            # label each episode with the oracle id of the last ag (to know where to store it in buffers)
-            if not self.curriculum_learning or self.automatic_buckets:
-                new_goal_found = False
-                for e in all_episode_list:
-                    if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
-                        new_goal_found = True
-                        self.discovered_goals.append(e['ag_binary'][-1].copy())
-                        self.discovered_goals_str.append(str(e['ag_binary'][-1]))
+            for e in all_episode_list:
+                if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
+                    self.discovered_goals.append(e['ag_binary'][-1].copy())
+                    self.discovered_goals_str.append(str(e['ag_binary'][-1]))
 
         self.sync()
 
@@ -143,7 +128,7 @@ class GoalSampler:
         self.stats['global_sr'] = []
         self.stats['nb_discovered'] = []
         keys = ['goal_sampler', 'rollout', 'gs_update', 'store', 'norm_update',
-                  'policy_train', 'lp_update', 'eval', 'epoch', 'total']
+                'policy_train', 'eval', 'epoch', 'total']
         for k in keys:
             self.stats['t_{}'.format(k)] = []
 

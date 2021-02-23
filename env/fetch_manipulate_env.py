@@ -69,9 +69,9 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.p_stack_two = p_stack_two
         self.p_grasp = p_grasp
 
-        self.mask = np.zeros(9)
+        self.goal_size = num_blocks * (num_blocks - 1) * 3 // 2
 
-        self.goal_size = 0
+        self.mask = np.zeros(self.goal_size)
 
         self.object_names = ['object{}'.format(i) for i in range(self.num_blocks)]
 
@@ -242,8 +242,6 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         objects_positions = objects_positions.reshape(self.num_blocks, 3)
         object_combinations = itertools.combinations(objects_positions, 2)
         object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
-
-        self.goal_size = len(object_rel_distances)
         
         achieved_goal = self._get_configuration(objects_positions)
 
@@ -280,13 +278,13 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
     def reset(self):
         # Usual reset overriden by reset_goal, that specifies a goal
-        return self.reset_goal(-np.ones(9), biased_init=False)
+        return self.reset_goal(-np.ones(self.goal_size), biased_init=False)
 
     def _generate_valid_goal(self):
         raise NotImplementedError
 
     def _sample_goal(self):
-        self.target_goal = np.random.choice([-1., 1.], size=9).astype(np.float32)
+        self.target_goal = np.random.choice([-1., 1.], size=self.goal_size).astype(np.float32)
         
         return self.target_goal
 
