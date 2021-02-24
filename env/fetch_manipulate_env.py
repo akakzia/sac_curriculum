@@ -130,7 +130,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             reward = (achieved_goal == goal).all().astype(np.float32)
         else:
             reward = 0.
-            semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
+            semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 7]), np.array([0, 2, 3, 5, 6, 8]), np.array([1, 2, 4, 6, 7, 8])])
             # ids = np.where(self.mask != 1.)[1]
             # semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
             for subgoal in semantic_ids:
@@ -185,11 +185,12 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
             close_config = np.array([self._is_close(distance) for distance in object_rel_distances])
         if "above" in self.predicates:
-            if self.num_blocks == 3:
-                object_permutations = [(positions[0], positions[1]), (positions[1], positions[0]), (positions[0], positions[2]),
-                                       (positions[2], positions[0]), (positions[1], positions[2]), (positions[2], positions[1])]
-            else:
-                raise NotImplementedError
+            # if self.num_blocks == 3:
+            #     object_permutations = [(positions[0], positions[1]), (positions[1], positions[0]), (positions[0], positions[2]),
+            #                            (positions[2], positions[0]), (positions[1], positions[2]), (positions[2], positions[1])]
+            # else:
+            #     raise NotImplementedError
+            object_permutations = itertools.permutations(positions, 2)
 
             above_config = np.array([is_above(obj[0], obj[1]) for obj in object_permutations])
         

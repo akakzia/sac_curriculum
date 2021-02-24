@@ -5,6 +5,7 @@ import json
 import subprocess
 import os.path
 import sys
+from itertools import permutations, combinations
 
 
 def generate_all_goals_in_goal_space():
@@ -431,3 +432,33 @@ id_to_language = dict(zip(range(len(INSTRUCTIONS)), INSTRUCTIONS))
 #
 #     }
 #     language_to_id = invert_dict(id_to_language)
+
+
+def get_graph_structure(n):
+    """ Given the number of blocks (nodes), returns :
+    edges: in the form [to, from]
+    incoming_edges: for each node, the indexes of the incoming edges
+    predicate_ids: the ids of the predicates takes for each edge """
+    map_list = list(combinations(np.arange(n), 2)) + list(permutations(np.arange(n), 2))
+    edges = list(permutations(np.arange(n), 2))
+    obj_ids = np.arange(n)
+    n_comb = n * (n-1) // 2
+
+    incoming_edges = []
+    for obj_id in obj_ids:
+        temp = []
+        for i, pair in enumerate(permutations(np.arange(n), 2)):
+            if obj_id == pair[0]:
+                temp.append(i)
+        incoming_edges.append(temp)
+
+    predicate_ids = []
+    for pair in permutations(np.arange(n), 2):
+        ids_g = [i for i in range(len(map_list))
+                 if (set(map_list[i]) == set(pair) and i < n_comb)
+                 or (map_list[i] == pair and i >= n_comb)]
+        predicate_ids.append(ids_g)
+
+    return edges, incoming_edges, predicate_ids
+
+

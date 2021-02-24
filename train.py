@@ -54,13 +54,8 @@ def launch(args):
 
     args.env_params = get_env_params(env)
 
-
-    if args.algo == 'language':
-        language_goal = get_instruction()
-        goal_sampler = LanguageGoalSampler(args)
-    else:
-        language_goal = None
-        goal_sampler = GoalSampler(args)
+    language_goal = None
+    goal_sampler = GoalSampler(args)
 
     # Initialize RL Agent
     if args.agent == "SAC":
