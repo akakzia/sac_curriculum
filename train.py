@@ -10,7 +10,7 @@ import torch
 from rollout import RolloutWorker
 from temporary_lg_goal_sampler import LanguageGoalSampler
 from goal_sampler import GoalSampler
-from utils import init_storage, get_instruction
+from utils import init_storage, get_instruction, get_eval_goals
 import time
 from mpi_utils import logger
 from language.build_dataset import sentence_from_configuration
@@ -31,11 +31,7 @@ def launch(args):
     t_total_init = time.time()
 
     # Make the environment
-    if args.algo == 'continuous':
-        args.env_name = 'FetchManipulate3ObjectsContinuous-v0'
-        args.multi_criteria_her = True
-    else:
-        args.env_name = 'FetchManipulate3Objects-v0'
+    args.env_name = 'FetchManipulate{}Objects-v0'.format(args.n_blocks)
     env = gym.make(args.env_name)
 
     # set random seeds for reproducibility
@@ -142,8 +138,20 @@ def launch(args):
             if rank==0: logger.info('\tRunning eval ..')
             # Performing evaluations
             t_i = time.time()
-            # Eval for all possible number of masks
-            eval_goals, eval_masks = goal_sampler.generate_eval_goals()
+            if args.n_blocks == 3:
+                # Eval for all possible number of masks
+                eval_goals, eval_masks = goal_sampler.generate_eval_goals()
+            elif args.n_blocks == 5:
+                eval_goals = []
+                instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'stack_3', '2stacks_2_2', '2stacks_2_3', 'pyramid_3',
+                                'mixed_2_3', 'trapeze_2_3', 'stack_4', 'stack_5']
+                for instruction in instructions:
+                    eval_goal = get_eval_goals(instruction)
+                    eval_goals.append(eval_goal.squeeze(0))
+                eval_goals = np.array(eval_goals)
+                eval_masks = np.array(np.zeros((eval_goals.shape[0], 30)))
+            else:
+                raise NotImplementedError
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        masks=eval_masks,
                                                        self_eval=True,  # this parameter is overridden by true_eval

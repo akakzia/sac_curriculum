@@ -327,8 +327,9 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
         if biased_init and np.random.uniform() > self.p_coplanar:
             if np.random.uniform() > self.p_stack_two:
-                stack = list(np.random.choice([i for i in range(self.num_blocks)], 3, replace=False))
-                z_stack = [0.525, 0.475, 0.425]
+                k = np.random.randint(2, self.num_blocks+1)
+                stack = list(np.random.choice([i for i in range(self.num_blocks)], k, replace=False))
+                z_stack = [0.425 + 0.025*i for i in reversed(range(k))]
             else:
                 stack = list(np.random.choice([i for i in range(self.num_blocks)], 2, replace=False))
                 z_stack = [0.475, 0.425]

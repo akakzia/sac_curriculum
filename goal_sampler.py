@@ -15,6 +15,7 @@ class GoalSampler:
     def __init__(self, args):
         self.num_rollouts_per_mpi = args.num_rollouts_per_mpi
         self.rank = MPI.COMM_WORLD.Get_rank()
+        self.use_masks = args.masks
         self.mask_application = args.mask_application
 
         self.goal_dim = args.env_params['goal']
@@ -39,6 +40,9 @@ class GoalSampler:
 
     def sample_masks(self, n):
         """Samples n masks uniformly"""
+        if not self.use_masks:
+            # No masks
+            return np.zeros((n, self.goal_dim))
         masks = np.zeros((n, self.goal_dim))
         # Select number of masks to apply per goal
         n_masks = np.random.randint(self.relation_ids.shape[0], size=n)
@@ -108,8 +112,7 @@ class GoalSampler:
 
         return episodes
 
-    @staticmethod
-    def generate_eval_goals():
+    def generate_eval_goals(self):
         """ Generates a set of goals for evaluation. This set comprises :
         - One relation with close == True .
         - One relation with above == True
@@ -119,11 +122,14 @@ class GoalSampler:
         - Two relations with above == True in one and close == True in the other
         - Two relations with above == True in one and above == True in the other
         - Three whole relations for the 7 above cases"""
-        masks = np.array([np.array([0, 1, 1, 0, 1, 0, 1, 1, 1]), np.array([0, 1, 1, 0, 1, 0, 1, 1, 1]),
-                          np.array([0, 0, 1, 0, 0, 0, 1, 0, 1]), np.array([0, 0, 1, 0, 0, 0, 1, 0, 1]),
-                          np.array([0, 0, 1, 0, 0, 0, 1, 0, 1]), np.array([0, 0, 1, 0, 0, 0, 1, 0, 1]),
-                          np.array([0, 1, 0, 0, 1, 0, 0, 1, 0]),
-                          np.zeros(9), np.zeros(9), np.zeros(9), np.zeros(9), np.zeros(9)])
+        if self.use_masks:
+            masks = np.array([np.array([0, 1, 1, 0, 1, 0, 1, 1, 1]), np.array([0, 1, 1, 0, 1, 0, 1, 1, 1]),
+                              np.array([0, 0, 1, 0, 0, 0, 1, 0, 1]), np.array([0, 0, 1, 0, 0, 0, 1, 0, 1]),
+                              np.array([0, 0, 1, 0, 0, 0, 1, 0, 1]), np.array([0, 0, 1, 0, 0, 0, 1, 0, 1]),
+                              np.array([0, 1, 0, 0, 1, 0, 0, 1, 0]),
+                              np.zeros(9), np.zeros(9), np.zeros(9), np.zeros(9), np.zeros(9)])
+        else:
+            masks = np.zeros((12, 9))
         gs = np.array([np.array([1., -10., -10., -1., -10., -1., -10., -10., -10.]), np.array([1., -10., -10., 1., -10., -1., -10., -10., -10.]),
 
                        np.array([1., -1., -10., -1., -1., -1., -10., -1., -10.]), np.array([1., 1., -10., -1., -1., -1., -10., -1., -10.]),

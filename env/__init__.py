@@ -17,7 +17,18 @@ register(id='FetchManipulate3Objects-v0',
          kwargs={'reward_type': 'incremental'},
          max_episode_steps=100,)
 
-register(id='FetchManipulate3ObjectsContinuous-v0',
-         entry_point='env.envs:FetchManipulateEnvContinuous',
-         kwargs={'reward_type': 'incremental'},
+register(id='FetchManipulate4Objects-v0',
+         entry_point='env.envs:FetchManipulateEnv',
+         kwargs={'reward_type': 'incremental',
+                 'num_blocks': 4,
+                 'model_path': 'fetch/stack4.xml'
+                 },
          max_episode_steps=100,)
+
+register(id='FetchManipulate5Objects-v0',
+         entry_point='env.envs:FetchManipulateEnv',
+         kwargs={'reward_type': 'incremental',
+                 'num_blocks': 5,
+                 'model_path': 'fetch/stack5.xml'
+                 },
+         max_episode_steps=200,)
