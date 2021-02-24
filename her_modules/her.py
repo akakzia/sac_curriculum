@@ -1,10 +1,11 @@
 import numpy as np
 from scipy.linalg import block_diag
 from language.build_dataset import sentence_from_configuration
-from utils import id_to_language, language_to_id
+from utils import id_to_language, language_to_id, get_idxs_per_relation, get_idxs_per_object
 
 
 MC_MASK = False
+
 
 class her_sampler:
     def __init__(self, args, reward_func=None):
@@ -18,10 +19,10 @@ class her_sampler:
         self.continuous = args.algo == 'continuous'  # whether to use semantic configurations or continuous goals
         self.language = args.algo == 'language'
         self.multi_criteria_her = args.multi_criteria_her
-        self.obj_ind = np.array([np.arange(i * 3, (i + 1) * 3) for i in range(3)])
-        self.semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 7]), np.array([0, 2, 3, 5, 6, 8]), np.array([1, 2, 4, 6, 7, 8])])
+        self.obj_ind = np.array([np.arange(i * 3, (i + 1) * 3) for i in range(args.n_blocks)])
 
-        self.mask_ids = np.array([np.array([0, 3, 5]), np.array([1, 4, 7]), np.array([2, 6, 8])])
+        self.semantic_ids = get_idxs_per_object(n=args.n_blocks)
+        self.mask_ids = get_idxs_per_relation(n=args.n_blocks)
         self.mask_p = args.mask_p
 
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions):
@@ -80,8 +81,8 @@ class her_sampler:
                 future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
                 transitions['g'][her_indexes] = future_ag
                 # to get the params to re-compute reward
-            transitions['r'] = np.expand_dims(np.array([compute_reward_masks(ag_next, g, mask) for ag_next, g, mask in zip(transitions['ag_next'],
-                                                                                            transitions['g'], transitions['masks'])]), 1)
+            transitions['r'] = np.expand_dims(np.array([self.compute_reward_masks(ag_next, g, mask) for ag_next, g, mask in zip(transitions['ag_next'],
+                                                        transitions['g'], transitions['masks'])]), 1)
         else:
             if self.multi_criteria_her:
                 for sub_goal in self.obj_ind:
@@ -109,6 +110,15 @@ class her_sampler:
 
         return transitions
 
+    def compute_reward_masks(self, ag, g, mask):
+        reward = 0.
+        # semantic_ids = np.array([np.array([0, 3, 5]), np.array([1, 4, 7]), np.array([2, 6, 8])])
+        ids = np.where(mask != 1.)[0]
+        semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in self.semantic_ids]
+        for subgoal in semantic_ids:
+            if (ag[subgoal] == g[subgoal]).all():
+                reward = reward + 1.
+        return reward
 
 def compute_reward_language(ags, lg_ids):
     lgs = [id_to_language[lg_id] for lg_id in lg_ids]
@@ -116,13 +126,13 @@ def compute_reward_language(ags, lg_ids):
     return r
 
 
-def compute_reward_masks(ag, g, mask):
-    reward = 0.
-    semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 7]), np.array([0, 2, 3, 5, 6, 8]), np.array([1, 2, 4, 6, 7, 8])])
-    # semantic_ids = np.array([np.array([0, 3, 5]), np.array([1, 4, 7]), np.array([2, 6, 8])])
-    ids = np.where(mask != 1.)[0]
-    semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
-    for subgoal in semantic_ids:
-        if (ag[subgoal] == g[subgoal]).all():
-            reward = reward + 1.
-    return reward
+# def compute_reward_masks(ag, g, mask):
+#     reward = 0.
+#     semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 7]), np.array([0, 2, 3, 5, 6, 8]), np.array([1, 2, 4, 6, 7, 8])])
+#     # semantic_ids = np.array([np.array([0, 3, 5]), np.array([1, 4, 7]), np.array([2, 6, 8])])
+#     ids = np.where(mask != 1.)[0]
+#     semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
+#     for subgoal in semantic_ids:
+#         if (ag[subgoal] == g[subgoal]).all():
+#             reward = reward + 1.
+#     return reward

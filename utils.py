@@ -462,3 +462,16 @@ def get_graph_structure(n):
     return edges, incoming_edges, predicate_ids
 
 
+def get_idxs_per_relation(n):
+    """ For each possible relation between any pair of objects, outputs the corresponding predicate indexes in the goal vector"""
+    map_list = list(combinations(np.arange(n), 2)) + list(permutations(np.arange(n), 2))
+    all_relations = list(combinations(np.arange(n), 2))
+    return np.array([np.array([i for i in range(len(map_list)) if set(map_list[i]) == set(r)]) for r in all_relations])
+
+
+def get_idxs_per_object(n):
+    map_list = list(combinations(np.arange(n), 2)) + list(permutations(np.arange(n), 2))
+    obj_ids = np.arange(n)
+    return np.array([np.array([i for i in range(len(map_list)) if obj_id in map_list[i]]) for obj_id in obj_ids])
+
+
