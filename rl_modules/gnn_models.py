@@ -20,6 +20,8 @@ class GnnCritic(nn.Module):
         self.dim_body = dim_body
         self.dim_object = dim_object
 
+        self.n_permutations = self.nb_objects * (self.nb_objects - 1)
+
         self.aggregation = aggregation
         self.readout = readout
 
@@ -84,7 +86,7 @@ class GnnCritic(nn.Module):
         delta_g = g - ag
 
         inp_mp = torch.stack([torch.cat([delta_g[:, self.predicate_ids[i]], obs_objects[self.edges[i][0]][:, :3],
-                                         obs_objects[self.edges[i][1]][:, :3]], dim=-1) for i in range(6)])
+                                         obs_objects[self.edges[i][1]][:, :3]], dim=-1) for i in range(self.n_permutations)])
 
         # inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3],
         #                                  obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(6)])
@@ -171,7 +173,7 @@ class GnnSemantic:
         self.dim_object = 15
         self.dim_goal = env_params['goal']
         self.dim_act = env_params['action']
-        self.nb_objects = 3
+        self.nb_objects = args.n_blocks
 
         self.aggregation = args.aggregation_fct
         self.readout = args.readout_fct
