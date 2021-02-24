@@ -126,8 +126,16 @@ class RLAgent:
                                   goal_sampler=self.goal_sampler
                                   )
 
-    def act(self, obs, ag, g, no_noise, language_goal=None):
-        anchor_g = torch.Tensor(g).unsqueeze(0)
+    def act(self, obs, ag, g, mask, no_noise, language_goal=None):
+        if mask is not None:
+            if self.args.mask_application == 'transparent':
+                g = g * (1 - mask) + ag * mask
+            elif self.args.mask_application == 'initial':
+                g = g * (1 - mask) + ag * mask
+            elif self.args.mask_application == 'opaque':
+                g = g * (1 - mask) - 10 * mask
+            else:
+                raise NotImplementedError
         with torch.no_grad():
             # normalize policy inputs
             obs_norm = self.o_norm.normalize(obs)

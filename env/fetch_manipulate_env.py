@@ -71,7 +71,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
         self.goal_size = num_blocks * (num_blocks - 1) * 3 // 2
 
-        self.mask = np.zeros(self.goal_size)
+        # self.mask = np.zeros(self.goal_size)
 
         self.object_names = ['object{}'.format(i) for i in range(self.num_blocks)]
 
@@ -131,8 +131,8 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         else:
             reward = 0.
             semantic_ids = np.array([np.array([0, 1, 3, 4, 5, 6]), np.array([0, 2, 3, 4, 7, 8]), np.array([1, 2, 5, 6, 7, 8])])
-            ids = np.where(self.mask != 1.)[1]
-            semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
+            # ids = np.where(self.mask != 1.)[1]
+            # semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in semantic_ids]
             for subgoal in semantic_ids:
                 if (achieved_goal[subgoal] == goal[subgoal]).all():
                     reward = reward + 1.
@@ -289,8 +289,8 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         return self.target_goal
 
     def _is_success(self, achieved_goal, desired_goal):
-        ids = np.where(self.mask != 1.)[1]
-        return (achieved_goal[ids] == desired_goal[ids]).all()
+        # ids = np.where(self.mask != 1.)[1]
+        return (achieved_goal == desired_goal).all()
 
     def _env_setup(self, initial_qpos):
         for name, value in initial_qpos.items():
@@ -311,7 +311,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.initial_gripper_xpos = self.sim.data.get_site_xpos('robot0:grip').copy()
         self.height_offset = self.sim.data.get_site_xpos('object0')[2]
 
-    def reset_goal(self, goal, mask=None, biased_init=False):
+    def reset_goal(self, goal, biased_init=False):
         """
         This function resets the environment and target the goal given as input
         Args:
@@ -319,6 +319,9 @@ class FetchManipulateEnv(robot_env.RobotEnv):
             mask: the mask to be put
             biased_init: Whether or not to initialize the blocks in non-trivial configuration
         """
+
+        self.target_goal = goal
+
         self.sim.set_state(self.initial_state)
 
         if biased_init and np.random.uniform() > self.p_coplanar:
@@ -395,13 +398,13 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.sim.forward()
         obs = self._get_obs()
 
-        if mask is not None:
-            self.mask = mask
-            self.target_goal = goal * (1 - mask) + obs['achieved_goal'] * mask
-            self.target_goal = np.squeeze(self.target_goal)
-        else:
-            self.target_goal = goal
-        obs = self._get_obs()
+        # if mask is not None:
+        #     self.mask = mask
+        #     self.target_goal = goal * (1 - mask) + obs['achieved_goal'] * mask
+        #     self.target_goal = np.squeeze(self.target_goal)
+        # else:
+        #     self.target_goal = goal
+        # obs = self._get_obs()
         return obs
 
     def _grasp(self, i):

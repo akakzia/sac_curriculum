@@ -15,6 +15,7 @@ class GoalSampler:
     def __init__(self, args):
         self.num_rollouts_per_mpi = args.num_rollouts_per_mpi
         self.rank = MPI.COMM_WORLD.Get_rank()
+        self.mask_application = args.mask_application
 
         self.goal_dim = args.env_params['goal']
 
@@ -72,11 +73,23 @@ class GoalSampler:
             all_episode_list = [e for eps in all_episodes for e in eps]
 
             for e in all_episode_list:
+                # Add last achieved goal to memory if first time encountered
                 if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
                     self.discovered_goals.append(e['ag_binary'][-1].copy())
                     self.discovered_goals_str.append(str(e['ag_binary'][-1]))
 
         self.sync()
+
+        # Apply masks
+        for e in episodes:
+            if self.mask_application == 'transparent':
+                e['g'] = e['g'] * (1 - e['masks'][0]) + e['ag'][:-1] * e['masks'][0]
+            elif self.mask_application == 'initial':
+                e['g'] = e['g'] * (1 - e['masks'][0]) + e['ag'][0] * e['masks'][0]
+            elif self.mask_application == 'opaque':
+                e['g'] = e['g'] * (1 - e['masks'][0]) - 10 * e['masks'][0]
+            else:
+                raise NotImplementedError
 
         return episodes
 

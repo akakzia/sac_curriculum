@@ -2,6 +2,15 @@ import numpy as np
 from language.build_dataset import sentence_from_configuration
 from utils import language_to_id
 
+
+def is_success(ag, g, mask=None):
+    if mask is None:
+        return (ag == g).all()
+    else:
+        ids = np.where(mask != 1.)[0]
+        return (ag[ids] == g[ids]).all()
+
+
 class RolloutWorker:
     def __init__(self, env, policy, goal_sampler, args):
 
@@ -16,8 +25,7 @@ class RolloutWorker:
 
         episodes = []
         for i in range(goals.shape[0]):
-            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), mask=np.array([masks[i]]),
-                                                        biased_init=biased_init)
+            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), biased_init=biased_init)
             obs = observation['observation']
             ag = observation['achieved_goal']
             ag_bin = observation['achieved_goal_binary']
@@ -48,13 +56,13 @@ class RolloutWorker:
                 #     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal_ep)
                 # else:
                 #     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
-                action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal_ep)
+                action = self.policy.act(obs.copy(), ag.copy(), g.copy(), masks[i].copy(), no_noise, language_goal=language_goal_ep)
 
                 # feed the actions into the environment
                 if animated:
                     self.env.render()
 
-                observation_new, r, _, info = self.env.step(action)
+                observation_new, r, _, _ = self.env.step(action)
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
                 ag_new_bin = observation_new['achieved_goal_binary']
@@ -69,7 +77,7 @@ class RolloutWorker:
                 ep_actions.append(action.copy())
                 ep_rewards.append(r)
                 ep_lg_id.append(lg_id)
-                ep_success.append(info['is_success'])
+                ep_success.append(is_success(ag_new, g, masks[i]))
                 ep_masks.append(np.array(masks[i]).copy())
 
                 # Re-assign the observation

@@ -18,8 +18,9 @@ def get_args():
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
     parser.add_argument('--n-batches', type=int, default=30, help='the times to update the network')
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
+    parser.add_argument('--mask-application', type=str, default='initial', help='')
 
-    parser.add_argument('--variant', type=int, default=2, help='variante de GANGSTR')
+    parser.add_argument('--variant', type=int, default=1, help='variante de GANGSTR')
 
     parser.add_argument('--mask-p', type=float, default=0.1, help='experimental stuff from Ahmed')
 
