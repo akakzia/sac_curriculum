@@ -138,20 +138,25 @@ def launch(args):
             if rank==0: logger.info('\tRunning eval ..')
             # Performing evaluations
             t_i = time.time()
+            # if args.n_blocks == 3:
+            #     # Eval for all possible number of masks
+            #     eval_goals, eval_masks = goal_sampler.generate_eval_goals()
+            # elif args.n_blocks == 5:
+            eval_goals = []
             if args.n_blocks == 3:
-                # Eval for all possible number of masks
-                eval_goals, eval_masks = goal_sampler.generate_eval_goals()
+                instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'pyramid_3', 'stack_3']
             elif args.n_blocks == 5:
-                eval_goals = []
                 instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'stack_3', '2stacks_2_2', '2stacks_2_3', 'pyramid_3',
                                 'mixed_2_3', 'trapeze_2_3', 'stack_4', 'stack_5']
-                for instruction in instructions:
-                    eval_goal = get_eval_goals(instruction)
-                    eval_goals.append(eval_goal.squeeze(0))
-                eval_goals = np.array(eval_goals)
-                eval_masks = np.array(np.zeros((eval_goals.shape[0], 30)))
             else:
                 raise NotImplementedError
+            for instruction in instructions:
+                eval_goal = get_eval_goals(instruction, n=args.n_blocks)
+                eval_goals.append(eval_goal.squeeze(0))
+            eval_goals = np.array(eval_goals)
+            eval_masks = np.array(np.zeros((eval_goals.shape[0], args.n_blocks * (args.n_blocks - 1) * 3 // 2)))
+            # else:
+            #     raise NotImplementedError
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        masks=eval_masks,
                                                        self_eval=True,  # this parameter is overridden by true_eval

@@ -154,7 +154,12 @@ class GoalSampler:
 
     def init_stats(self):
         self.stats = dict()
-        for i in np.arange(1, 13):
+        # Number of classes of eval
+        if self.goal_dim == 30:
+            n = 12
+        else:
+            n = 6
+        for i in np.arange(1, n+1):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
         self.stats['epoch'] = []
@@ -173,7 +178,7 @@ class GoalSampler:
         for k in time_dict.keys():
             self.stats['t_{}'.format(k)].append(time_dict[k])
         self.stats['nb_discovered'].append(len(self.discovered_goals))
-        for g_id in np.arange(1, 13):
+        for g_id in np.arange(1, len(av_res) + 1):
             self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id-1])
             self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id-1])
             # self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])

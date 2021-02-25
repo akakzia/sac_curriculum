@@ -249,6 +249,7 @@ def init_storage(args):
     logdir = os.path.join(args.save_dir, '{}_{}_{}'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), args.env_name, args.architecture))
     if args.masks:
         logdir += '_masks'
+    logdir += '_{}'.format(args.reward_type)
     # path to save evaluations
     model_path = os.path.join(logdir, 'models')
     if not os.path.exists(logdir):
@@ -477,9 +478,13 @@ def get_idxs_per_object(n):
     return np.array([np.array([i for i in range(len(map_list)) if obj_id in map_list[i]]) for obj_id in obj_ids])
 
 
-def get_eval_goals(instruction, nb_goals=1):
+def get_eval_goals(instruction, n, nb_goals=1):
     """ For 5 blocks: Return the eval goals that respect the close_pairs and above size"""
     res = []
+    n_blocks = n
+    n_comb = n_blocks * (n_blocks - 1) // 2
+    n_perm = n_blocks * (n_blocks - 1)
+    goal_dim = n_comb + n_perm
     try:
         predicate, pairs = instruction.split('_')
     except ValueError:
@@ -489,21 +494,21 @@ def get_eval_goals(instruction, nb_goals=1):
         ids = []
         for _ in range(nb_goals):
             id = []
-            objects = np.random.choice(np.arange(5), size=5, replace=False)
+            objects = np.random.choice(np.arange(n_blocks), size=n_blocks, replace=False)
             tower_objects = objects[:2]
             pyramid_objects = objects[2:]
             for j in range(1):
                 obj_ids = (tower_objects[j], tower_objects[j+1])
-                for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                for k, c in enumerate(combinations(np.arange(n_blocks), 2)):
                     if set(obj_ids) == set(c):
                         id.append(k)
-                for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                for k, c in enumerate(permutations(np.arange(n_blocks), 2)):
                     if obj_ids == c:
                         id.append(k+10)
 
             for j in range(1):
                 obj_ids = (pyramid_objects[j], pyramid_objects[j + 1])
-                for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                for k, c in enumerate(combinations(np.arange(n_blocks), 2)):
                     if set(obj_ids) == set(c):
                         id.append(k)
                     if set((pyramid_objects[j], pyramid_objects[-1])) == set(c):
@@ -512,12 +517,12 @@ def get_eval_goals(instruction, nb_goals=1):
                         id.append(k)
             for j in range(2):
                 obj_ids = (pyramid_objects[-1], pyramid_objects[j])
-                for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                for k, c in enumerate(permutations(np.arange(n_blocks), 2)):
                     if obj_ids == c:
-                        id.append(k + 10)
+                        id.append(k + n_comb)
             ids.append(np.array(id))
         for id in ids:
-            g = -np.ones(30)
+            g = -np.ones(goal_dim)
             g[id] = 1.
             res.append(g)
         return np.array(res)
@@ -527,10 +532,10 @@ def get_eval_goals(instruction, nb_goals=1):
         ids = []
         for _ in range(nb_goals):
             id = []
-            objects = np.random.choice(np.arange(5), size=5, replace=False)
+            objects = np.random.choice(np.arange(n_blocks), size=n_blocks, replace=False)
             base_objects = objects[:3]
             top_objects = objects[3:]
-            for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+            for k, c in enumerate(combinations(np.arange(n_blocks), 2)):
                 if set((base_objects[0], base_objects[1])) == set(c):
                     id.append(k)
                 if set((base_objects[1], base_objects[2])) == set(c):
@@ -549,18 +554,18 @@ def get_eval_goals(instruction, nb_goals=1):
                     id.append(k)
                 if set((top_objects[1], base_objects[2])) == set(c):
                     id.append(k)
-            for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+            for k, c in enumerate(permutations(np.arange(n_blocks), 2)):
                 if (top_objects[0], base_objects[0]) == c:
-                    id.append(k + 10)
+                    id.append(k + n_comb)
                 if (top_objects[0], base_objects[1]) == c:
-                    id.append(k + 10)
+                    id.append(k + n_comb)
                 if (top_objects[1], base_objects[1]) == c:
-                    id.append(k + 10)
+                    id.append(k + n_comb)
                 if (top_objects[1], base_objects[2]) == c:
-                    id.append(k + 10)
+                    id.append(k + n_comb)
             ids.append(np.array(id))
         for id in ids:
-            g = -np.ones(30)
+            g = -np.ones(goal_dim)
             g[id] = 1.
             res.append(g)
         return np.array(res)
@@ -572,26 +577,26 @@ def get_eval_goals(instruction, nb_goals=1):
         ids = []
         for _ in range(nb_goals):
             id = []
-            objects = np.random.choice(np.arange(5), size=stack_size_1 + stack_size_2, replace=False)
+            objects = np.random.choice(np.arange(n_blocks), size=stack_size_1 + stack_size_2, replace=False)
             for j in range(stack_size_1 - 1):
                 obj_ids = (objects[j], objects[j + 1])
-                for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                for k, c in enumerate(combinations(np.arange(n_blocks), 2)):
                     if set(obj_ids) == set(c):
                         id.append(k)
-                for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                for k, c in enumerate(permutations(np.arange(n_blocks), 2)):
                     if obj_ids == c:
-                        id.append(k + 10)
+                        id.append(k + n_comb)
             for j in range(stack_size_1, stack_size_1+stack_size_2-1):
                 obj_ids = (objects[j], objects[j + 1])
-                for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                for k, c in enumerate(combinations(np.arange(n_blocks), 2)):
                     if set(obj_ids) == set(c):
                         id.append(k)
-                for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                for k, c in enumerate(permutations(np.arange(n_blocks), 2)):
                     if obj_ids == c:
-                        id.append(k + 10)
+                        id.append(k + n_comb)
             ids.append(np.array(id))
         for id in ids:
-            g = -np.ones(30)
+            g = -np.ones(goal_dim)
             g[id] = 1.
             res.append(g)
         return np.array(res)
@@ -602,10 +607,10 @@ def get_eval_goals(instruction, nb_goals=1):
         ids = []
         for _ in range(nb_goals):
             id = []
-            objects = np.random.choice(np.arange(5), size=n_base+1, replace=False)
+            objects = np.random.choice(np.arange(n_blocks), size=n_base+1, replace=False)
             for j in range(n_base-1):
                 obj_ids = (objects[j], objects[j + 1])
-                for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                for k, c in enumerate(combinations(np.arange(n_blocks), 2)):
                     if set(obj_ids) == set(c):
                         id.append(k)
                     if set((objects[j], objects[-1])) == set(c):
@@ -614,12 +619,12 @@ def get_eval_goals(instruction, nb_goals=1):
                         id.append(k)
             for j in range(n_base):
                 obj_ids = (objects[-1], objects[j])
-                for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                for k, c in enumerate(permutations(np.arange(n_blocks), 2)):
                     if obj_ids == c:
-                        id.append(k+10)
+                        id.append(k+n_comb)
             ids.append(np.array(id))
         for id in ids:
-            g = -np.ones(30)
+            g = -np.ones(goal_dim)
             g[id] = 1.
             res.append(g)
         return np.array(res)
@@ -634,10 +639,10 @@ def get_eval_goals(instruction, nb_goals=1):
     if stack_size == 1:
         ids = []
         for _ in range(nb_goals):
-            id = np.random.choice(np.arange(10), size=close_pairs, replace=False)
+            id = np.random.choice(np.arange(n_comb), size=close_pairs, replace=False)
             ids.append(id)
         for id in ids:
-            g = -np.ones(30)
+            g = -np.ones(goal_dim)
             g[id] = 1.
             res.append(g)
         return np.array(res)
@@ -646,18 +651,18 @@ def get_eval_goals(instruction, nb_goals=1):
         ids = []
         for _ in range(nb_goals):
             id = []
-            objects = np.random.choice(np.arange(5), size=stack_size, replace=False)
+            objects = np.random.choice(np.arange(n_blocks), size=stack_size, replace=False)
             for j in range(stack_size-1):
                 obj_ids = (objects[j], objects[j+1])
-                for k, c in enumerate(combinations([0, 1, 2, 3, 4], 2)):
+                for k, c in enumerate(combinations(np.arange(n_blocks), 2)):
                     if set(obj_ids) == set(c):
                         id.append(k)
-                for k, c in enumerate(permutations([0, 1, 2, 3, 4], 2)):
+                for k, c in enumerate(permutations(np.arange(n_blocks), 2)):
                     if obj_ids == c:
-                        id.append(k+10)
+                        id.append(k+n_comb)
             ids.append(np.array(id))
         for id in ids:
-            g = -np.ones(30)
+            g = -np.ones(goal_dim)
             g[id] = 1.
             res.append(g)
         return np.array(res)

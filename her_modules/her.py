@@ -9,6 +9,7 @@ MC_MASK = False
 
 class her_sampler:
     def __init__(self, args, reward_func=None):
+        self.reward_type = args.reward_type
         self.replay_strategy = args.replay_strategy
         self.replay_k = args.replay_k
         if self.replay_strategy == 'future':
@@ -21,7 +22,10 @@ class her_sampler:
         self.multi_criteria_her = args.multi_criteria_her
         self.obj_ind = np.array([np.arange(i * 3, (i + 1) * 3) for i in range(args.n_blocks)])
 
-        self.semantic_ids = get_idxs_per_object(n=args.n_blocks)
+        if self.reward_type == 'per_object':
+            self.semantic_ids = get_idxs_per_object(n=args.n_blocks)
+        else:
+            self.semantic_ids = get_idxs_per_relation(n=args.n_blocks)
         self.mask_ids = get_idxs_per_relation(n=args.n_blocks)
         self.mask_p = args.mask_p
 
@@ -111,13 +115,17 @@ class her_sampler:
         return transitions
 
     def compute_reward_masks(self, ag, g, mask):
-        reward = 0.
-        # semantic_ids = np.array([np.array([0, 3, 5]), np.array([1, 4, 7]), np.array([2, 6, 8])])
-        ids = np.where(mask != 1.)[0]
-        semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in self.semantic_ids]
-        for subgoal in semantic_ids:
-            if (ag[subgoal] == g[subgoal]).all():
-                reward = reward + 1.
+        # ids = np.where(mask != 1.)[0]
+        # semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in self.semantic_ids]
+        if self.reward_type == 'sparse':
+            return (ag == g).all().astype(np.float32)
+        elif self.reward_type == 'per_predicate':
+            return (ag == g).astype(np.float32).sum()
+        else:
+            reward = 0.
+            for subgoal in self.semantic_ids:
+                if (ag[subgoal] == g[subgoal]).all():
+                    reward = reward + 1.
         return reward
 
 def compute_reward_language(ags, lg_ids):

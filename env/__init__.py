@@ -14,12 +14,12 @@ num_blocks = 3
 
 register(id='FetchManipulate3Objects-v0',
          entry_point='env.envs:FetchManipulateEnv',
-         kwargs={'reward_type': 'incremental'},
+         kwargs={'reward_type': 'sparse'},
          max_episode_steps=100,)
 
 register(id='FetchManipulate4Objects-v0',
          entry_point='env.envs:FetchManipulateEnv',
-         kwargs={'reward_type': 'incremental',
+         kwargs={'reward_type': 'sparse',
                  'num_blocks': 4,
                  'model_path': 'fetch/stack4.xml'
                  },
@@ -27,7 +27,7 @@ register(id='FetchManipulate4Objects-v0',
 
 register(id='FetchManipulate5Objects-v0',
          entry_point='env.envs:FetchManipulateEnv',
-         kwargs={'reward_type': 'incremental',
+         kwargs={'reward_type': 'sparse',
                  'num_blocks': 5,
                  'model_path': 'fetch/stack5.xml'
                  },

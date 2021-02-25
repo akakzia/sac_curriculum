@@ -17,7 +17,7 @@ class GnnCritic(nn.Module):
         # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
         self.nb_objects = nb_objects
         self.dim_body = dim_body
-        self.dim_object = 15
+        self.dim_object = dim_object
 
         dim_mp_input = dim_mp_interaction
         dim_mp_output = dim_edge_interaction
@@ -33,7 +33,7 @@ class GnnCritic(nn.Module):
         self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 256, 3 * dim_phi_critic_input)
         self.rho_critic = RhoCriticDeepSet(3 * dim_phi_critic_input, dim_rho_critic_output)
 
-        self.edge_ids = [np.array([0, 2]), np.array([1, 4]), np.array([3, 5])]
+        self.edge_ids = [np.array([0, 1]), np.array([2, 3]), np.array([4, 5])]
 
     def forward_interaction(self, obs, edge_features):
         batch_size = obs.shape[0]
@@ -43,7 +43,7 @@ class GnnCritic(nn.Module):
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
-        inp = torch.stack([torch.cat([obj, torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
+        inp = torch.stack([torch.cat([obj[:, :3], torch.max(edge_features[self.edge_ids[i], :, :], dim=0).values], dim=1)
                            for i, obj in enumerate(obs_objects)])
 
         output_phi_interaction = self.phi_interaction(inp)
@@ -89,13 +89,13 @@ class GnnCritic(nn.Module):
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
-        obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
-        goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
+        obj_ids = [[0, 1], [0, 2], [1, 0], [1, 2], [2, 0], [2, 1]]
+        goal_ids = [[0, 3], [1, 4], [0, 5], [2, 6], [1, 7], [2, 8]]
 
         delta_g = g - ag
 
-        inp_mp = torch.stack([torch.cat([delta_g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :9] - obs_objects[obj_ids[i][1]][:, :9],
-                                         obs_objects[obj_ids[i][0]], obs_objects[obj_ids[i][1]]],
+        inp_mp = torch.stack([torch.cat([delta_g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3] - obs_objects[obj_ids[i][1]][:, :3],
+                                         obs_objects[obj_ids[i][0]][:, :3], obs_objects[obj_ids[i][1]][:, :3]],
                                         dim=-1) for i in range(6)])
 
         # inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3],
@@ -163,7 +163,7 @@ class GnnSemantic:
         self.dim_object = 15
         self.dim_goal = env_params['goal']
         self.dim_act = env_params['action']
-        self.nb_objects = 3
+        self.nb_objects = args.n_blocks
 
         self.q1_pi_tensor = None
         self.q2_pi_tensor = None
@@ -187,23 +187,17 @@ class GnnSemantic:
         # dim_rho_critic_output = 1
 
         # Interaction Network dimensions
-        interaction_dim_edge = 11
-        interaction_dim_node = 15
+        interaction_dim_edge = 3 + 2
+        interaction_dim_node = 3
         interaction_dim_mp_i = interaction_dim_edge + 2 * interaction_dim_node
         interaction_dim_phi_i = interaction_dim_node + interaction_dim_edge
 
-        star_edge_dim = 6
-
         # Critic Network dimensions
-        dim_phi_critic_input = self.dim_body + self.dim_act + 2*interaction_dim_node
-        dim_phi_critic_output = 3 * dim_phi_critic_input
-        dim_rho_critic_input = dim_phi_critic_output
+        dim_phi_critic_input = self.dim_body + self.dim_act + interaction_dim_node + self.dim_object
         dim_rho_critic_output = 1
 
         # Actor Network dimensions
-        dim_phi_actor_input = self.dim_body + 2*interaction_dim_node
-        dim_phi_actor_output = 3 * dim_phi_actor_input
-        dim_rho_actor_input = dim_phi_actor_output
+        dim_phi_actor_input = self.dim_body + interaction_dim_node + self.dim_object
         dim_rho_actor_output = self.dim_act
 
         self.critic = GnnCritic(self.nb_objects, self.dim_body, self.dim_object, interaction_dim_mp_i, interaction_dim_edge, interaction_dim_phi_i,
