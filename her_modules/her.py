@@ -4,9 +4,6 @@ from language.build_dataset import sentence_from_configuration
 from utils import id_to_language, language_to_id, get_idxs_per_relation, get_idxs_per_object
 
 
-MC_MASK = False
-
-
 class her_sampler:
     def __init__(self, args, reward_func=None):
         self.reward_type = args.reward_type
@@ -27,7 +24,6 @@ class her_sampler:
         else:
             self.semantic_ids = get_idxs_per_relation(n=args.n_blocks)
         self.mask_ids = get_idxs_per_relation(n=args.n_blocks)
-        self.mask_p = args.mask_p
 
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions):
         T = episode_batch['actions'].shape[1]
@@ -42,38 +38,16 @@ class her_sampler:
         if not self.continuous:
             # her idx
             if self.multi_criteria_her:
-                if MC_MASK:
-                    count = 0
-                    np.random.shuffle(self.mask_ids)
-                    for sub_goal, sub_mask in zip(self.semantic_ids, self.mask_ids):
-                        her_indexes = np.where(np.random.uniform(size=batch_size) < self.future_p)
-                        future_offset = np.random.uniform(size=batch_size) * (T - t_samples)
-                        future_offset = future_offset.astype(int)
-                        future_t = (t_samples + 1 + future_offset)[her_indexes]
-                        # Replace
-                        future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
-                        transition_goals = transitions['g'][her_indexes]
-                        transition_goals[:, sub_goal] = future_ag[:, sub_goal]
-                        transitions['g'][her_indexes] = transition_goals
-
-                        # Mask sub goals
-                        if count < 1:
-                            count += 1
-                            mask_indexes = np.where(np.random.uniform(size=batch_size) < self.mask_p)
-                            transition_masks = transitions['masks'][mask_indexes]
-                            transition_masks[:, sub_mask] = 1.
-                            transitions['masks'][mask_indexes] = transition_masks
-                else:
-                    for sub_goal in self.semantic_ids:
-                        her_indexes = np.where(np.random.uniform(size=batch_size) < self.future_p)
-                        future_offset = np.random.uniform(size=batch_size) * (T - t_samples)
-                        future_offset = future_offset.astype(int)
-                        future_t = (t_samples + 1 + future_offset)[her_indexes]
-                        # Replace
-                        future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
-                        transition_goals = transitions['g'][her_indexes]
-                        transition_goals[:, sub_goal] = future_ag[:, sub_goal]
-                        transitions['g'][her_indexes] = transition_goals
+                for sub_goal in self.semantic_ids:
+                    her_indexes = np.where(np.random.uniform(size=batch_size) < self.future_p)
+                    future_offset = np.random.uniform(size=batch_size) * (T - t_samples)
+                    future_offset = future_offset.astype(int)
+                    future_t = (t_samples + 1 + future_offset)[her_indexes]
+                    # Replace
+                    future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
+                    transition_goals = transitions['g'][her_indexes]
+                    transition_goals[:, sub_goal] = future_ag[:, sub_goal]
+                    transitions['g'][her_indexes] = transition_goals
             else:
                 her_indexes = np.where(np.random.uniform(size=batch_size) < self.future_p)
                 n_replay = her_indexes[0].size
@@ -127,6 +101,7 @@ class her_sampler:
                 if (ag[subgoal] == g[subgoal]).all():
                     reward = reward + 1.
         return reward
+
 
 def compute_reward_language(ags, lg_ids):
     lgs = [id_to_language[lg_id] for lg_id in lg_ids]

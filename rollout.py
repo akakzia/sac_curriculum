@@ -52,10 +52,7 @@ class RolloutWorker:
             for t in range(self.env_params['max_timesteps']):
                 # Run policy for one step
                 no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
-                # if self.args.algo == 'language':
-                #     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise, language_goal=language_goal_ep)
-                # else:
-                #     action = self.policy.act(obs.copy(), ag.copy(), g.copy(), no_noise)
+                # feed both the observation and mask to the policy module
                 action = self.policy.act(obs.copy(), ag.copy(), g.copy(), masks[i].copy(), no_noise, language_goal=language_goal_ep)
 
                 # feed the actions into the environment
@@ -66,7 +63,6 @@ class RolloutWorker:
                 obs_new = observation_new['observation']
                 ag_new = observation_new['achieved_goal']
                 ag_new_bin = observation_new['achieved_goal_binary']
-
 
                 # Append rollouts
                 ep_obs.append(obs.copy())

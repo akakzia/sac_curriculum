@@ -236,16 +236,6 @@ def init_storage(args):
     if not os.path.exists(args.save_dir):
         os.mkdir(args.save_dir)
     # path to save the model
-    # if args.curriculum_learning:
-    #     logdir = os.path.join(args.save_dir, '{}_curriculum_{}'.format(datetime.now(), args.architecture))
-    # else:
-    #     logdir = os.path.join(args.save_dir, '{}_no_curriculum_{}'.format(datetime.now(), args.architecture))
-    # if args.symmetry_trick:
-    #     logdir += '_sym'
-    # if args.biased_init:
-    #     logdir += '_biased_init'
-    # if args.automatic_buckets:
-    #     logdir += '_auto'
     logdir = os.path.join(args.save_dir, '{}_{}_{}'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), args.env_name, args.architecture))
     if args.masks:
         logdir += '_masks'
@@ -392,49 +382,6 @@ INSTRUCTIONS = get_instruction()
 
 language_to_id = dict(zip(INSTRUCTIONS, range(len(INSTRUCTIONS))))
 id_to_language = dict(zip(range(len(INSTRUCTIONS)), INSTRUCTIONS))
-# else:
-#     id_to_language = {
-#         0: ['Bring green and red apart', 'Bring red and green apart', 'Get green and red far_from each_other',
-#             'Get green far_from red', 'Get red and green far_from each_other', 'Get red far_from green', 'Put green far_from red',
-#             'Put red far_from green'],
-#         1: ['Bring blue and green apart', 'Bring green and blue apart', 'Get blue and green far_from each_other',
-#             'Get blue far_from green', 'Get green and blue far_from each_other', 'Get green far_from blue', 'Put blue far_from green',
-#             'Put green far_from blue'],
-#         2: ['Bring blue and green together', 'Bring green and blue together', 'Get blue and green close_from each_other',
-#             'Get blue close_to green', 'Get green and blue close_from each_other', 'Get green close_to blue', 'Put blue close_to green',
-#             'Put green close_to blue'],
-#         3: ['Bring blue and red apart', 'Bring red and blue apart', 'Get blue and red far_from each_other',
-#             'Get blue far_from red', 'Get red and blue far_from each_other', 'Get red far_from blue', 'Put blue far_from red',
-#             'Put red far_from blue'],
-#         4: ['Bring blue and red together', 'Bring red and blue together', 'Get blue and red close_from each_other',
-#             'Get blue close_to red', 'Get red and blue close_from each_other', 'Get red close_to blue', 'Put blue close_to red',
-#             'Put red close_to blue'],
-#         5: ['Bring green and red together', 'Bring red and green together', 'Get green and red close_from each_other',
-#             'Get green close_to red', 'Get red and green close_from each_other', 'Get red close_to green', 'Put green close_to red',
-#             'Put red close_to green'],
-#
-#         6: ['Put blue above green', 'Put blue on_top_of green', 'Put green below blue', 'Put green under blue'],
-#         7: ['Put blue above red', 'Put blue on_top_of red', 'Put red below blue', 'Put red under blue'],
-#         8: ['Put blue below green', 'Put blue under green', 'Put green above blue', 'Put green on_top_of blue'],
-#         9: ['Put blue below red', 'Put blue under red', 'Put red above blue', 'Put red on_top_of blue'],
-#         10: ['Put green above red', 'Put green on_top_of red', 'Put red below green', 'Put red under green'],
-#         11: ['Put green below red', 'Put green under red', 'Put red above green', 'Put red on_top_of green'],
-#         12: ['Remove green from red', 'Remove green from_above red', 'Remove red from_below green', 'Remove red from_under green'
-#                                                                                                     'Put green and red on_the_same_plane',
-#              'Put red and green on_the_same_plane'],
-#         13: ['Put blue and red on_the_same_plane', 'Put red and blue on_the_same_plane',
-#              'Remove red from_above blue', 'Remove blue from_below red', 'Remove blue from_under red', 'Remove red from blue'],
-#         14: ['Remove green from blue', 'Remove green from_above blue', 'Remove blue from_below green', 'Remove blue from_under green',
-#              'Put blue and green on_the_same_plane', 'Put green and blue on_the_same_plane'],
-#         15: ['Put green and red on_the_same_plane', 'Put red and green on_the_same_plane', 'Remove green from_below red',
-#              'Remove green from_under red', 'Remove red from green', 'Remove red from_above green'],
-#         16: ['Put blue and red on_the_same_plane', 'Put red and blue on_the_same_plane', 'Remove blue from red',
-#              'Remove blue from_above red', 'Remove red from_below blue', 'Remove red from_under blue'],
-#         17: ['Put blue and green on_the_same_plane', 'Put green and blue on_the_same_plane', 'Remove blue from green',
-#              'Remove blue from_above green', 'Remove green from_below blue', 'Remove green from_under blue'],
-#
-#     }
-#     language_to_id = invert_dict(id_to_language)
 
 
 def get_graph_structure(n):
@@ -473,13 +420,14 @@ def get_idxs_per_relation(n):
 
 
 def get_idxs_per_object(n):
+    """ For each objects, outputs the predicates indexes that include the corresponding object"""
     map_list = list(combinations(np.arange(n), 2)) + list(permutations(np.arange(n), 2))
     obj_ids = np.arange(n)
     return np.array([np.array([i for i in range(len(map_list)) if obj_id in map_list[i]]) for obj_id in obj_ids])
 
 
 def get_eval_goals(instruction, n, nb_goals=1):
-    """ For 5 blocks: Return the eval goals that respect the close_pairs and above size"""
+    """ Given an instruction and the total number of objects on the table, outputs a corresponding semantic goal"""
     res = []
     n_blocks = n
     n_comb = n_blocks * (n_blocks - 1) // 2

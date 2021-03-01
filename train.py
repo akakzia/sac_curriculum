@@ -101,11 +101,11 @@ def launch(args):
             # Environment interactions
             t_i = time.time()
             episodes = rollout_worker.generate_rollout(goals=goals,  # list of goal configurations
-                                                       masks=masks,
+                                                       masks=masks,  # list of masks to be applied
                                                        self_eval=self_eval,  # whether the agent performs self-evaluations
                                                        true_eval=False,  # these are not offline evaluation episodes
-                                                       biased_init=biased_init,
-                                                       language_goal=language_goal_ep)  # whether initializations should be biased.
+                                                       biased_init=biased_init,  # whether initializations should be biased.
+                                                       language_goal=language_goal_ep)   # ignore if no language used
             time_dict['rollout'] += time.time() - t_i
 
             # Goal Sampler updates
@@ -138,10 +138,6 @@ def launch(args):
             if rank==0: logger.info('\tRunning eval ..')
             # Performing evaluations
             t_i = time.time()
-            # if args.n_blocks == 3:
-            #     # Eval for all possible number of masks
-            #     eval_goals, eval_masks = goal_sampler.generate_eval_goals()
-            # elif args.n_blocks == 5:
             eval_goals = []
             if args.n_blocks == 3:
                 instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'pyramid_3', 'stack_3']
@@ -155,8 +151,6 @@ def launch(args):
                 eval_goals.append(eval_goal.squeeze(0))
             eval_goals = np.array(eval_goals)
             eval_masks = np.array(np.zeros((eval_goals.shape[0], args.n_blocks * (args.n_blocks - 1) * 3 // 2)))
-            # else:
-            #     raise NotImplementedError
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        masks=eval_masks,
                                                        self_eval=True,  # this parameter is overridden by true_eval

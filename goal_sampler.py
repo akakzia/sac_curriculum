@@ -101,7 +101,7 @@ class GoalSampler:
 
         # Apply masks
         for e in episodes:
-            if self.mask_application == 'transparent':
+            if self.mask_application == 'hindsight':
                 e['g'] = e['g'] * (1 - e['masks'][0]) + e['ag'][:-1] * e['masks'][0]
             elif self.mask_application == 'initial':
                 e['g'] = e['g'] * (1 - e['masks'][0]) + e['ag'][0] * e['masks'][0]

@@ -15,7 +15,6 @@ class GnnCritic(nn.Module):
                  dim_mp_output, dim_phi_critic_input, dim_phi_critic_output, dim_rho_critic_input, dim_rho_critic_output):
         super(GnnCritic, self).__init__()
 
-        # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
         self.nb_objects = nb_objects
         self.dim_body = dim_body
         self.dim_object = dim_object
@@ -38,9 +37,6 @@ class GnnCritic(nn.Module):
         assert batch_size == len(obs)
 
         obs_body = obs[:, :self.dim_body]
-        # obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.nb_objects),
-        #                           obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
-        #                for i in range(self.nb_objects)]
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
@@ -73,25 +69,13 @@ class GnnCritic(nn.Module):
         batch_size = obs.shape[0]
         assert batch_size == len(ag)
 
-        obs_body = obs[:, :self.dim_body]
-        # obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.nb_objects),
-        #                                       obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
-        #                            for i in range(self.nb_objects)]
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
-
-        # obj_ids = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
-        # goal_ids = [[0, 3], [0, 4], [1, 5], [1, 6], [2, 7], [2, 8]]
 
         delta_g = g - ag
 
         inp_mp = torch.stack([torch.cat([delta_g[:, self.predicate_ids[i]], obs_objects[self.edges[i][0]][:, :3],
                                          obs_objects[self.edges[i][1]][:, :3]], dim=-1) for i in range(self.n_permutations)])
-
-        # inp_mp = torch.stack([torch.cat([ag[:, goal_ids[i]], g[:, goal_ids[i]], obs_objects[obj_ids[i][0]][:, :3],
-        #                                  obs_objects[obj_ids[i][1]][:, :3]], dim=-1) for i in range(6)])
-
-        # inp_mp = torch.stack([torch.cat([g, ag, obj[0], obj[1]], dim=-1) for obj in permutations(obs_objects, 2)])
 
         output_mp = self.mp_critic(inp_mp)
 
@@ -115,16 +99,11 @@ class GnnActor(nn.Module):
 
         self.incoming_edges = incoming_edges
 
-        # self.one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
-
     def forward(self, obs, edge_features):
         batch_size = obs.shape[0]
         assert batch_size == len(obs)
 
         obs_body = obs[:, :self.dim_body]
-        # obs_objects = [torch.cat((torch.cat(batch_size * [self.one_hot_encodings[i]]).reshape(obs_body.shape[0], self.nb_objects),
-        #                           obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]), dim=1)
-        #                for i in range(self.nb_objects)]
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
                        for i in range(self.nb_objects)]
 
@@ -188,8 +167,7 @@ class GnnSemantic:
         # Process indexes for graph construction
         self.edges, self.incoming_edges, self.predicate_ids = get_graph_structure(self.nb_objects)
 
-        # dim_input_objects = 2 * (self.nb_objects + self.dim_object)
-        dim_mp_input = 6 + 2
+        dim_mp_input = 6 + 2  # 2 * nb_position_dimensions + nb_predicates
         dim_mp_output = 3 * dim_mp_input
 
         dim_phi_actor_input = self.dim_body + self.dim_object + dim_mp_output

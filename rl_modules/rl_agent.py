@@ -127,8 +127,9 @@ class RLAgent:
                                   )
 
     def act(self, obs, ag, g, mask, no_noise, language_goal=None):
+        # apply mask
         if mask is not None:
-            if self.args.mask_application == 'transparent':
+            if self.args.mask_application == 'hindsight':
                 g = g * (1 - mask) + ag * mask
             elif self.args.mask_application == 'initial':
                 g = g * (1 - mask) + ag * mask
