@@ -616,3 +616,38 @@ def get_eval_goals(instruction, n, nb_goals=1):
         return np.array(res)
 
 
+def get_eval_masked_goals(goals, n):
+    map_close_to_ids = {0: [0, 3, 5], 1: [1, 4, 7], 2: [2, 6, 8]}
+    n_comb = n // 3
+    res_g = []
+    res_m = []
+    for goal in goals:
+        positive_close_ids = np.where(goal[:n_comb] == 1.)[0]
+        if len(positive_close_ids) == 1:
+            mask = np.ones(n)
+            mask[map_close_to_ids[positive_close_ids[0]]] = 0.
+            res_g.append(goal)
+            res_m.append(mask.copy())
+            mask[map_close_to_ids[(positive_close_ids[0]+1) % 3]] = 0.
+            res_g.append(goal)
+            res_m.append(mask.copy())
+            mask[map_close_to_ids[(positive_close_ids[0] + 2) % 3]] = 0.
+            res_g.append(goal)
+            res_m.append(mask.copy())
+        elif len(positive_close_ids) == 2:
+            mask = np.ones(n)
+            mask[map_close_to_ids[positive_close_ids[0]]] = 0.
+            mask[map_close_to_ids[positive_close_ids[1]]] = 0.
+            res_g.append(goal)
+            res_m.append(mask.copy())
+            res_g.append(goal)
+            res_m.append(np.zeros(n))
+        else:
+            res_g.append(goal)
+            res_m.append(np.zeros(n))
+
+    res_g = np.array(res_g)
+    res_m = np.array(res_m)
+    return res_g, res_m
+
+

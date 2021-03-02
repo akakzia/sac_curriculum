@@ -20,7 +20,7 @@ def get_args():
     parser.add_argument('--algo', type=str, default='semantic', help="'semantic', 'continuous', 'language'")
     parser.add_argument('--agent', type=str, default='SAC', help='the RL algorithm name')
     parser.add_argument('--n-blocks', type=int, default=3, help='The number of blocks to be considered in the FetchManipulate env')
-    parser.add_argument('--masks', type=bool, default=False, help='Whether or not to use masked semantic goals')
+    parser.add_argument('--masks', type=bool, default=True, help='Whether or not to use masked semantic goals')
     parser.add_argument('--mask-application', type=str, default='hindsight', help='hindsight, initial or opaque')
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
     parser.add_argument('--start-biased-init', type=int, default=10, help='Number of epoch before biased initializations start')

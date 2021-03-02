@@ -158,7 +158,7 @@ class GoalSampler:
         if self.goal_dim == 30:
             n = 12
         else:
-            n = 6
+            n = 12
         for i in np.arange(1, n+1):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
