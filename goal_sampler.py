@@ -55,6 +55,28 @@ class GoalSampler:
                 mask[ids_to_mask] = 1
         return masks
 
+    def sp_sample(self):
+        """ Given a goal requiring more than one action, outputs the sequence of masks"""
+        a = [np.array([[1., -1., 1., 1., -1., -1., 1., -1., -1.], [1., -1., 1., 1., -1., -1., 1., -1., -1.]]),
+             np.array([[-1., 1., 1., -1., 1., -1., -1., -1., 1.], [-1., 1., 1., -1., 1., -1., -1., -1., 1.]]),
+             np.array([[1., 1., -1., -1., 1., 1., -1., -1., -1.], [1., 1., -1., -1., 1., 1., -1., -1., -1.]]),
+             np.array([[-1., 1., 1., -1., -1., -1., 1., 1., -1.], [-1., 1., 1., -1., -1., -1., 1., 1., -1.]]),
+             np.array([[1., 1., -1., 1., -1., -1., -1., 1., -1.], [1., 1., -1., 1., -1., -1., -1., 1., -1.]]),
+             np.array([[1., -1., 1., -1., -1., 1., -1., -1., 1.], [1., -1., 1., -1., -1., 1., -1., -1., 1.]])]
+
+        b = [np.array([[1., 1., 0., 1., 1., 1., 0., 1., 0.], [0., 1., 1., 0., 1., 0., 1., 1., 1.]]),
+             np.array([[1., 1., 0., 1., 1., 1., 0., 1., 0.], [1., 0., 1., 1., 0., 1., 1., 0., 1.]]),
+             np.array([[1., 0., 1., 1., 0., 1., 1., 0., 1.], [0., 1., 1., 0., 1., 0., 1., 1., 1.]]),
+             np.array([[1., 0., 1., 1., 0., 1., 1., 0., 1.], [1., 1., 0., 1., 1., 1., 0., 1., 0.]]),
+             np.array([[0., 1., 1., 0., 1., 0., 1., 1., 1.], [1., 0., 1., 1., 0., 1., 1., 0., 1.]]),
+             np.array([[0., 1., 1., 0., 1., 0., 1., 1., 1.], [1., 1., 0., 1., 1., 1., 0., 1., 0.]])]
+
+        ids = np.random.choice(np.arange(len(a)))
+        goals = np.array(a)[ids]
+        masks = np.array(b)[ids]
+
+        return goals, masks
+
     def sample_goal(self, n_goals, evaluation):
         """
         Sample n_goals goals to be targeted during rollouts
@@ -73,10 +95,25 @@ class GoalSampler:
             # if no curriculum learning
             else:
                 # sample uniformly from discovered goals
-                goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
-                goals = np.array(self.discovered_goals)[goal_ids]
-                masks = self.sample_masks(n_goals)
-                # masks = np.array(self.masks_list)[np.random.choice(range(self.n_masks), size=n_goals)]
+                # goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
+                # goals = np.array(self.discovered_goals)[goal_ids]
+                # masks = self.sample_masks(n_goals)
+                i = 0
+                sp = False
+                goals = []
+                while i < n_goals and not sp:
+                    goal_id = np.random.choice(range(len(self.discovered_goals)))
+                    goal = np.array(self.discovered_goals)[goal_id]
+                    if goal.sum() == -1. and i == 0:
+                        # Social Partner intervenes to give sequence of masks
+                        goals, masks = self.sp_sample()
+                        sp = True
+                    else:
+                        goals.append(goal)
+                    i = i + 1
+                if not sp:
+                    goals = np.array(goals)
+                    masks = self.sample_masks(n_goals)
                 self_eval = False
         return goals, masks, self_eval
 
@@ -100,15 +137,15 @@ class GoalSampler:
         self.sync()
 
         # Apply masks
-        for e in episodes:
-            if self.mask_application == 'hindsight':
-                e['g'] = e['g'] * (1 - e['masks'][0]) + e['ag'][:-1] * e['masks'][0]
-            elif self.mask_application == 'initial':
-                e['g'] = e['g'] * (1 - e['masks'][0]) + e['ag'][0] * e['masks'][0]
-            elif self.mask_application == 'opaque':
-                e['g'] = e['g'] * (1 - e['masks'][0]) - 10 * e['masks'][0]
-            else:
-                raise NotImplementedError
+        # for e in episodes:
+        #     if self.mask_application == 'hindsight':
+        #         e['g'] = e['g'] * (1 - e['masks'][0]) + e['ag'][:-1] * e['masks'][0]
+        #     elif self.mask_application == 'initial':
+        #         e['g'] = e['g'] * (1 - e['masks'][0]) + e['ag'][0] * e['masks'][0]
+        #     elif self.mask_application == 'opaque':
+        #         e['g'] = e['g'] * (1 - e['masks'][0]) - 10 * e['masks'][0]
+        #     else:
+        #         raise NotImplementedError
 
         return episodes
 

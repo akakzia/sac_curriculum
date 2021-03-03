@@ -25,12 +25,13 @@ class RolloutWorker:
 
         episodes = []
         for i in range(goals.shape[0]):
-            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), biased_init=biased_init)
-            obs = observation['observation']
-            ag = observation['achieved_goal']
-            ag_bin = observation['achieved_goal_binary']
-            g = observation['desired_goal']
-            g_bin = observation['desired_goal_binary']
+            if i == 0 or (i > 0 and true_eval):
+                observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), biased_init=biased_init)
+                obs = observation['observation']
+                ag = observation['achieved_goal']
+                ag_bin = observation['achieved_goal_binary']
+                g = observation['desired_goal']
+                g_bin = observation['desired_goal_binary']
 
             # in the language condition, we need to sample a language goal
             # here we sampled a configuration goal like in DECSTR, so we just use a language goal describing one of the predicates
