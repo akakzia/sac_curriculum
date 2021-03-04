@@ -62,6 +62,7 @@ def sync_grads(network):
     comm = MPI.COMM_WORLD
     global_grads = np.zeros_like(flat_grads)
     comm.Allreduce(flat_grads, global_grads, op=MPI.SUM)
+    global_grads = global_grads / 24.
     _set_flat_params_or_grads(network, global_grads, mode='grads')
 
 

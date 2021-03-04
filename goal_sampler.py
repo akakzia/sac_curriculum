@@ -95,25 +95,25 @@ class GoalSampler:
             # if no curriculum learning
             else:
                 # sample uniformly from discovered goals
-                # goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
-                # goals = np.array(self.discovered_goals)[goal_ids]
-                # masks = self.sample_masks(n_goals)
-                i = 0
-                sp = False
-                goals = []
-                while i < n_goals and not sp:
-                    goal_id = np.random.choice(range(len(self.discovered_goals)))
-                    goal = np.array(self.discovered_goals)[goal_id]
-                    if goal.sum() == -1. and i == 0:
-                        # Social Partner intervenes to give sequence of masks
-                        goals, masks = self.sp_sample()
-                        sp = True
-                    else:
-                        goals.append(goal)
-                    i = i + 1
-                if not sp:
-                    goals = np.array(goals)
-                    masks = self.sample_masks(n_goals)
+                goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
+                goals = np.array(self.discovered_goals)[goal_ids]
+                masks = self.sample_masks(n_goals)
+                # i = 0
+                # sp = False
+                # goals = []
+                # while i < n_goals and not sp:
+                #     goal_id = np.random.choice(range(len(self.discovered_goals)))
+                #     goal = np.array(self.discovered_goals)[goal_id]
+                #     if goal.sum() == -1. and i == 0:
+                #         # Social Partner intervenes to give sequence of masks
+                #         goals, masks = self.sp_sample()
+                #         sp = True
+                #     else:
+                #         goals.append(goal)
+                #     i = i + 1
+                # if not sp:
+                #     goals = np.array(goals)
+                #     masks = self.sample_masks(n_goals)
                 self_eval = False
         return goals, masks, self_eval
 
