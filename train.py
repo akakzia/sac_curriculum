@@ -150,8 +150,8 @@ def launch(args):
                 eval_goal = get_eval_goals(instruction, n=args.n_blocks)
                 eval_goals.append(eval_goal.squeeze(0))
             eval_goals = np.array(eval_goals)
-            eval_goals, eval_masks = get_eval_masked_goals(eval_goals, args.n_blocks * (args.n_blocks - 1) * 3 // 2)
-            # eval_masks = np.array(np.zeros((eval_goals.shape[0], args.n_blocks * (args.n_blocks - 1) * 3 // 2)))
+            # eval_goals, eval_masks = get_eval_masked_goals(eval_goals, args.n_blocks * (args.n_blocks - 1) * 3 // 2)
+            eval_masks = np.array(np.zeros((eval_goals.shape[0], args.n_blocks * (args.n_blocks - 1) * 3 // 2)))
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        masks=eval_masks,
                                                        self_eval=True,  # this parameter is overridden by true_eval
