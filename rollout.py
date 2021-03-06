@@ -25,7 +25,7 @@ class RolloutWorker:
 
         episodes = []
         for i in range(goals.shape[0]):
-            if i == 0 or (i > 0 and true_eval):
+            if i == 0 or (i > 0 and (goals[i] != goals[i-1]).any()):
                 observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), biased_init=biased_init)
                 obs = observation['observation']
                 ag = observation['achieved_goal']

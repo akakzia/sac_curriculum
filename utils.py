@@ -651,3 +651,57 @@ def get_eval_masked_goals(goals, n):
     return res_g, res_m
 
 
+def get_goals_and_masks(g):
+    """ g: an array of semantic goal configurations
+    Returns: gs, masks """
+    dim_g = g.shape[-1]
+    n_comb = dim_g // 3
+    n = ((1 + np.sqrt(1 + 8 * n_comb)) / 2).astype(int)  # retrieve number of object from number of combinations
+    all_relations = list(combinations(np.arange(n).astype(int), 2))
+    map_relations_ids = get_idxs_per_relation(n)
+    close_pairs = []
+    above_pairs = []
+    above_pairs_relation_ids = []
+    on_table_pairs = set(i for i in range(n))
+    gs = []
+    masks = []
+    for relation, relation_ids in zip(all_relations, map_relations_ids):
+        mask = np.ones(dim_g)
+        if (g[:, relation_ids] == np.array([1., -1., -1.])).all():
+            close_pairs.append(relation)
+            mask[relation_ids] = 0.
+            gs.append(g)
+            masks.append(mask.copy())
+            # print("Put {} close_to {}".format(relation[0], relation[1]))
+        if (g[:, relation_ids] == np.array([1., 1., -1.])).all():
+            above_pairs.append(relation)
+            if relation[0] in on_table_pairs:
+                on_table_pairs.remove(relation[0])
+            above_pairs_relation_ids.append(relation_ids)
+        if (g[:, relation_ids] == np.array([1., -1., 1.])).all():
+            above_pairs.append((relation[1], relation[0]))
+            if relation[1] in on_table_pairs:
+                on_table_pairs.remove(relation[1])
+            above_pairs_relation_ids.append(relation_ids)
+    if len(above_pairs) == 0:
+        pass
+    else:
+        objects_in_stack = set(p for pair in above_pairs for p in pair)
+        base_objects = on_table_pairs.intersection(objects_in_stack)
+        for base_object in base_objects:
+            i = 0
+            current_base_object = base_object
+            counter = 0
+            while i < len(above_pairs) and counter < n:  # force stop if counter bigger than number of blocks (upper bound)
+                counter = counter + 1
+                for pairs, relation_ids in zip(above_pairs, above_pairs_relation_ids):
+                    if pairs[1] == current_base_object:
+                        mask = np.ones(dim_g)
+                        # print("Put {} above {}".format(pairs[0], pairs[1]))
+                        mask[relation_ids] = 0.
+                        gs.append(g)
+                        masks.append(mask.copy())
+                        current_base_object = pairs[0]
+                        i = i + 1
+
+    return np.concatenate(gs), np.array(masks)

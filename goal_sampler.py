@@ -1,6 +1,6 @@
 from collections import deque
 import numpy as np
-from utils import get_idxs_per_relation
+from utils import get_idxs_per_relation, get_goals_and_masks, get_eval_goals
 from mpi4py import MPI
 import os
 import pickle
@@ -9,6 +9,8 @@ from mpi_utils import logger
 
 
 ALL_MASKS = True
+# Probability that SP gives an external goal with a mask sequence
+P_EXTERNAL_GOAL = 0.2
 
 
 class GoalSampler:
@@ -17,6 +19,11 @@ class GoalSampler:
         self.rank = MPI.COMM_WORLD.Get_rank()
         self.use_masks = args.masks
         self.mask_application = args.mask_application
+        self.n_blocks = args.n_blocks
+        if self.n_blocks == 5:
+            self.sp_instructions = ['close_3', 'stack_3', 'mixed_2_3', 'stack_4', 'stack_5']
+        else:
+            self.sp_instructions = ['stack_3', 'pyramid_3', 'close_2']
 
         self.goal_dim = args.env_params['goal']
         self.relation_ids = get_idxs_per_relation(n=args.n_blocks)
@@ -98,24 +105,38 @@ class GoalSampler:
                 # goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
                 # goals = np.array(self.discovered_goals)[goal_ids]
                 # masks = self.sample_masks(n_goals)
-                i = 0
-                sp = False
-                goals = []
-                while i < n_goals and not sp:
-                    goal_id = np.random.choice(range(len(self.discovered_goals)))
+                # i = 0
+                # sp = False
+                # goals = []
+                # while i < n_goals and not sp:
+                #     goal_id = np.random.choice(range(len(self.discovered_goals)))
+                #     goal = np.array(self.discovered_goals)[goal_id]
+                #     if goal.sum() == -1. and i == 0:
+                #         # Social Partner intervenes to give sequence of masks
+                #         goals, masks = self.sp_sample()
+                #         sp = True
+                #     else:
+                #         goals.append(goal)
+                #     i = i + 1
+                # if not sp:
+                #     goals = np.array(goals)
+                #     masks = self.sample_masks(n_goals)
+                if np.random.uniform() < P_EXTERNAL_GOAL:
+                    instruction = np.random.choice(self.sp_instructions)
+                    goal = get_eval_goals(instruction, self.n_blocks)
+                    goals, masks = get_goals_and_masks(goal)
+                else:
+                    goal_id = np.random.choice(range(len(self.discovered_goals)), size=1)
                     goal = np.array(self.discovered_goals)[goal_id]
-                    if goal.sum() == -1. and i == 0:
-                        # Social Partner intervenes to give sequence of masks
-                        goals, masks = self.sp_sample()
-                        sp = True
-                    else:
-                        goals.append(goal)
-                    i = i + 1
-                if not sp:
-                    goals = np.array(goals)
-                    masks = self.sample_masks(n_goals)
+                    goals, masks = get_goals_and_masks(goal)
+                if goals.shape[0] < n_goals:
+                    goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals - goals.shape[0])
+                    goals_comp = np.array(self.discovered_goals)[goal_ids]
+                    masks_comp = self.sample_masks(n_goals - goals.shape[0])
+                    goals = np.concatenate([goals, goals_comp])
+                    masks = np.concatenate([masks, masks_comp])
                 self_eval = False
-        return goals, masks, self_eval
+        return goals[:n_goals, :], masks[:n_goals, :], self_eval
 
     def update(self, episodes, t):
         """
@@ -195,7 +216,7 @@ class GoalSampler:
         if self.goal_dim == 30:
             n = 12
         else:
-            n = 12
+            n = 6
         for i in np.arange(1, n+1):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
