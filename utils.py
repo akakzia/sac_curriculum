@@ -704,4 +704,8 @@ def get_goals_and_masks(g):
                         current_base_object = pairs[0]
                         i = i + 1
 
+    if len(gs) == 0:
+        gs.append(g)
+        masks.append(np.zeros(dim_g))
+
     return np.concatenate(gs), np.array(masks)
