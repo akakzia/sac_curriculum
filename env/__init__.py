@@ -12,6 +12,16 @@ def str_to_class(str):
 # ----------------------------------------
 num_blocks = 3
 
+
+register(id='FetchManipulate2Objects-v0',
+         entry_point='env.envs:FetchManipulateEnv',
+         kwargs={'reward_type': 'sparse',
+                 'num_blocks': 2,
+                 'model_path': 'fetch/stack2.xml'
+                 },
+         max_episode_steps=50,)
+
+
 register(id='FetchManipulate3Objects-v0',
          entry_point='env.envs:FetchManipulateEnv',
          kwargs={'reward_type': 'sparse'},

@@ -141,6 +141,8 @@ def launch(args):
             eval_goals = []
             if args.n_blocks == 3:
                 instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'pyramid_3', 'stack_3']
+            elif args.n_blocks == 2:
+                instructions = ['close_1', 'stack_2']
             elif args.n_blocks == 5:
                 instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'stack_3', '2stacks_2_2', '2stacks_2_3', 'pyramid_3',
                                 'mixed_2_3', 'trapeze_2_3', 'stack_4', 'stack_5']
