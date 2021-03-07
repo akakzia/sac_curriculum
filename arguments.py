@@ -19,7 +19,7 @@ def get_args():
     # the environment arguments
     parser.add_argument('--algo', type=str, default='semantic', help="'semantic', 'continuous', 'language'")
     parser.add_argument('--agent', type=str, default='SAC', help='the RL algorithm name')
-    parser.add_argument('--n-blocks', type=int, default=2, help='The number of blocks to be considered in the FetchManipulate env')
+    parser.add_argument('--n-blocks', type=int, default=3, help='The number of blocks to be considered in the FetchManipulate env')
     parser.add_argument('--masks', type=bool, default=True, help='Whether or not to use masked semantic goals')
     parser.add_argument('--mask-application', type=str, default='hindsight', help='hindsight, initial or opaque')
     parser.add_argument('--biased-init', type=bool, default=False, help='use biased environment initializations')
@@ -31,7 +31,7 @@ def get_args():
     parser.add_argument('--num-rollouts-per-mpi', type=int, default=2, help='the rollouts per mpi')
     parser.add_argument('--batch-size', type=int, default=256, help='the sample batch size')
     # the replay arguments
-    parser.add_argument('--multi-criteria-her', type=bool, default=True, help='test')
+    parser.add_argument('--multi-criteria-her', type=bool, default=False, help='test')
     parser.add_argument('--replay-strategy', type=str, default='future', help='the HER strategy')
     parser.add_argument('--replay-k', type=int, default=4, help='ratio to be replace')
     parser.add_argument('--reward-type', type=str, default='per_relation', help='per_object, per_relation, per_predicate or sparse')
