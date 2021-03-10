@@ -608,6 +608,9 @@ def get_eval_goals(instruction, n, nb_goals=1):
                 for k, c in enumerate(permutations(np.arange(n_blocks), 2)):
                     if obj_ids == c:
                         id.append(k+n_comb)
+                    if j == 1:
+                        if (objects[0], objects[j+1]) == c:
+                            id.append(k + n_comb)
             ids.append(np.array(id))
         for id in ids:
             g = -np.ones(goal_dim)

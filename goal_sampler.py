@@ -10,7 +10,7 @@ from mpi_utils import logger
 
 ALL_MASKS = True
 # Probability that SP gives an external goal with a mask sequence
-P_EXTERNAL_GOAL = 0.2
+P_EXTERNAL_GOAL = 0.
 
 
 class GoalSampler:
@@ -102,9 +102,9 @@ class GoalSampler:
             # if no curriculum learning
             else:
                 # sample uniformly from discovered goals
-                # goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
-                # goals = np.array(self.discovered_goals)[goal_ids]
-                # masks = self.sample_masks(n_goals)
+                goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
+                goals = np.array(self.discovered_goals)[goal_ids]
+                masks = self.sample_masks(n_goals)
                 # i = 0
                 # sp = False
                 # goals = []
@@ -121,20 +121,20 @@ class GoalSampler:
                 # if not sp:
                 #     goals = np.array(goals)
                 #     masks = self.sample_masks(n_goals)
-                if np.random.uniform() < P_EXTERNAL_GOAL:
-                    instruction = np.random.choice(self.sp_instructions)
-                    goal = get_eval_goals(instruction, self.n_blocks)
-                    goals, masks = get_goals_and_masks(goal)
-                else:
-                    goal_id = np.random.choice(range(len(self.discovered_goals)), size=1)
-                    goal = np.array(self.discovered_goals)[goal_id]
-                    goals, masks = get_goals_and_masks(goal)
-                if goals.shape[0] < n_goals:
-                    goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals - goals.shape[0])
-                    goals_comp = np.array(self.discovered_goals)[goal_ids]
-                    masks_comp = self.sample_masks(n_goals - goals.shape[0])
-                    goals = np.concatenate([goals, goals_comp])
-                    masks = np.concatenate([masks, masks_comp])
+                # if np.random.uniform() < P_EXTERNAL_GOAL:
+                #     instruction = np.random.choice(self.sp_instructions)
+                #     goal = get_eval_goals(instruction, self.n_blocks)
+                #     goals, masks = get_goals_and_masks(goal)
+                # else:
+                #     goal_id = np.random.choice(range(len(self.discovered_goals)), size=1)
+                #     goal = np.array(self.discovered_goals)[goal_id]
+                #     goals, masks = get_goals_and_masks(goal)
+                # if goals.shape[0] < n_goals:
+                #     goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals - goals.shape[0])
+                #     goals_comp = np.array(self.discovered_goals)[goal_ids]
+                #     masks_comp = self.sample_masks(n_goals - goals.shape[0])
+                #     goals = np.concatenate([goals, goals_comp])
+                #     masks = np.concatenate([masks, masks_comp])
                 self_eval = False
         return goals[:n_goals, :], masks[:n_goals, :], self_eval
 
