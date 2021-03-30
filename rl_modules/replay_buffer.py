@@ -155,7 +155,8 @@ class MultiBuffer:
                 idx = np.random.randint(0, self.size, inc)
             self.current_size[id] = min(self.size, self.current_size[id] + inc)
             idx_list.append(idx)
-        try:
-            return np.array(idx_list).squeeze(0)
-        except ValueError:
-            return np.array(idx_list).squeeze(-1)
+        return np.array(idx_list).reshape(counts.sum())
+        # try:
+        #     return np.array(idx_list).squeeze(0)
+        # except ValueError:
+        #     return np.array(idx_list).squeeze(-1)
