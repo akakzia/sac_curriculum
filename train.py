@@ -73,6 +73,7 @@ def launch(args):
                          gs_update=0,
                          store=0,
                          norm_update=0,
+                         lp_update=0,
                          policy_train=0,
                          eval=0,
                          epoch=0)
@@ -110,12 +111,12 @@ def launch(args):
 
             # Goal Sampler updates
             t_i = time.time()
-            episodes = goal_sampler.update(episodes, episode_count)
+            episodes, buckets = goal_sampler.update(episodes, episode_count)
             time_dict['gs_update'] += time.time() - t_i
 
             # Storing episodes
             t_i = time.time()
-            policy.store(episodes)
+            policy.store(episodes, buckets)
             time_dict['store'] += time.time() - t_i
 
             # Updating observation normalization
@@ -130,6 +131,10 @@ def launch(args):
                 policy.train()
             time_dict['policy_train'] += time.time() - t_i
             episode_count += args.num_rollouts_per_mpi * args.num_workers
+
+        t_i = time.time()
+        goal_sampler.update_LP()
+        time_dict['lp_update'] += time.time() - t_i
 
         time_dict['epoch'] += time.time() -t_init
         time_dict['total'] = time.time() - t_total_init

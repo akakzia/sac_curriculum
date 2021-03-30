@@ -162,8 +162,8 @@ class RLAgent:
 
         return action.copy()
     
-    def store(self, episodes):
-        self.buffer.store_episode(episode_batch=episodes)
+    def store(self, episodes, buckets):
+        self.buffer.store_episode(episode_batch=episodes, bs=buckets)
 
     # pre_process the inputs
     def _preproc_inputs(self, obs, ag, g):

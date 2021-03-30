@@ -425,6 +425,24 @@ def get_idxs_per_object(n):
     obj_ids = np.arange(n)
     return np.array([np.array([i for i in range(len(map_list)) if obj_id in map_list[i]]) for obj_id in obj_ids])
 
+def get_number_of_floors(config, n):
+    """ For a given semantic configurations, determines how many stack floors are there"""
+    idxs_per_relation = get_idxs_per_relation(n)
+    nb_floors = 0
+    blocks_per_floor = [[] for _ in range(n)]
+    blocks_per_floor[0] = [i for i in range(n)]
+    for i, pair in enumerate(combinations(np.arange(n), 2)):
+        current_relation = idxs_per_relation[i]
+        if (config[current_relation] == np.array([1., 1., -1.])).all():
+            if pair[1] in blocks_per_floor[nb_floors]:
+                nb_floors += 1
+                blocks_per_floor[nb_floors].append(pair[0])
+        elif (config[current_relation] == np.array([1., -1., 1.])).all():
+            if pair[0] in blocks_per_floor[nb_floors]:
+                nb_floors += 1
+
+    return nb_floors
+
 
 def get_eval_goals(instruction, n, nb_goals=1):
     """ Given an instruction and the total number of objects on the table, outputs a corresponding semantic goal"""
