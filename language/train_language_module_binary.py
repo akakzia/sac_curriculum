@@ -196,6 +196,7 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
     with open(SAVE_PATH + 'vae_model{}.pkl'.format(vae_id), 'wb') as f:
         torch.save(vae, f)
 
+    stuff_to_save = []
     # test train statistics
     factor = 100
     for i_gen in range(len(set_inds)):
@@ -273,6 +274,7 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
             # results_per_sentence[s]['nb_valid_goals_not_dataset'].append(count_found_not_dataset)
             # results_per_sentence[s]['nb_different_valid_goals'].append(count_found_possible)
 
+        stuff_to_save.append(results_per_sentence)
 
         for s in results_per_sentence.keys():
             filter = ['Remove', 'Put blue', 'Put green', 'Put red', 'Get red', 'Get blue', 'Get green', 'apart', 'together']
@@ -301,6 +303,8 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
         results[i_gen, 7] = np.mean(coverage_possible)
     with open(SAVE_PATH + 'res{}.pkl'.format(vae_id), 'wb') as f:
         pickle.dump(results, f)
+    with open(SAVE_PATH + 'res_abs{}.pkl'.format(vae_id), 'wb') as f:
+        pickle.dump(stuff_to_save, f)
     return results.copy()
 
 
@@ -328,9 +332,48 @@ if __name__ == '__main__':
     latent_size = 27
     k_param = 0.6
 
-    vocab, configs, device, data_loader, inst_to_one_hot, train_test_data, set_inds, sentences, \
-    all_possible_configs, str_to_index = main(args)
+    for i in range(10):
+        print('ICIII', i)
+        vocab, configs, device, data_loader, inst_to_one_hot, train_test_data, set_inds, sentences, \
+        all_possible_configs, str_to_index = main(args)
 
-    train(vocab, configs, device, data_loader,
-          inst_to_one_hot, train_test_data, set_inds, sentences,
-          layers, embedding_size, latent_size, learning_rate,  k_param, all_possible_configs, str_to_index, args, 0)
+
+        train(vocab, configs, device, data_loader,
+              inst_to_one_hot, train_test_data, set_inds, sentences,
+              layers, embedding_size, latent_size, learning_rate,  k_param, all_possible_configs, str_to_index, args, i)
+    #
+    # import numpy as np
+    # import pickle
+    #
+    # path = '/home/flowers/Desktop/Scratch/sac_curriculum/language/data/'
+    #
+    # all_data = []
+    # for i in range(10):
+    #     with open(path + 'res_abs{}.pkl'.format(i), 'rb') as f:
+    #         data = pickle.load(f)
+    #
+    #     all_data.append(data)
+    #
+    # for t in range(5):
+    #     print('\n\n\n\n', t)
+    #     results = np.zeros([len(all_data[0][t].keys()), 10, 2])
+    #
+    #     for i_d, d in enumerate(sorted(all_data[0][t].keys())):
+    #         for i in range(10):
+    #             results[i_d, i, 0] = np.mean(all_data[i][t][d]['coverage_possible'])
+    #             results[i_d, i, 1] = np.mean(all_data[i][t][d]['proba_valid'])
+    #
+    #     counter = 0
+    #     for i_s, s in enumerate(sorted(all_data[0][t].keys())):
+    #         filter = ['Remove', 'Put blue', 'Put green', 'Put red', 'Get red', 'Get blue', 'Get green', 'apart', 'together']
+    #         exceptions = ['Put red on ', 'Put blue on ', 'Put green on ', 'Get red on ', 'Get green on ', 'Get blue on ']
+    #         if any([f in s for f in filter]) and not any([e in s for e in exceptions]):
+    #             continue
+    #         else:
+    #             counter += 1
+    #             print('\n', s)
+    #             print('coverage', results[i_s, :, 0].mean(axis=0))
+    #             print('precision', results[i_s, :, 1].mean(axis=0))
+    #
+    #
+    #     stop = 1
