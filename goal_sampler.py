@@ -123,7 +123,7 @@ class GoalSampler:
                         self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
 
         self.sync()
-        self.active_buckets = MPI.COMM_WORLD.bcast(self.active_buckets, root=0)
+        # self.active_buckets = MPI.COMM_WORLD.bcast(self.active_buckets, root=0)
         self.successes_and_failures = MPI.COMM_WORLD.bcast(self.successes_and_failures, root=0)
 
         # Apply masks
@@ -143,6 +143,7 @@ class GoalSampler:
             for e in episodes:
                 nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
                 bs.append(nb_floors)
+                self.active_buckets[nb_floors] = 1.
 
         return episodes, bs
 
@@ -202,9 +203,9 @@ class GoalSampler:
 
     def sync(self):
         if self.curriculum_learning:
-            # self.p = MPI.COMM_WORLD.bcast(self.p, root=0)
-            # self.LP = MPI.COMM_WORLD.bcast(self.LP, root=0)
-            # self.C = MPI.COMM_WORLD.bcast(self.C, root=0)
+            self.p = MPI.COMM_WORLD.bcast(self.p, root=0)
+            self.LP = MPI.COMM_WORLD.bcast(self.LP, root=0)
+            self.C = MPI.COMM_WORLD.bcast(self.C, root=0)
             self.buckets = MPI.COMM_WORLD.bcast(self.buckets, root=0)
         self.discovered_goals = MPI.COMM_WORLD.bcast(self.discovered_goals, root=0)
         self.discovered_goals_str = MPI.COMM_WORLD.bcast(self.discovered_goals_str, root=0)
@@ -217,6 +218,7 @@ class GoalSampler:
             p = np.ones([self.n_blocks]) * self.active_buckets / np.count_nonzero(self.active_buckets)
         else:
             p = self.epsilon * np.ones([self.n_blocks]) * self.active_buckets / self.n_blocks + (1 - self.epsilon) * LP / LP.sum()
+            # p = LP / LP.sum()
             # p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
         if p.sum() > 1:
             p[np.argmax(self.p)] -= p.sum() - 1
