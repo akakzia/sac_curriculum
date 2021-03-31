@@ -104,8 +104,6 @@ class GoalSampler:
         Label each episode with the last ag (for buffer storage)
         """
         all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
-        bs = []
-        all_episode_list = []
         if self.rank == 0:
             all_episode_list = [e for eps in all_episodes for e in eps]
 
@@ -117,7 +115,6 @@ class GoalSampler:
 
                 # put achieved goals in buckets according to the number of floors
                 nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
-                bs.append(nb_floors)
                 self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
                 self.active_buckets[nb_floors] = 1.
                 if e['self_eval']:
@@ -126,8 +123,6 @@ class GoalSampler:
                         self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
 
         self.sync()
-        bs = MPI.COMM_WORLD.bcast(bs, root=0)
-        all_episode_list = MPI.COMM_WORLD.bcast(all_episode_list, root=0)
         self.active_buckets = MPI.COMM_WORLD.bcast(self.active_buckets, root=0)
         self.successes_and_failures = MPI.COMM_WORLD.bcast(self.successes_and_failures, root=0)
 
@@ -143,19 +138,19 @@ class GoalSampler:
                 else:
                     raise NotImplementedError
 
-        # bs = []
-        # if self.curriculum_learning:
-        #     for e in episodes:
-        #         nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
-        #         bs.append(nb_floors)
+        bs = []
+        if self.curriculum_learning:
+            for e in episodes:
+                nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
+                bs.append(nb_floors)
 
-        return all_episode_list, bs
+        return episodes, bs
 
     def update_LP(self):
         # compute C, LP per bucket
         for k in self.buckets.keys():
             n_points = len(self.successes_and_failures[k])
-            if n_points > 4:
+            if n_points > 100:
                 sf = np.array(self.successes_and_failures[k])
                 self.C[k] = np.mean(sf[n_points // 2:])
                 # self.LP[k] = np.abs(np.sum(sf[n_points // 2:, 1]) - np.sum(sf[: n_points // 2, 1])) / n_points
@@ -207,9 +202,9 @@ class GoalSampler:
 
     def sync(self):
         if self.curriculum_learning:
-            self.p = MPI.COMM_WORLD.bcast(self.p, root=0)
-            self.LP = MPI.COMM_WORLD.bcast(self.LP, root=0)
-            self.C = MPI.COMM_WORLD.bcast(self.C, root=0)
+            # self.p = MPI.COMM_WORLD.bcast(self.p, root=0)
+            # self.LP = MPI.COMM_WORLD.bcast(self.LP, root=0)
+            # self.C = MPI.COMM_WORLD.bcast(self.C, root=0)
             self.buckets = MPI.COMM_WORLD.bcast(self.buckets, root=0)
         self.discovered_goals = MPI.COMM_WORLD.bcast(self.discovered_goals, root=0)
         self.discovered_goals_str = MPI.COMM_WORLD.bcast(self.discovered_goals_str, root=0)
