@@ -15,6 +15,10 @@ import time
 from mpi_utils import logger
 from language.build_dataset import sentence_from_configuration
 
+
+EXPLORATION_EPOCHS = 5
+
+
 def get_env_params(env):
     obs = env.reset()
 
@@ -127,8 +131,9 @@ def launch(args):
 
             # Policy updates
             t_i = time.time()
-            for _ in range(args.n_batches):
-                policy.train()
+            if epoch > EXPLORATION_EPOCHS:
+                for _ in range(args.n_batches):
+                    policy.train()
             time_dict['policy_train'] += time.time() - t_i
             episode_count += args.num_rollouts_per_mpi * args.num_workers
 
