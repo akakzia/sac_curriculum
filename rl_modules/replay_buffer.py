@@ -53,6 +53,8 @@ class MultiBuffer:
     # store the episode
     def store_episode(self, episode_batch, bs):
         batch_size = len(episode_batch)
+        print('Batch size ', len(batch_size))
+        print('Buckets size ', len(bs))
         aa = np.argsort(bs)
         bs = [bs[i] for i in aa]
         episode_batch = [episode_batch[i] for i in aa]
