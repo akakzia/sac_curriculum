@@ -104,7 +104,6 @@ class GoalSampler:
         Label each episode with the last ag (for buffer storage)
         """
         all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
-        bs = []
         if self.rank == 0:
             all_episode_list = [e for eps in all_episodes for e in eps]
 
@@ -116,7 +115,6 @@ class GoalSampler:
 
                 # put achieved goals in buckets according to the number of floors
                 nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
-                bs.append(nb_floors)
                 self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
                 self.active_buckets[nb_floors] = 1.
                 if e['self_eval']:
@@ -125,7 +123,6 @@ class GoalSampler:
                         self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
 
         self.sync()
-        bs = MPI.COMM_WORLD.bcast(bs, root=0)
         self.active_buckets = MPI.COMM_WORLD.bcast(self.active_buckets, root=0)
         self.successes_and_failures = MPI.COMM_WORLD.bcast(self.successes_and_failures, root=0)
 
@@ -140,6 +137,12 @@ class GoalSampler:
                     e['g'] = e['g'] * (1 - e['masks'][0]) - 10 * e['masks'][0]
                 else:
                     raise NotImplementedError
+
+        bs = []
+        if self.curriculum_learning:
+            for e in episodes:
+                nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
+                bs.append(nb_floors)
 
         return episodes, bs
 
