@@ -126,6 +126,7 @@ class GoalSampler:
 
         self.sync()
         bs = MPI.COMM_WORLD.bcast(bs, root=0)
+        all_episode_list = MPI.COMM_WORLD.bcast(all_episode_list, root=0)
         self.active_buckets = MPI.COMM_WORLD.bcast(self.active_buckets, root=0)
         self.successes_and_failures = MPI.COMM_WORLD.bcast(self.successes_and_failures, root=0)
 
