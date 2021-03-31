@@ -80,9 +80,9 @@ class GoalSampler:
                 if cond:
                     # if self-evaluation then sample randomly from discovered goals
                     if self_eval:
-                        buckets = np.random.choice(range(self.num_buckets), size=n_goals)
+                        buckets = np.random.choice(range(self.n_blocks), size=n_goals)
                     else:
-                        buckets = np.random.choice(range(self.num_buckets), p=self.p, size=n_goals)
+                        buckets = np.random.choice(range(self.n_blocks), p=self.p, size=n_goals)
                     goals = []
                     for i_b, b in enumerate(buckets):
                         goals.append(self.buckets[b][np.random.choice(np.arange(len(self.buckets[b])))])
@@ -119,9 +119,10 @@ class GoalSampler:
                 bs.append(nb_floors)
                 self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
                 self.active_buckets[nb_floors] = 1.
-                self.successes_and_failures[nb_floors].append(e['success'][-1].astype(np.float))
-                if len(self.successes_and_failures[nb_floors]) > self.queue_length:
-                    self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
+                if e['self_eval']:
+                    self.successes_and_failures[nb_floors].append(e['success'][-1].astype(np.float))
+                    if len(self.successes_and_failures[nb_floors]) > self.queue_length:
+                        self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
 
         self.sync()
         bs = MPI.COMM_WORLD.bcast(bs, root=0)

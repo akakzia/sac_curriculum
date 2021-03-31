@@ -23,7 +23,7 @@ def get_args():
     parser.add_argument('--masks', type=bool, default=False, help='Whether or not to use masked semantic goals')
     parser.add_argument('--mask-application', type=str, default='hindsight', help='hindsight, initial or opaque')
     parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
-    parser.add_argument('--start-biased-init', type=int, default=10, help='Number of epoch before biased initializations start')
+    parser.add_argument('--start-biased-init', type=int, default=0, help='Number of epoch before biased initializations start')
     # the training arguments
     parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')

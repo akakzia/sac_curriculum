@@ -53,6 +53,9 @@ class MultiBuffer:
     # store the episode
     def store_episode(self, episode_batch, bs):
         batch_size = len(episode_batch)
+        aa = np.argsort(bs)
+        bs = [bs[i] for i in aa]
+        episode_batch = [episode_batch[i] for i in aa]
         with self.lock:
             idxs = self._get_storage_idx(inc=batch_size, buckets=bs)
 
@@ -142,7 +145,7 @@ class MultiBuffer:
             return idx
 
         (unique, counts) = np.unique(buckets, return_counts=True)
-        idx_list = []
+        idx_arr = np.empty(0)
         for id, inc in zip(unique, counts):
             if self.current_size[id] + inc <= self.size:
                 idx = np.arange(self.current_size[id], self.current_size[id] + inc)
@@ -154,8 +157,8 @@ class MultiBuffer:
             else:
                 idx = np.random.randint(0, self.size, inc)
             self.current_size[id] = min(self.size, self.current_size[id] + inc)
-            idx_list.append(idx)
-        return np.array(idx_list).reshape(counts.sum())
+            idx_arr = np.append(idx_arr, idx)
+        return idx_arr.astype(int)
         # try:
         #     return np.array(idx_list).squeeze(0)
         # except ValueError:
