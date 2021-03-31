@@ -217,7 +217,10 @@ class GoalSampler:
         if p.sum() > 1:
             p[np.argmax(self.p)] -= p.sum() - 1
         elif p.sum() < 1:
-            p[-1] = 1 - p[:-1].sum()
+            if np.count_nonzero(self.active_buckets) == self.n_blocks:
+                p[-1] = 1 - p[:-1].sum()
+            else:
+                p[0] = p[0] + 1 - p.sum()
         buckets = np.random.choice(range(self.n_blocks), p=p, size=batch_size)
         # buckets = np.random.choice(range(self.num_buckets), p=p) * np.ones(batch_size)
         # goal_ids = []
