@@ -16,7 +16,7 @@ from mpi_utils import logger
 from language.build_dataset import sentence_from_configuration
 
 
-EXPLORATION_EPOCHS = 5
+EXPLORATION_EPS = 12000
 
 
 def get_env_params(env):
@@ -131,17 +131,18 @@ def launch(args):
 
             # Policy updates
             t_i = time.time()
-            if epoch > EXPLORATION_EPOCHS:
+            if epoch > EXPLORATION_EPS:
                 for _ in range(args.n_batches):
                     policy.train()
             time_dict['policy_train'] += time.time() - t_i
             episode_count += args.num_rollouts_per_mpi * args.num_workers
 
         t_i = time.time()
-        goal_sampler.update_LP()
+        if epoch > EXPLORATION_EPS:
+            goal_sampler.update_LP()
         time_dict['lp_update'] += time.time() - t_i
 
-        time_dict['epoch'] += time.time() -t_init
+        time_dict['epoch'] += time.time() - t_init
         time_dict['total'] = time.time() - t_total_init
 
         if args.evaluations:

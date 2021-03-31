@@ -8,6 +8,7 @@ import pandas as pd
 from mpi_utils import logger
 
 CURRICULUM = True
+EXPLORATION_EPS = 12000
 
 
 class GoalSampler:
@@ -140,6 +141,8 @@ class GoalSampler:
 
         bs = []
         if self.curriculum_learning:
+            if t > EXPLORATION_EPS:
+                self.update_LP()
             for e in episodes:
                 nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
                 bs.append(nb_floors)
