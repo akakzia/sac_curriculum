@@ -105,6 +105,7 @@ class GoalSampler:
         """
         all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
         bs = []
+        all_episode_list = []
         if self.rank == 0:
             all_episode_list = [e for eps in all_episodes for e in eps]
 
