@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from itertools import combinations
 
 def idx2onehot(idx, n):
 
@@ -40,7 +41,9 @@ class ContextVAE(nn.Module):
 
         encoder_layer_sizes = [state_size * 2 + embedding_size] + inner_sizes
         decoder_layer_sizes = [latent_size + state_size + embedding_size] + inner_sizes + [state_size]
-        self.encoder = Encoder(encoder_layer_sizes, latent_size)
+        relational_layer_sizes = [3 * 2 + 3 * 2 + embedding_size] + [256, 3 * (3 * 2 + 3 * 2 + embedding_size)]
+        # self.encoder = Encoder(encoder_layer_sizes, latent_size)
+        self.encoder = RelationalEncoder(relational_layer_sizes, latent_size)
         self.decoder = Decoder(decoder_layer_sizes, binary=binary)
 
     def forward(self, initial_s, sentence, current_s):
@@ -50,7 +53,8 @@ class ContextVAE(nn.Module):
 
 
         embeddings = self.sentence_encoder.forward(sentence)[0][:, -1, :]
-        means, log_var = self.encoder(torch.cat((initial_s, embeddings, current_s), dim=1))
+        # means, log_var = self.encoder(torch.cat((initial_s, embeddings, current_s), dim=1))
+        means, log_var = self.encoder(initial_s, embeddings, current_s)
 
         std = torch.exp(0.5 * log_var)
         eps = torch.randn([batch_size, self.latent_size])
@@ -119,3 +123,41 @@ class Decoder(nn.Module):
 
         x = self.MLP(z)
         return x
+
+
+class RelationalEncoder(nn.Module):
+
+    def __init__(self, layer_sizes, latent_size):
+
+        super().__init__()
+
+        self.MLP = nn.Sequential()
+        for i, (in_size, out_size) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
+            self.MLP.add_module(
+                name="L{:d}".format(i), module=nn.Linear(in_size, out_size))
+            self.MLP.add_module(name="A{:d}".format(i), module=nn.ReLU())
+
+        self.linear_means = nn.Linear(layer_sizes[-1], latent_size)
+        self.linear_log_var = nn.Linear(layer_sizes[-1], latent_size)
+
+    def forward(self, initial_s, embeddings, current_s):
+        batch_size = initial_s.shape[0]
+        n_nodes = 3
+        one_hot_encodings = [torch.tensor([1., 0., 0.]), torch.tensor([0., 1., 0.]), torch.tensor([0., 0., 1.])]
+        ids_in_config = [[0, 3, 4], [1, 5, 6], [2, 7, 8]]
+
+        inp = []
+        count = 0
+        for i, j in combinations([k for k in range(n_nodes)], 2):
+            oh_i = torch.cat(batch_size * [one_hot_encodings[i]]).reshape(batch_size, n_nodes)
+            oh_j = torch.cat(batch_size * [one_hot_encodings[j]]).reshape(batch_size, n_nodes)
+            inp.append(torch.cat([oh_i, oh_j, initial_s[:, ids_in_config[count]], current_s[:, ids_in_config[count]], embeddings], dim=-1))
+            count += 1
+
+        inp = torch.stack(inp)
+        x = self.MLP(inp).sum(0)
+
+        means = self.linear_means(x)
+        log_vars = self.linear_log_var(x)
+
+        return means, log_vars
