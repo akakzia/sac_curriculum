@@ -212,7 +212,7 @@ class GoalSampler:
         if LP.sum() == 0:
             p = np.ones([self.n_blocks]) * self.active_buckets / np.count_nonzero(self.active_buckets)
         else:
-            p = self.epsilon * np.ones([self.n_blocks]) / self.n_blocks + (1 - self.epsilon) * LP / LP.sum()
+            p = self.epsilon * np.ones([self.n_blocks]) * self.active_buckets / self.n_blocks + (1 - self.epsilon) * LP / LP.sum()
             # p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
         if p.sum() > 1:
             p[np.argmax(self.p)] -= p.sum() - 1
