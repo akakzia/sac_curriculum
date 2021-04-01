@@ -16,7 +16,7 @@ from mpi_utils import logger
 from language.build_dataset import sentence_from_configuration
 
 
-EXPLORATION_EPS = 12000
+EXPLORATION_EPS = -1
 
 
 def get_env_params(env):

@@ -24,25 +24,25 @@ class MultiBuffer:
         self.current_size = 0
 
         # create the buffer to store info
-        if self.multi_head:
-            self.current_size = [0 for _ in range(goal_sampler.n_blocks)]
-            self.buffer = [{'obs': np.empty([self.size, self.T + 1, self.env_params['obs']]),
-                            'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
-                            'g': np.empty([self.size, self.T, self.env_params['goal']]),
-                            'masks': np.empty([self.size, self.T, self.env_params['goal']]),
-                            'actions': np.empty([self.size, self.T, self.env_params['action']]),
-                            'lg_ids': np.empty([self.size, self.T]).astype(np.int),
-                            # 'language_goal': [None for _ in range(self.size)],
-                            } for _ in range(goal_sampler.n_blocks)]
-        else:
-            self.buffer = {'obs': np.empty([self.size, self.T + 1, self.env_params['obs']]),
-                           'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
-                           'g': np.empty([self.size, self.T, self.env_params['goal']]),
-                           'masks': np.empty([self.size, self.T, self.env_params['goal']]),
-                           'actions': np.empty([self.size, self.T, self.env_params['action']]),
-                           'lg_ids': np.empty([self.size, self.T]).astype(np.int),
-                           # 'language_goal': [None for _ in range(self.size)],
-                           }
+        # if self.multi_head:
+        #     self.current_size = [0 for _ in range(goal_sampler.n_blocks)]
+        #     self.buffer = [{'obs': np.empty([self.size, self.T + 1, self.env_params['obs']]),
+        #                     'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
+        #                     'g': np.empty([self.size, self.T, self.env_params['goal']]),
+        #                     'masks': np.empty([self.size, self.T, self.env_params['goal']]),
+        #                     'actions': np.empty([self.size, self.T, self.env_params['action']]),
+        #                     'lg_ids': np.empty([self.size, self.T]).astype(np.int),
+        #                     # 'language_goal': [None for _ in range(self.size)],
+        #                     } for _ in range(goal_sampler.n_blocks)]
+        # else:
+        self.buffer = {'obs': np.empty([self.size, self.T + 1, self.env_params['obs']]),
+                       'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
+                       'g': np.empty([self.size, self.T, self.env_params['goal']]),
+                       'masks': np.empty([self.size, self.T, self.env_params['goal']]),
+                       'actions': np.empty([self.size, self.T, self.env_params['action']]),
+                       'lg_ids': np.empty([self.size, self.T]).astype(np.int),
+                       # 'language_goal': [None for _ in range(self.size)],
+                       }
 
         self.goal_ids = np.zeros([self.size])  # contains id of achieved goal (discovery rank)
         self.goal_ids.fill(np.nan)
@@ -55,36 +55,36 @@ class MultiBuffer:
         batch_size = len(episode_batch)
         # print('Batch size ', len(episode_batch))
         # print('Buckets size ', len(bs))
-        if self.multi_head:
-            aa = np.argsort(bs)
-            bs = [bs[i] for i in aa]
-            episode_batch = [episode_batch[i] for i in aa]
+        # if self.multi_head:
+        #     aa = np.argsort(bs)
+        #     bs = [bs[i] for i in aa]
+        #     episode_batch = [episode_batch[i] for i in aa]
         with self.lock:
-            idxs = self._get_storage_idx(inc=batch_size, buckets=bs)
+            idxs = self._get_storage_idx(inc=batch_size, buckets=None)
 
             for i, e in enumerate(episode_batch):
-                if not self.multi_head:
-                    # store the informations
-                    self.buffer['obs'][idxs[i]] = e['obs']
-                    self.buffer['ag'][idxs[i]] = e['ag']
-                    self.buffer['g'][idxs[i]] = e['g']
-                    self.buffer['actions'][idxs[i]] = e['act']
-                    self.buffer['masks'][idxs[i]] = e['masks']
-                    # self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
-                    if 'language_goal' in e.keys():
-                        # self.buffer['language_goal'][idxs[i]] = e['language_goal']
-                        self.buffer['lg_ids'][idxs[i]] = e['lg_ids']
-                else:
-                    # store the informations
-                    self.buffer[bs[i]]['obs'][idxs[i]] = e['obs']
-                    self.buffer[bs[i]]['ag'][idxs[i]] = e['ag']
-                    self.buffer[bs[i]]['g'][idxs[i]] = e['g']
-                    self.buffer[bs[i]]['actions'][idxs[i]] = e['act']
-                    self.buffer[bs[i]]['masks'][idxs[i]] = e['masks']
-                    # self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
-                    if 'language_goal' in e.keys():
-                        # self.buffer['language_goal'][idxs[i]] = e['language_goal']
-                        self.buffer[bs[i]]['lg_ids'][idxs[i]] = e['lg_ids']
+                # if not self.multi_head:
+                # store the informations
+                self.buffer['obs'][idxs[i]] = e['obs']
+                self.buffer['ag'][idxs[i]] = e['ag']
+                self.buffer['g'][idxs[i]] = e['g']
+                self.buffer['actions'][idxs[i]] = e['act']
+                self.buffer['masks'][idxs[i]] = e['masks']
+                self.goal_ids[idxs[i]] = e['bucket_id']
+                if 'language_goal' in e.keys():
+                    # self.buffer['language_goal'][idxs[i]] = e['language_goal']
+                    self.buffer['lg_ids'][idxs[i]] = e['lg_ids']
+                # else:
+                #     # store the informations
+                #     self.buffer[bs[i]]['obs'][idxs[i]] = e['obs']
+                #     self.buffer[bs[i]]['ag'][idxs[i]] = e['ag']
+                #     self.buffer[bs[i]]['g'][idxs[i]] = e['g']
+                #     self.buffer[bs[i]]['actions'][idxs[i]] = e['act']
+                #     self.buffer[bs[i]]['masks'][idxs[i]] = e['masks']
+                #     # self.goal_ids[idxs[i]] = e['last_ag_oracle_id']
+                #     if 'language_goal' in e.keys():
+                #         # self.buffer['language_goal'][idxs[i]] = e['language_goal']
+                #         self.buffer[bs[i]]['lg_ids'][idxs[i]] = e['lg_ids']
 
     # sample the data from the replay buffer
     def sample(self, batch_size):
@@ -101,27 +101,27 @@ class MultiBuffer:
             else:
                 # Compute goal id proportions with respect to LP probas
                 buckets = self.goal_sampler.build_batch(batch_size)
-                (unique, counts) = np.unique(buckets, return_counts=True)
-                for id, count in zip(unique, counts):
-                    for key in self.buffer[id].keys():
-                        try:
-                            temp_buffers[key] = np.concatenate([temp_buffers[key], self.buffer[id][key][np.random.choice(range(self.current_size[id]),
-                                                                                                                         size=count)]], axis=0)
-                        except KeyError:
-                            temp_buffers[key] = self.buffer[id][key][np.random.choice(range(self.current_size[id]), size=count)]
+                # (unique, counts) = np.unique(buckets, return_counts=True)
+                # for id, count in zip(unique, counts):
+                #     for key in self.buffer[id].keys():
+                #         try:
+                #             temp_buffers[key] = np.concatenate([temp_buffers[key], self.buffer[id][key][np.random.choice(range(self.current_size[id]),
+                #                                                                                                          size=count)]], axis=0)
+                #         except KeyError:
+                #             temp_buffers[key] = self.buffer[id][key][np.random.choice(range(self.current_size[id]), size=count)]
 
                 # If a goal id is not in the buffer then pick a random episode instead
                 # This should not happen when discovered goals are configuration achieved at the end of episodes
-                # buffer_ids = []
-                # for g in goal_ids:
-                #     buffer_ids_g = np.argwhere(self.goal_ids == g).flatten()
-                #     if buffer_ids_g.size == 0:
-                #         buffer_ids.append(np.random.choice(range(self.current_size)))
-                #     else:
-                #         buffer_ids.append(np.random.choice(buffer_ids_g))
-                # buffer_ids = np.array(buffer_ids)
-                # for key in self.buffer.keys():
-                #     temp_buffers[key] = self.buffer[key][buffer_ids]
+                buffer_ids = []
+                for b in buckets:
+                    buffer_ids_g = np.argwhere(self.goal_ids == b).flatten()
+                    if buffer_ids_g.size == 0:
+                        buffer_ids.append(np.random.choice(range(self.current_size)))
+                    else:
+                        buffer_ids.append(np.random.choice(buffer_ids_g))
+                buffer_ids = np.array(buffer_ids)
+                for key in self.buffer.keys():
+                    temp_buffers[key] = self.buffer[key][buffer_ids]
         temp_buffers['obs_next'] = temp_buffers['obs'][:, 1:, :]
         temp_buffers['ag_next'] = temp_buffers['ag'][:, 1:, :]
 
@@ -131,7 +131,7 @@ class MultiBuffer:
         return transitions
 
     def _get_storage_idx(self, inc=None, buckets=None):
-        if len(buckets) == 0:
+        if buckets is None:
             inc = inc or 1
             if self.current_size + inc <= self.size:
                 idx = np.arange(self.current_size, self.current_size + inc)

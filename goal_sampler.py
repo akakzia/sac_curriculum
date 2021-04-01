@@ -7,7 +7,7 @@ import pickle
 import pandas as pd
 from mpi_utils import logger
 
-EXPLORATION_EPS = 12000
+EXPLORATION_EPS = -1
 
 
 class GoalSampler:
@@ -133,16 +133,16 @@ class GoalSampler:
         self.sync()
 
         # Apply masks
-        if self.use_masks:
-            for e in episodes:
-                if self.mask_application == 'hindsight':
-                    e['g'] = e['g'] * (1 - e['masks'][0]) + e['ag'][:-1] * e['masks'][0]
-                elif self.mask_application == 'initial':
-                    e['g'] = e['g'] * (1 - e['masks'][0]) + e['ag'][0] * e['masks'][0]
-                elif self.mask_application == 'opaque':
-                    e['g'] = e['g'] * (1 - e['masks'][0]) - 10 * e['masks'][0]
-                else:
-                    raise NotImplementedError
+        # if self.use_masks:
+        #     for e in episodes:
+        #         if self.mask_application == 'hindsight':
+        #             e['g'] = e['g'] * (1 - e['masks'][0]) + e['ag'][:-1] * e['masks'][0]
+        #         elif self.mask_application == 'initial':
+        #             e['g'] = e['g'] * (1 - e['masks'][0]) + e['ag'][0] * e['masks'][0]
+        #         elif self.mask_application == 'opaque':
+        #             e['g'] = e['g'] * (1 - e['masks'][0]) - 10 * e['masks'][0]
+        #         else:
+        #             raise NotImplementedError
 
         bs = []
         if self.curriculum_learning:
@@ -152,6 +152,7 @@ class GoalSampler:
                 nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
                 bs.append(nb_floors)
                 self.active_buckets[nb_floors] = 1.
+                e['bucket_id'] = nb_floors
 
         return episodes, bs
 
@@ -224,18 +225,18 @@ class GoalSampler:
         LP = self.LP
         # C = self.C
         if LP.sum() == 0:
-            p = np.ones([self.n_blocks]) * self.active_buckets / np.count_nonzero(self.active_buckets)
+            p = np.ones([self.n_blocks]) / self.n_blocks
         else:
-            p = self.epsilon * np.ones([self.n_blocks]) * self.active_buckets / self.n_blocks + (1 - self.epsilon) * LP / LP.sum()
+            p = self.epsilon * np.ones([self.n_blocks]) / self.n_blocks + (1 - self.epsilon) * LP / LP.sum()
             # p = LP / LP.sum()
             # p = self.epsilon * (1 - C) / (1 - C).sum() + (1 - self.epsilon) * LP / LP.sum()
         if p.sum() > 1:
             p[np.argmax(self.p)] -= p.sum() - 1
         elif p.sum() < 1:
-            if np.count_nonzero(self.active_buckets) == self.n_blocks:
-                p[-1] = 1 - p[:-1].sum()
-            else:
-                p[0] = p[0] + 1 - p.sum()
+            # if np.count_nonzero(self.active_buckets) == self.n_blocks:
+            p[-1] = 1 - p[:-1].sum()
+            # else:
+            #     p[0] = p[0] + 1 - p.sum()
         buckets = np.random.choice(range(self.n_blocks), p=p, size=batch_size)
         # buckets = np.random.choice(range(self.num_buckets), p=p) * np.ones(batch_size)
         # goal_ids = []
@@ -263,6 +264,7 @@ class GoalSampler:
                 self.stats['B_{}_LP'.format(i)] = []
                 self.stats['B_{}_C'.format(i)] = []
                 self.stats['B_{}_p'.format(i)] = []
+                self.stats['Size_Bucket_{}'.format(i)] = []
 
         self.stats['epoch'] = []
         self.stats['episodes'] = []
@@ -290,3 +292,4 @@ class GoalSampler:
                 self.stats['B_{}_LP'.format(i)].append(self.LP[i])
                 self.stats['B_{}_C'.format(i)].append(self.C[i])
                 self.stats['B_{}_p'.format(i)].append(self.p[i])
+                self.stats['Size_Bucket_{}'.format(i)].append(len(self.buckets[i]))
