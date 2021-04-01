@@ -7,7 +7,7 @@ import pickle
 import pandas as pd
 from mpi_utils import logger
 
-EXPLORATION_EPS = 0
+EXPLORATION_EPS = 12000
 
 
 class GoalSampler:
@@ -117,11 +117,13 @@ class GoalSampler:
                 if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
                     self.discovered_goals.append(e['ag_binary'][-1].copy())
                     self.discovered_goals_str.append(str(e['ag_binary'][-1]))
+                    if self.curriculum_learning:
+                        nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
+                        self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
 
                 if self.curriculum_learning:
                     # put achieved goals in buckets according to the number of floors
                     nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
-                    self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
                     self.active_buckets[nb_floors] = 1.
                     if e['self_eval']:
                         self.successes_and_failures[nb_floors].append(e['success'][-1].astype(np.float))

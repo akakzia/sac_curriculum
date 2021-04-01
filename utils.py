@@ -440,6 +440,7 @@ def get_number_of_floors(config, n):
         elif (config[current_relation] == np.array([1., -1., 1.])).all():
             if pair[0] in blocks_per_floor[nb_floors]:
                 nb_floors += 1
+                blocks_per_floor[nb_floors].append(pair[1])
 
     return nb_floors
 
