@@ -56,7 +56,7 @@ def get_args():
     parser.add_argument('--save-dir', type=str, default='output/', help='the path to save the models')
     # the memory arguments
     parser.add_argument('--buffer-size', type=int, default=int(1e6), help='the size of the buffer')
-    parser.add_argument('--multihead-buffer', type=bool, default=True, help='use a multihead replay buffer')
+    parser.add_argument('--multihead-buffer', type=bool, default=False, help='use a multihead replay buffer')
     # the preprocessing arguments
     parser.add_argument('--clip-obs', type=float, default=5, help='the clip ratio')
     parser.add_argument('--normalize_goal', type=bool, default=False, help='do evaluation at the end of the epoch w/ frequency')

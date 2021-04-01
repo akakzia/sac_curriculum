@@ -7,8 +7,8 @@ import pickle
 import pandas as pd
 from mpi_utils import logger
 
-CURRICULUM = True
-EXPLORATION_EPS = 12000
+CURRICULUM = False
+EXPLORATION_EPS = 0
 
 
 class GoalSampler:
@@ -69,14 +69,14 @@ class GoalSampler:
             masks = np.zeros((n_goals, self.goal_dim))
             self_eval = False
         else:
-            cond = np.array([len(self.buckets[i]) > 0 for i in range(self.n_blocks)]).all()
+            self_eval = False
             if len(self.discovered_goals) == 0:
                 goals = np.random.choice([-1., 1.], size=(n_goals, self.goal_dim))
                 masks = np.zeros((n_goals, self.goal_dim))
                 # masks = np.random.choice([0., 1.], size=(n_goals, self.goal_dim))
-                self_eval = False
             # if no curriculum learning
-            else:
+            elif self.curriculum_learning:
+                cond = np.array([len(self.buckets[i]) > 0 for i in range(self.n_blocks)]).all()
                 self_eval = True if np.random.random() < 0.1 else False
                 if cond:
                     # if self-evaluation then sample randomly from discovered goals
@@ -96,6 +96,11 @@ class GoalSampler:
                     masks = self.sample_masks(n_goals)
                     # masks = np.array(self.masks_list)[np.random.choice(range(self.n_masks), size=n_goals)]
                     # self_eval = False
+            else:
+                # sample uniformly from discovered goals
+                goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
+                goals = np.array(self.discovered_goals)[goal_ids]
+                masks = self.sample_masks(n_goals)
         return goals, masks, self_eval
 
     def update(self, episodes, t):
@@ -114,18 +119,17 @@ class GoalSampler:
                     self.discovered_goals.append(e['ag_binary'][-1].copy())
                     self.discovered_goals_str.append(str(e['ag_binary'][-1]))
 
-                # put achieved goals in buckets according to the number of floors
-                nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
-                self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
-                self.active_buckets[nb_floors] = 1.
-                if e['self_eval']:
-                    self.successes_and_failures[nb_floors].append(e['success'][-1].astype(np.float))
-                    if len(self.successes_and_failures[nb_floors]) > self.queue_length:
-                        self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
+                if self.curriculum_learning:
+                    # put achieved goals in buckets according to the number of floors
+                    nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
+                    self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
+                    self.active_buckets[nb_floors] = 1.
+                    if e['self_eval']:
+                        self.successes_and_failures[nb_floors].append(e['success'][-1].astype(np.float))
+                        if len(self.successes_and_failures[nb_floors]) > self.queue_length:
+                            self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
 
         self.sync()
-        # self.active_buckets = MPI.COMM_WORLD.bcast(self.active_buckets, root=0)
-        self.successes_and_failures = MPI.COMM_WORLD.bcast(self.successes_and_failures, root=0)
 
         # Apply masks
         if self.use_masks:
@@ -210,6 +214,7 @@ class GoalSampler:
             self.LP = MPI.COMM_WORLD.bcast(self.LP, root=0)
             self.C = MPI.COMM_WORLD.bcast(self.C, root=0)
             self.buckets = MPI.COMM_WORLD.bcast(self.buckets, root=0)
+            self.successes_and_failures = MPI.COMM_WORLD.bcast(self.successes_and_failures, root=0)
         self.discovered_goals = MPI.COMM_WORLD.bcast(self.discovered_goals, root=0)
         self.discovered_goals_str = MPI.COMM_WORLD.bcast(self.discovered_goals_str, root=0)
 
@@ -252,10 +257,11 @@ class GoalSampler:
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
 
-        for i in range(self.n_blocks):
-            self.stats['B_{}_LP'.format(i)] = []
-            self.stats['B_{}_C'.format(i)] = []
-            self.stats['B_{}_p'.format(i)] = []
+        if self.curriculum_learning:
+            for i in range(self.n_blocks):
+                self.stats['B_{}_LP'.format(i)] = []
+                self.stats['B_{}_C'.format(i)] = []
+                self.stats['B_{}_p'.format(i)] = []
 
         self.stats['epoch'] = []
         self.stats['episodes'] = []
@@ -278,7 +284,8 @@ class GoalSampler:
             self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id-1])
             # self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
             # self.stats['#Target_{}'.format(g_id)].append(self.target_counters[oracle_id])
-        for i in range(self.n_blocks):
-            self.stats['B_{}_LP'.format(i)].append(self.LP[i])
-            self.stats['B_{}_C'.format(i)].append(self.C[i])
-            self.stats['B_{}_p'.format(i)].append(self.p[i])
+        if self.curriculum_learning:
+            for i in range(self.n_blocks):
+                self.stats['B_{}_LP'.format(i)].append(self.LP[i])
+                self.stats['B_{}_C'.format(i)].append(self.C[i])
+                self.stats['B_{}_p'.format(i)].append(self.p[i])
