@@ -31,7 +31,11 @@ class her_sampler:
         batch_size = batch_size_in_transitions
 
         # select which rollouts and which timesteps to be used
-        episode_idxs = np.random.randint(0, rollout_batch_size, batch_size)
+        if rollout_batch_size == batch_size:
+            episode_idxs = np.arange(rollout_batch_size)
+            np.random.shuffle(episode_idxs)
+        else:
+            episode_idxs = np.random.randint(0, rollout_batch_size, batch_size)
         t_samples = np.random.randint(T, size=batch_size)
         transitions = {key: episode_batch[key][episode_idxs, t_samples].copy() for key in episode_batch.keys()}
 
