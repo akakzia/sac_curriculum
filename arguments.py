@@ -33,7 +33,7 @@ def get_args():
     # the curriculum arguments
     parser.add_argument('--queue-length', type=int, default=800, help='')
     parser.add_argument('--epsilon-curr', type=float, default=0.1, help='')
-    parser.add_argument('--curriculum-learning', type=bool, default=True, help='')
+    parser.add_argument('--curriculum-learning', type=bool, default=False, help='')
     # the replay arguments
     parser.add_argument('--multi-criteria-her', type=bool, default=True, help='test')
     parser.add_argument('--replay-strategy', type=str, default='future', help='the HER strategy')

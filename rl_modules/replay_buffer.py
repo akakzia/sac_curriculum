@@ -55,9 +55,10 @@ class MultiBuffer:
         batch_size = len(episode_batch)
         # print('Batch size ', len(episode_batch))
         # print('Buckets size ', len(bs))
-        aa = np.argsort(bs)
-        bs = [bs[i] for i in aa]
-        episode_batch = [episode_batch[i] for i in aa]
+        if self.multi_head:
+            aa = np.argsort(bs)
+            bs = [bs[i] for i in aa]
+            episode_batch = [episode_batch[i] for i in aa]
         with self.lock:
             idxs = self._get_storage_idx(inc=batch_size, buckets=bs)
 
@@ -130,7 +131,7 @@ class MultiBuffer:
         return transitions
 
     def _get_storage_idx(self, inc=None, buckets=None):
-        if buckets is None:
+        if len(buckets) == 0:
             inc = inc or 1
             if self.current_size + inc <= self.size:
                 idx = np.arange(self.current_size, self.current_size + inc)

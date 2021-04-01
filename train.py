@@ -16,7 +16,7 @@ from mpi_utils import logger
 from language.build_dataset import sentence_from_configuration
 
 
-EXPLORATION_EPS = 12000
+EXPLORATION_EPS = 0
 
 
 def get_env_params(env):
@@ -138,7 +138,7 @@ def launch(args):
             episode_count += args.num_rollouts_per_mpi * args.num_workers
 
         t_i = time.time()
-        if epoch > EXPLORATION_EPS:
+        if epoch > EXPLORATION_EPS and args.curriculum_learning:
             goal_sampler.update_LP()
         time_dict['lp_update'] += time.time() - t_i
 

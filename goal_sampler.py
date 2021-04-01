@@ -7,7 +7,6 @@ import pickle
 import pandas as pd
 from mpi_utils import logger
 
-CURRICULUM = False
 EXPLORATION_EPS = 0
 
 
@@ -24,7 +23,7 @@ class GoalSampler:
         self.discovered_goals = []
         self.discovered_goals_str = []
 
-        self.curriculum_learning = CURRICULUM
+        self.curriculum_learning = args.curriculum_learning
         self.queue_length = args.queue_length
         self.epsilon = args.epsilon_curr
         self.n_blocks = args.n_blocks
