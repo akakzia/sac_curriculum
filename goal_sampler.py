@@ -87,7 +87,8 @@ class GoalSampler:
                 # if cond:
                 # if self-evaluation then sample randomly from discovered goals
                 if self_eval:
-                    buckets = np.random.choice(range(self.n_blocks), size=n_goals)
+                    active = np.where(self.active_buckets == 1.)[0]
+                    buckets = np.random.choice(active, size=n_goals)
                 else:
                     buckets = np.random.choice(range(self.n_blocks), p=self.p, size=n_goals)
                 goals = []
