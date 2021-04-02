@@ -70,7 +70,7 @@ class GoalSampler:
                 if len(self.buckets[i]) > 0:
                     goals.append(self.buckets[i][np.random.choice(np.arange(len(self.buckets[i])))])
                 else:
-                    goals.append(self.discovered_goals[np.random.choice(np.arange(len(self.discovered_goals)))])
+                    goals.append(np.random.choice([-1., 1.], size=self.goal_dim))
             goals = np.array(goals)
             masks = np.zeros((n_goals, self.goal_dim))
             self_eval = False
@@ -82,26 +82,29 @@ class GoalSampler:
                 # masks = np.random.choice([0., 1.], size=(n_goals, self.goal_dim))
             # if no curriculum learning
             elif self.curriculum_learning:
-                cond = np.array([len(self.buckets[i]) > 0 for i in range(self.n_blocks)]).all()
+                # cond = np.array([len(self.buckets[i]) > 0 for i in range(self.n_blocks)]).all()
                 self_eval = True if np.random.random() < 0.1 else False
-                if cond:
-                    # if self-evaluation then sample randomly from discovered goals
-                    if self_eval:
-                        buckets = np.random.choice(range(self.n_blocks), size=n_goals)
-                    else:
-                        buckets = np.random.choice(range(self.n_blocks), p=self.p, size=n_goals)
-                    goals = []
-                    for i_b, b in enumerate(buckets):
-                        goals.append(self.buckets[b][np.random.choice(np.arange(len(self.buckets[b])))])
-                    goals = np.array(goals)
-                    masks = self.sample_masks(n_goals)
+                # if cond:
+                # if self-evaluation then sample randomly from discovered goals
+                if self_eval:
+                    buckets = np.random.choice(range(self.n_blocks), size=n_goals)
                 else:
-                    # sample uniformly from discovered goals
-                    goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
-                    goals = np.array(self.discovered_goals)[goal_ids]
-                    masks = self.sample_masks(n_goals)
-                    # masks = np.array(self.masks_list)[np.random.choice(range(self.n_masks), size=n_goals)]
-                    # self_eval = False
+                    buckets = np.random.choice(range(self.n_blocks), p=self.p, size=n_goals)
+                goals = []
+                for i_b, b in enumerate(buckets):
+                    try:
+                        goals.append(self.buckets[b][np.random.choice(np.arange(len(self.buckets[b])))])
+                    except ValueError:
+                        goals.append(self.discovered_goals[np.random.choice(np.arange(len(self.discovered_goals)))])
+                goals = np.array(goals)
+                masks = self.sample_masks(n_goals)
+                # else:
+                # sample uniformly from discovered goals
+                # goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
+                # goals = np.array(self.discovered_goals)[goal_ids]
+                # masks = self.sample_masks(n_goals)
+                # masks = np.array(self.masks_list)[np.random.choice(range(self.n_masks), size=n_goals)]
+                # self_eval = False
             else:
                 # sample uniformly from discovered goals
                 goal_ids = np.random.choice(range(len(self.discovered_goals)), size=n_goals)
@@ -175,7 +178,7 @@ class GoalSampler:
         # compute C, LP per bucket
         for k in self.buckets.keys():
             n_points = len(self.successes_and_failures[k])
-            if n_points > 100:
+            if n_points > 42:
                 sf = np.array(self.successes_and_failures[k])
                 self.C[k] = np.mean(sf[n_points // 2:])
                 # self.LP[k] = np.abs(np.sum(sf[n_points // 2:, 1]) - np.sum(sf[: n_points // 2, 1])) / n_points
