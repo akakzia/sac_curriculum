@@ -64,7 +64,14 @@ class GoalSampler:
         evaluation controls whether or not to sample the goal uniformly or according to curriculum
         """
         if evaluation and len(self.discovered_goals) > 0:
-            goals = np.random.choice(self.discovered_goals, size=self.num_rollouts_per_mpi)
+            # goals = np.random.choice(self.discovered_goals, size=self.num_rollouts_per_mpi)
+            goals = []
+            for i in range(n_goals):
+                if len(self.buckets[i]) > 0:
+                    goals.append(self.buckets[i][np.random.choice(np.arange(len(self.buckets[i])))])
+                else:
+                    goals.append(self.discovered_goals[np.random.choice(np.arange(len(self.discovered_goals)))])
+            goals = np.array(goals)
             masks = np.zeros((n_goals, self.goal_dim))
             self_eval = False
         else:
@@ -111,7 +118,8 @@ class GoalSampler:
         all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
         if self.rank == 0:
             all_episode_list = [e for eps in all_episodes for e in eps]
-
+            s = [0 for _ in range(self.n_blocks)]
+            count_eval = [0 for _ in range(self.n_blocks)]
             for e in all_episode_list:
                 # Add last achieved goal to memory if first time encountered
                 if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
@@ -126,9 +134,16 @@ class GoalSampler:
                     nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
                     self.active_buckets[nb_floors] = 1.
                     if e['self_eval']:
-                        self.successes_and_failures[nb_floors].append(e['success'][-1].astype(np.float))
-                        if len(self.successes_and_failures[nb_floors]) > self.queue_length:
-                            self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
+                        s[nb_floors] += e['success'][-1].astype(np.float)
+                        count_eval[nb_floors] += 1
+                        # self.successes_and_failures[nb_floors].append(e['success'][-1].astype(np.float))
+                        # if len(self.successes_and_failures[nb_floors]) > self.queue_length:
+                        #     self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
+            for i in range(self.n_blocks):
+                if count_eval[i] > 0:
+                    self.successes_and_failures[i].append(s[i]/count_eval[i])
+                    if len(self.successes_and_failures[i]) > self.queue_length:
+                        self.successes_and_failures[i] = self.successes_and_failures[i][-self.queue_length:]
 
         self.sync()
 
@@ -170,7 +185,7 @@ class GoalSampler:
         if self.LP.sum() == 0:
             self.p = np.ones([self.n_blocks]) / self.n_blocks
         else:
-            self.p = self.LP / self.LP.sum()
+            self.p = self.epsilon * np.ones([self.n_blocks]) / self.n_blocks + (1 - self.epsilon) * self.LP / self.LP.sum()
             # self.p = self.epsilon * (1 - self.C) / (1 - self.C).sum() + (1 - self.epsilon) * self.LP / self.LP.sum()
 
         if self.p.sum() > 1:
@@ -251,11 +266,11 @@ class GoalSampler:
     def init_stats(self):
         self.stats = dict()
         # Number of classes of eval
-        if self.goal_dim == 30:
-            n = 12
-        else:
-            n = 6
-        for i in np.arange(1, n+1):
+        # if self.goal_dim == 30:
+        #     n = 12
+        # else:
+        #     n = 6
+        for i in range(self.n_blocks):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
 
@@ -265,6 +280,7 @@ class GoalSampler:
                 self.stats['B_{}_C'.format(i)] = []
                 self.stats['B_{}_p'.format(i)] = []
                 self.stats['Size_Bucket_{}'.format(i)] = []
+                self.stats['nb_self_eval_{}'.format(i)] = []
 
         self.stats['epoch'] = []
         self.stats['episodes'] = []
@@ -282,7 +298,7 @@ class GoalSampler:
         for k in time_dict.keys():
             self.stats['t_{}'.format(k)].append(time_dict[k])
         self.stats['nb_discovered'].append(len(self.discovered_goals))
-        for g_id in np.arange(1, len(av_res) + 1):
+        for g_id in range(len(av_res)):
             self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id-1])
             self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id-1])
             # self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
@@ -293,3 +309,4 @@ class GoalSampler:
                 self.stats['B_{}_C'.format(i)].append(self.C[i])
                 self.stats['B_{}_p'.format(i)].append(self.p[i])
                 self.stats['Size_Bucket_{}'.format(i)].append(len(self.buckets[i]))
+                self.stats['nb_self_eval_{}'.format(i)].append(len(self.successes_and_failures[i]))
