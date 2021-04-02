@@ -70,7 +70,7 @@ class GoalSampler:
                 if len(self.buckets[i]) > 0:
                     goals.append(self.buckets[i][np.random.choice(np.arange(len(self.buckets[i])))])
                 else:
-                    goals.append(np.random.choice([-1., 1.], size=self.goal_dim))
+                    goals.append(np.ones(self.goal_dim))
             goals = np.array(goals)
             masks = np.zeros((n_goals, self.goal_dim))
             self_eval = False
