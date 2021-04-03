@@ -131,15 +131,17 @@ class GoalSampler:
                     self.discovered_goals_str.append(str(e['ag_binary'][-1]))
                     if self.curriculum_learning:
                         nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
-                        self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
+                        if nb_floors != -1:
+                            self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
 
                 if self.curriculum_learning:
                     # put achieved goals in buckets according to the number of floors
                     nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
-                    self.active_buckets[nb_floors] = 1.
-                    if e['self_eval']:
-                        s[nb_floors] += e['success'][-1].astype(np.float)
-                        count_eval[nb_floors] += 1
+                    if nb_floors != -1:
+                        self.active_buckets[nb_floors] = 1.
+                        if e['self_eval']:
+                            s[nb_floors] += e['success'][-1].astype(np.float)
+                            count_eval[nb_floors] += 1
                         # self.successes_and_failures[nb_floors].append(e['success'][-1].astype(np.float))
                         # if len(self.successes_and_failures[nb_floors]) > self.queue_length:
                         #     self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
@@ -179,7 +181,7 @@ class GoalSampler:
         # compute C, LP per bucket
         for k in self.buckets.keys():
             n_points = len(self.successes_and_failures[k])
-            if n_points > 42:
+            if n_points > 4:
                 sf = np.array(self.successes_and_failures[k])
                 self.C[k] = np.mean(sf[n_points // 2:])
                 # self.LP[k] = np.abs(np.sum(sf[n_points // 2:, 1]) - np.sum(sf[: n_points // 2, 1])) / n_points
@@ -303,8 +305,8 @@ class GoalSampler:
             self.stats['t_{}'.format(k)].append(time_dict[k])
         self.stats['nb_discovered'].append(len(self.discovered_goals))
         for g_id in range(len(av_res)):
-            self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id-1])
-            self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id-1])
+            self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
+            self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id])
             # self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
             # self.stats['#Target_{}'.format(g_id)].append(self.target_counters[oracle_id])
         if self.curriculum_learning:
