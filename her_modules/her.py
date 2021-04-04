@@ -24,7 +24,6 @@ class her_sampler:
         else:
             self.semantic_ids = get_idxs_per_relation(n=args.n_blocks)
 
-        self.semantic_ids = self.semantic_ids[[0, 1, 4]]
         self.mask_ids = get_idxs_per_relation(n=args.n_blocks)
 
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions):
@@ -41,10 +40,17 @@ class her_sampler:
         t_samples = np.random.randint(T, size=batch_size)
         transitions = {key: episode_batch[key][episode_idxs, t_samples].copy() for key in episode_batch.keys()}
 
+        # Sample indexes of nodes to be considered in graph
+        n_nodes = np.random.randint(2, 6)
+        nodes = np.sort(np.random.choice(np.arange(5), size=n_nodes, replace=False))
+        semantic_ids = self.semantic_ids[nodes]
+
+        transitions['nodes'] = nodes.copy()
+
         if not self.continuous:
             # her idx
             if self.multi_criteria_her:
-                for sub_goal in self.semantic_ids:
+                for sub_goal in semantic_ids:
                     her_indexes = np.where(np.random.uniform(size=batch_size) < self.future_p)
                     future_offset = np.random.uniform(size=batch_size) * (T - t_samples)
                     future_offset = future_offset.astype(int)
@@ -65,7 +71,7 @@ class her_sampler:
                 future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
                 transitions['g'][her_indexes] = future_ag
                 # to get the params to re-compute reward
-            transitions['r'] = np.expand_dims(np.array([self.compute_reward_masks(ag_next, g, mask) for ag_next, g, mask in zip(transitions['ag_next'],
+            transitions['r'] = np.expand_dims(np.array([self.compute_reward_masks(ag_next, g, s_ids=semantic_ids) for ag_next, g, mask in zip(transitions['ag_next'],
                                                         transitions['g'], transitions['masks'])]), 1)
         else:
             if self.multi_criteria_her:
@@ -94,16 +100,16 @@ class her_sampler:
 
         return transitions
 
-    def compute_reward_masks(self, ag, g, mask):
-        # ids = np.where(mask != 1.)[0]
-        # semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in self.semantic_ids]
+    def compute_reward_masks(self, ag, g, s_ids=None):
+        if s_ids is None:
+            s_ids = self.semantic_ids
         if self.reward_type == 'sparse':
             return (ag == g).all().astype(np.float32)
         elif self.reward_type == 'per_predicate':
             return (ag == g).astype(np.float32).sum()
         else:
             reward = 0.
-            for subgoal in self.semantic_ids:
+            for subgoal in s_ids:
                 if (ag[subgoal] == g[subgoal]).all():
                     reward = reward + 1.
         return reward

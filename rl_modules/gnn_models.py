@@ -8,7 +8,6 @@ from rl_modules.networks import GnnMessagePassing, PhiCriticDeepSet, PhiActorDee
 from utils import get_graph_structure
 
 epsilon = 1e-6
-ACTIVE_OBJ_IDS = np.array([0, 1, 2])
 
 
 class GnnCritic(nn.Module):
@@ -33,7 +32,7 @@ class GnnCritic(nn.Module):
         self.incoming_edges = incoming_edges
         self.predicate_ids = predicate_ids
 
-    def forward(self, obs, act, edge_features):
+    def forward(self, obs, act, edge_features, nodes=np.array([0, 1, 2, 3, 4])):
         batch_size = obs.shape[0]
         assert batch_size == len(obs)
 
@@ -42,9 +41,10 @@ class GnnCritic(nn.Module):
         #                for i in range(self.nb_objects)]
 
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
-                       for i in ACTIVE_OBJ_IDS]
+                       for i in nodes]
 
-        edges = [[0, 1], [2, 3], [4, 5]]
+        # edges = [[0, 1], [2, 3], [4, 5]]
+        _, edges, _ = get_graph_structure(len(nodes))
 
         if self.aggregation == 'max':
             inp = torch.stack([torch.cat([act, obs_body, obj, torch.max(edge_features[edges[i], :, :], dim=0).values], dim=1)
@@ -71,7 +71,7 @@ class GnnCritic(nn.Module):
         q1_pi_tensor, q2_pi_tensor = self.rho_critic(output_phi_critic_1, output_phi_critic_2)
         return q1_pi_tensor, q2_pi_tensor
 
-    def message_passing(self, obs, ag, g):
+    def message_passing(self, obs, ag, g, nodes):
         batch_size = obs.shape[0]
         assert batch_size == len(ag)
 
@@ -80,7 +80,7 @@ class GnnCritic(nn.Module):
 
         delta_g = g - ag
 
-        edges_ids = [i for i in range(self.n_permutations) if set(self.edges[i]).issubset(set(ACTIVE_OBJ_IDS))]
+        edges_ids = [i for i in range(self.n_permutations) if set(self.edges[i]).issubset(set(nodes))]
 
         # inp_mp = torch.stack([torch.cat([delta_g[:, self.predicate_ids[i]], obs_objects[self.edges[i][0]][:, :3],
         #                                  obs_objects[self.edges[i][1]][:, :3]], dim=-1) for i in range(self.n_permutations)])
@@ -109,7 +109,7 @@ class GnnActor(nn.Module):
 
         self.incoming_edges = incoming_edges
 
-    def forward(self, obs, edge_features):
+    def forward(self, obs, edge_features, nodes=np.array([0, 1, 2, 3, 4])):
         batch_size = obs.shape[0]
         assert batch_size == len(obs)
 
@@ -117,9 +117,10 @@ class GnnActor(nn.Module):
         # obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
         #                for i in range(self.nb_objects)]
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
-                       for i in ACTIVE_OBJ_IDS]
+                       for i in nodes]
 
-        edges = [[0, 1], [2, 3], [4, 5]]
+        # edges = [[0, 1], [2, 3], [4, 5]]
+        _, edges, _ = get_graph_structure(len(nodes))
 
         if self.aggregation == 'max':
             inp = torch.stack([torch.cat([obs_body, obj, torch.max(edge_features[edges[i], :, :], dim=0).values], dim=1)
@@ -146,8 +147,8 @@ class GnnActor(nn.Module):
         mean, logstd = self.rho_actor(output_phi_actor)
         return mean, logstd
 
-    def sample(self, obs, edge_features):
-        mean, log_std = self.forward(obs, edge_features)
+    def sample(self, obs, edge_features, nodes):
+        mean, log_std = self.forward(obs, edge_features, nodes)
         std = log_std.exp()
         normal = Normal(mean, std)
         x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
@@ -204,21 +205,21 @@ class GnnSemantic:
                               dim_phi_actor_input, dim_phi_actor_output, dim_rho_actor_input, dim_rho_actor_output)
 
     def policy_forward_pass(self, obs, ag, g, no_noise=False):
-        edge_features = self.critic.message_passing(obs, ag, g)
+        edge_features = self.critic.message_passing(obs, ag, g, nodes=np.array([0, 1, 2, 3, 4]))
         if not no_noise:
-            self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, edge_features)
+            self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, edge_features, nodes=np.array([0, 1, 2, 3, 4]))
         else:
-            _, self.log_prob, self.pi_tensor = self.actor.sample(obs, edge_features)
+            _, self.log_prob, self.pi_tensor = self.actor.sample(obs, edge_features, nodes=np.array([0, 1, 2, 3, 4]))
 
-    def forward_pass(self, obs, ag, g, actions=None):
-        edge_features = self.critic.message_passing(obs, ag, g)
+    def forward_pass(self, obs, ag, g, actions=None, nodes=None):
+        edge_features = self.critic.message_passing(obs, ag, g, nodes)
 
-        self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, edge_features)
+        self.pi_tensor, self.log_prob, _ = self.actor.sample(obs, edge_features, nodes)
 
         if actions is not None:
-            self.q1_pi_tensor, self.q2_pi_tensor = self.critic.forward(obs, self.pi_tensor, edge_features)
-            return self.critic.forward(obs, actions, edge_features)
+            self.q1_pi_tensor, self.q2_pi_tensor = self.critic.forward(obs, self.pi_tensor, edge_features, nodes)
+            return self.critic.forward(obs, actions, edge_features, nodes)
         else:
             with torch.no_grad():
-                self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.critic_target.forward(obs, self.pi_tensor, edge_features)
+                self.target_q1_pi_tensor, self.target_q2_pi_tensor = self.critic_target.forward(obs, self.pi_tensor, edge_features, nodes)
             self.q1_pi_tensor, self.q2_pi_tensor = None, None

@@ -254,6 +254,8 @@ class RLAgent:
         # pre-process the observation and goal
         o, o_next, g, ag, ag_next, actions, rewards = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['ag'], \
                                                       transitions['ag_next'], transitions['actions'], transitions['r']
+
+        nodes = transitions['nodes']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
         transitions['obs_next'], transitions['g_next'] = self._preproc_og(o_next, g)
         _, transitions['ag'] = self._preproc_og(o, ag)
@@ -283,7 +285,7 @@ class RLAgent:
         elif self.architecture == 'gnn':
             critic_1_loss, critic_2_loss, actor_loss, alpha_loss, alpha_tlogs = update_deepsets(self.model, self.language,
                                                                                self.policy_optim, self.critic_optim, self.alpha, self.log_alpha,
-                                                                               self.target_entropy, self.alpha_optim, obs_norm, ag_norm, g_norm,
+                                                                               self.target_entropy, self.alpha_optim, nodes, obs_norm, ag_norm, g_norm,
                                                                                obs_next_norm, ag_next_norm, anchor_g, actions, rewards, language_goals, self.args)
         else:
             raise NotImplementedError
