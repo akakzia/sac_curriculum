@@ -131,17 +131,15 @@ class GoalSampler:
                     self.discovered_goals_str.append(str(e['ag_binary'][-1]))
                     if self.curriculum_learning:
                         nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
-                        if nb_floors != -1:
-                            self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
+                        self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
 
                 if self.curriculum_learning:
                     # put achieved goals in buckets according to the number of floors
                     nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
-                    if nb_floors != -1:
-                        self.active_buckets[nb_floors] = 1.
-                        if e['self_eval']:
-                            s[nb_floors] += e['success'][-1].astype(np.float)
-                            count_eval[nb_floors] += 1
+                    self.active_buckets[nb_floors] = 1.
+                    if e['self_eval']:
+                        s[nb_floors] += e['success'][-1].astype(np.float)
+                        count_eval[nb_floors] += 1
                         # self.successes_and_failures[nb_floors].append(e['success'][-1].astype(np.float))
                         # if len(self.successes_and_failures[nb_floors]) > self.queue_length:
                         #     self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
