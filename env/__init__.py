@@ -29,7 +29,6 @@ register(id='FetchManipulate5Objects-v0',
          entry_point='env.envs:FetchManipulateEnv',
          kwargs={'reward_type': 'sparse',
                  'num_blocks': 5,
-                 'obj_range': 0.30,
                  'model_path': 'fetch/stack5.xml'
                  },
          max_episode_steps=200,)
