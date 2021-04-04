@@ -23,6 +23,8 @@ class her_sampler:
             self.semantic_ids = get_idxs_per_object(n=args.n_blocks)
         else:
             self.semantic_ids = get_idxs_per_relation(n=args.n_blocks)
+
+        self.semantic_ids = self.semantic_ids[[0, 1, 4]]
         self.mask_ids = get_idxs_per_relation(n=args.n_blocks)
 
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions):

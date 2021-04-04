@@ -8,6 +8,7 @@ from rl_modules.networks import GnnMessagePassing, PhiCriticDeepSet, PhiActorDee
 from utils import get_graph_structure
 
 epsilon = 1e-6
+ACTIVE_OBJ_IDS = np.array([0, 1, 2])
 
 
 class GnnCritic(nn.Module):
@@ -37,17 +38,22 @@ class GnnCritic(nn.Module):
         assert batch_size == len(obs)
 
         obs_body = obs[:, :self.dim_body]
+        # obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
+        #                for i in range(self.nb_objects)]
+
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
-                       for i in range(self.nb_objects)]
+                       for i in ACTIVE_OBJ_IDS]
+
+        edges = [[0, 1], [2, 3], [4, 5]]
 
         if self.aggregation == 'max':
-            inp = torch.stack([torch.cat([act, obs_body, obj, torch.max(edge_features[self.incoming_edges[i], :, :], dim=0).values], dim=1)
+            inp = torch.stack([torch.cat([act, obs_body, obj, torch.max(edge_features[edges[i], :, :], dim=0).values], dim=1)
                                for i, obj in enumerate(obs_objects)])
         elif self.aggregation == 'sum':
-            inp = torch.stack([torch.cat([act, obs_body, obj, torch.sum(edge_features[self.incoming_edges[i], :, :], dim=0)], dim=1)
+            inp = torch.stack([torch.cat([act, obs_body, obj, torch.sum(edge_features[edges[i], :, :], dim=0)], dim=1)
                                for i, obj in enumerate(obs_objects)])
         elif self.aggregation == 'mean':
-            inp = torch.stack([torch.cat([act, obs_body, obj, torch.mean(edge_features[self.incoming_edges[i], :, :], dim=0)], dim=1)
+            inp = torch.stack([torch.cat([act, obs_body, obj, torch.mean(edge_features[edges[i], :, :], dim=0)], dim=1)
                                for i, obj in enumerate(obs_objects)])
         else:
             raise NotImplementedError
@@ -74,8 +80,12 @@ class GnnCritic(nn.Module):
 
         delta_g = g - ag
 
+        edges_ids = [i for i in range(self.n_permutations) if set(self.edges[i]).issubset(set(ACTIVE_OBJ_IDS))]
+
+        # inp_mp = torch.stack([torch.cat([delta_g[:, self.predicate_ids[i]], obs_objects[self.edges[i][0]][:, :3],
+        #                                  obs_objects[self.edges[i][1]][:, :3]], dim=-1) for i in range(self.n_permutations)])
         inp_mp = torch.stack([torch.cat([delta_g[:, self.predicate_ids[i]], obs_objects[self.edges[i][0]][:, :3],
-                                         obs_objects[self.edges[i][1]][:, :3]], dim=-1) for i in range(self.n_permutations)])
+                                         obs_objects[self.edges[i][1]][:, :3]], dim=-1) for i in edges_ids])
 
         output_mp = self.mp_critic(inp_mp)
 
@@ -104,17 +114,21 @@ class GnnActor(nn.Module):
         assert batch_size == len(obs)
 
         obs_body = obs[:, :self.dim_body]
+        # obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
+        #                for i in range(self.nb_objects)]
         obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
-                       for i in range(self.nb_objects)]
+                       for i in ACTIVE_OBJ_IDS]
+
+        edges = [[0, 1], [2, 3], [4, 5]]
 
         if self.aggregation == 'max':
-            inp = torch.stack([torch.cat([obs_body, obj, torch.max(edge_features[self.incoming_edges[i], :, :], dim=0).values], dim=1)
+            inp = torch.stack([torch.cat([obs_body, obj, torch.max(edge_features[edges[i], :, :], dim=0).values], dim=1)
                                        for i, obj in enumerate(obs_objects)])
         elif self.aggregation == 'sum':
-            inp = torch.stack([torch.cat([obs_body, obj, torch.sum(edge_features[self.incoming_edges[i], :, :], dim=0)], dim=1)
+            inp = torch.stack([torch.cat([obs_body, obj, torch.sum(edge_features[edges[i], :, :], dim=0)], dim=1)
                                for i, obj in enumerate(obs_objects)])
         elif self.aggregation == 'mean':
-            inp = torch.stack([torch.cat([obs_body, obj, torch.mean(edge_features[self.incoming_edges[i], :, :], dim=0)], dim=1)
+            inp = torch.stack([torch.cat([obs_body, obj, torch.mean(edge_features[edges[i], :, :], dim=0)], dim=1)
                                for i, obj in enumerate(obs_objects)])
         else:
             raise NotImplementedError
