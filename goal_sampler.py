@@ -179,7 +179,7 @@ class GoalSampler:
         # compute C, LP per bucket
         for k in self.buckets.keys():
             n_points = len(self.successes_and_failures[k])
-            if n_points > 42:
+            if n_points > 4:
                 sf = np.array(self.successes_and_failures[k])
                 self.C[k] = np.mean(sf[n_points // 2:])
                 # self.LP[k] = np.abs(np.sum(sf[n_points // 2:, 1]) - np.sum(sf[: n_points // 2, 1])) / n_points
@@ -274,7 +274,7 @@ class GoalSampler:
         #     n = 12
         # else:
         #     n = 6
-        for i in range(self.n_blocks):
+        for i in range(6):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
 
