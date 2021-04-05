@@ -25,6 +25,7 @@ class her_sampler:
             self.semantic_ids = get_idxs_per_relation(n=args.n_blocks)
 
         self.mask_ids = get_idxs_per_relation(n=args.n_blocks)
+        self.proba = args.proba
 
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions):
         T = episode_batch['actions'].shape[1]
@@ -41,7 +42,11 @@ class her_sampler:
         transitions = {key: episode_batch[key][episode_idxs, t_samples].copy() for key in episode_batch.keys()}
 
         # Sample indexes of nodes to be considered in graph
-        n_nodes = np.random.randint(2, 6)
+        # n_nodes = np.random.randint(2, 6)
+        if np.random.uniform() < self.proba:
+            n_nodes = 5
+        else:
+            n_nodes = 3
         nodes = np.sort(np.random.choice(np.arange(5), size=n_nodes, replace=False))
         semantic_ids = self.semantic_ids[nodes]
 

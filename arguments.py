@@ -11,6 +11,7 @@ Here are the param for the training
 
 def get_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--proba', type=float, default=0.7, help='')
     # the general arguments
     parser.add_argument('--seed', type=int, default=np.random.randint(1e6), help='random seed')
     parser.add_argument('--num-workers', type=int, default=MPI.COMM_WORLD.Get_size(), help='the number of cpus to collect samples')
@@ -38,7 +39,7 @@ def get_args():
     parser.add_argument('--multi-criteria-her', type=bool, default=True, help='test')
     parser.add_argument('--replay-strategy', type=str, default='future', help='the HER strategy')
     parser.add_argument('--replay-k', type=int, default=4, help='ratio to be replace')
-    parser.add_argument('--reward-type', type=str, default='per_relation', help='per_object, per_relation, per_predicate or sparse')
+    parser.add_argument('--reward-type', type=str, default='per_object', help='per_object, per_relation, per_predicate or sparse')
     # The RL arguments
     parser.add_argument('--self-eval-prob', type=float, default=0.1, help='Probability to perform self-evaluation')
     parser.add_argument('--gamma', type=float, default=0.98, help='the discount factor')

@@ -19,7 +19,7 @@ class FetchManipulateEnv(fetch_manipulate_env.FetchManipulateEnv, utils.EzPickle
         fetch_manipulate_env.FetchManipulateEnv.__init__(
             self, model_path, num_blocks=num_blocks, block_gripper=False, n_substeps=20,
             gripper_extra_height=0.2, target_in_the_air=False, target_offset=0.0,
-            obj_range=0.15, target_range=0.15, predicate_threshold=PREDICATE_THRESHOLD,
+            obj_range=0.20, target_range=0.15, predicate_threshold=PREDICATE_THRESHOLD,
             initial_qpos=initial_qpos, reward_type=reward_type, predicates=['close', 'above'],
             p_coplanar=PROBA_COPLANAR, p_stack_two=PROBA_STACK_TWO, p_grasp=PROBA_GRASP,
         )

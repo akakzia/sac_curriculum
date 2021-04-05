@@ -171,7 +171,7 @@ def launch(args):
                                                        language_goal=language_goal)
 
             rewards = np.array([policy.her_module.compute_reward_masks(episodes[i]['ag'][-1], eval_goals[i]) for i in range(len(eval_goals))])
-            results = np.array([(r == 3.).astype(np.float32) for r in rewards])
+            results = np.array([(r == 5.).astype(np.float32) for r in rewards])
             # results = np.array([e['success'][-1].astype(np.float32) for e in episodes])
             # rewards = np.array([e['rewards'][-1] for e in episodes])
             all_results = MPI.COMM_WORLD.gather(results, root=0)

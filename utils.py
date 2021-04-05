@@ -431,9 +431,9 @@ def get_number_of_floors(config, n):
     nb_floors = 0
     blocks_per_floor = [[] for _ in range(n)]
     blocks_per_floor[0] = [i for i in range(n)]
-    # n_comb = n * (n-1) // 2
-    # if np.sum(config[:n_comb]) > -6:
-    #     return -1
+    n_comb = n * (n-1) // 2
+    if np.sum(config[:n_comb]) > -6:
+        return -1
     for i, pair in enumerate(combinations(np.arange(n), 2)):
         current_relation = idxs_per_relation[i]
         if (config[current_relation] == np.array([1., 1., -1.])).all():
