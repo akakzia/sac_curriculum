@@ -303,8 +303,8 @@ class GoalSampler:
             self.stats['t_{}'.format(k)].append(time_dict[k])
         self.stats['nb_discovered'].append(len(self.discovered_goals))
         for g_id in range(len(av_res)):
-            self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id-1])
-            self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id-1])
+            self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id])
+            self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id])
             # self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
             # self.stats['#Target_{}'.format(g_id)].append(self.target_counters[oracle_id])
         if self.curriculum_learning:
