@@ -83,7 +83,7 @@ class GoalSampler:
             # if no curriculum learning
             elif self.curriculum_learning:
                 # cond = np.array([len(self.buckets[i]) > 0 for i in range(self.n_blocks)]).all()
-                self_eval = True if np.random.random() < 0.1 else False
+                self_eval = True if np.random.random() < 0.2 else False
                 # if cond:
                 # if self-evaluation then sample randomly from discovered goals
                 if self_eval:
@@ -122,8 +122,8 @@ class GoalSampler:
         all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
         if self.rank == 0:
             all_episode_list = [e for eps in all_episodes for e in eps]
-            s = [0 for _ in range(self.n_blocks)]
-            count_eval = [0 for _ in range(self.n_blocks)]
+            # s = [0 for _ in range(self.n_blocks)]
+            # count_eval = [0 for _ in range(self.n_blocks)]
             for e in all_episode_list:
                 # Add last achieved goal to memory if first time encountered
                 if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
@@ -131,23 +131,24 @@ class GoalSampler:
                     self.discovered_goals_str.append(str(e['ag_binary'][-1]))
                     if self.curriculum_learning:
                         nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
-                        self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
+                        if nb_floors != -1:
+                            self.buckets[nb_floors].append(e['ag_binary'][-1].copy())
 
                 if self.curriculum_learning:
                     # put achieved goals in buckets according to the number of floors
                     nb_floors = get_number_of_floors(e['ag_binary'][-1], self.n_blocks)
                     self.active_buckets[nb_floors] = 1.
                     if e['self_eval']:
-                        s[nb_floors] += e['success'][-1].astype(np.float)
-                        count_eval[nb_floors] += 1
-                        # self.successes_and_failures[nb_floors].append(e['success'][-1].astype(np.float))
-                        # if len(self.successes_and_failures[nb_floors]) > self.queue_length:
-                        #     self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
-            for i in range(self.n_blocks):
-                if count_eval[i] > 0:
-                    self.successes_and_failures[i].append(s[i]/count_eval[i])
-                    if len(self.successes_and_failures[i]) > self.queue_length:
-                        self.successes_and_failures[i] = self.successes_and_failures[i][-self.queue_length:]
+                        # s[nb_floors] += e['success'][-1].astype(np.float)
+                        # count_eval[nb_floors] += 1
+                        self.successes_and_failures[nb_floors].append(e['success'][-1].astype(np.float))
+                        if len(self.successes_and_failures[nb_floors]) > self.queue_length:
+                            self.successes_and_failures[nb_floors] = self.successes_and_failures[nb_floors][-self.queue_length:]
+            # for i in range(self.n_blocks):
+            #     if count_eval[i] > 0:
+            #         self.successes_and_failures[i].append(s[i]/count_eval[i])
+            #         if len(self.successes_and_failures[i]) > self.queue_length:
+            #             self.successes_and_failures[i] = self.successes_and_failures[i][-self.queue_length:]
 
         self.sync()
 

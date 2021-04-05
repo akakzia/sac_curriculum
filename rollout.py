@@ -4,11 +4,7 @@ from utils import language_to_id
 
 
 def is_success(ag, g, mask=None):
-    if mask is None:
-        return (ag == g).all()
-    else:
-        ids = np.where(mask != 1.)[0]
-        return (ag[ids] == g[ids]).all()
+    return (ag == g).all()
 
 
 class RolloutWorker:
