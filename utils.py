@@ -635,3 +635,15 @@ def get_eval_goals(instruction, n, nb_goals=1):
         return np.array(res)
 
 
+def is_stable(obs, n, threshold=0.1):
+    i = 1
+    while i < n+1:
+        d = np.linalg.norm(obs[10+15*i-3:10+15*i])
+        if d < threshold:
+            return False
+        i += 1
+    return True
+
+
+
+

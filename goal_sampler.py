@@ -1,6 +1,6 @@
 from collections import deque
 import numpy as np
-from utils import get_idxs_per_relation, get_number_of_floors
+from utils import get_idxs_per_relation, get_number_of_floors, is_stable
 from mpi4py import MPI
 import os
 import pickle
@@ -125,8 +125,10 @@ class GoalSampler:
             s = [0 for _ in range(self.n_blocks)]
             count_eval = [0 for _ in range(self.n_blocks)]
             for e in all_episode_list:
+                # Check if final ag is stable
+                stable = is_stable(e['obs'][-1], self.n_blocks)
                 # Add last achieved goal to memory if first time encountered
-                if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
+                if str(e['ag_binary'][-1]) not in self.discovered_goals_str and stable:
                     self.discovered_goals.append(e['ag_binary'][-1].copy())
                     self.discovered_goals_str.append(str(e['ag_binary'][-1]))
                     if self.curriculum_learning:
@@ -274,7 +276,7 @@ class GoalSampler:
         #     n = 12
         # else:
         #     n = 6
-        for i in range(6):
+        for i in range(self.n_blocks):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
 

@@ -149,20 +149,20 @@ def launch(args):
             if rank==0: logger.info('\tRunning eval ..')
             # Performing evaluations
             t_i = time.time()
-            eval_goals = []
-            if args.n_blocks == 3:
-                instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'pyramid_3', 'stack_3']
-            elif args.n_blocks == 5:
-                instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'stack_3', '2stacks_2_2', '2stacks_2_3', 'pyramid_3',
-                                'mixed_2_3', 'trapeze_2_3', 'stack_4', 'stack_5']
-            else:
-                raise NotImplementedError
-            for instruction in instructions:
-                eval_goal = get_eval_goals(instruction, n=args.n_blocks)
-                eval_goals.append(eval_goal.squeeze(0))
-            eval_goals = np.array(eval_goals)
-            eval_masks = np.array(np.zeros((eval_goals.shape[0], args.n_blocks * (args.n_blocks - 1) * 3 // 2)))
-            # eval_goals, eval_masks, _ = goal_sampler.sample_goal(n_goals=goal_sampler.n_blocks, evaluation=True)
+            # eval_goals = []
+            # if args.n_blocks == 3:
+            #     instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'pyramid_3', 'stack_3']
+            # elif args.n_blocks == 5:
+            #     instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'stack_3', '2stacks_2_2', '2stacks_2_3', 'pyramid_3',
+            #                     'mixed_2_3', 'trapeze_2_3', 'stack_4', 'stack_5']
+            # else:
+            #     raise NotImplementedError
+            # for instruction in instructions:
+            #     eval_goal = get_eval_goals(instruction, n=args.n_blocks)
+            #     eval_goals.append(eval_goal.squeeze(0))
+            # eval_goals = np.array(eval_goals)
+            # eval_masks = np.array(np.zeros((eval_goals.shape[0], args.n_blocks * (args.n_blocks - 1) * 3 // 2)))
+            eval_goals, eval_masks, _ = goal_sampler.sample_goal(n_goals=goal_sampler.n_blocks, evaluation=True)
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        masks=eval_masks,
                                                        self_eval=True,  # this parameter is overridden by true_eval
@@ -171,7 +171,8 @@ def launch(args):
                                                        language_goal=language_goal)
 
             results = np.array([e['success'][-1].astype(np.float32) for e in episodes])
-            rewards = np.array([e['rewards'][-1] for e in episodes])
+            # rewards = np.array([e['rewards'][-1] for e in episodes])
+            rewards = np.array([policy.her_module.compute_reward_masks(e['ag'][-1], e['g'][-1], None) for e in episodes])
             all_results = MPI.COMM_WORLD.gather(results, root=0)
             all_rewards = MPI.COMM_WORLD.gather(rewards, root=0)
             time_dict['eval'] += time.time() - t_i
