@@ -10,6 +10,7 @@ import torch
 from rollout import RolloutWorker
 from temporary_lg_goal_sampler import LanguageGoalSampler
 from goal_sampler import GoalSampler
+from curriculum.TeacherGoalSampler import TrajectoryGuidingSampler
 from utils import init_storage, get_instruction, get_eval_goals
 import time
 from mpi_utils import logger
@@ -52,6 +53,8 @@ def launch(args):
 
     language_goal = None
     goal_sampler = GoalSampler(args)
+    teacher_advice_freq = args.teacher_advice_freq
+    teacher_sampler = TrajectoryGuidingSampler(args.n_blocks,target_stack =(0,1,2))
 
     # Initialize RL Agent
     if args.agent == "SAC":
@@ -81,7 +84,7 @@ def launch(args):
         if rank == 0: logger.info('\n\nEpoch #{}'.format(epoch))
 
         # Cycles loop
-        for _ in range(args.n_cycles):
+        for cyle_num in range(args.n_cycles):
 
             # Sample goals
             t_i = time.time()
@@ -100,12 +103,28 @@ def launch(args):
 
             # Environment interactions
             t_i = time.time()
-            episodes = rollout_worker.generate_rollout(goals=goals,  # list of goal configurations
-                                                       masks=masks,  # list of masks to be applied
-                                                       self_eval=self_eval,  # whether the agent performs self-evaluations
-                                                       true_eval=False,  # these are not offline evaluation episodes
-                                                       biased_init=biased_init,  # whether initializations should be biased.
-                                                       language_goal=language_goal_ep)   # ignore if no language used
+
+            episodes = []
+            for num_goal in range(len(goals)):
+                if (teacher_advice_freq is not None
+                    and (cyle_num*args.num_rollouts_per_mpi +num_goal) % teacher_advice_freq == 0) :
+                    cur_goal = teacher_sampler.sample_play_goal()
+                    cur_init = False
+                    trajectory_goal = True
+                else : 
+                    cur_goal = [goals[num_goal]]
+                    cur_init = biased_init
+                    trajectory_goal = False
+                episodes += rollout_worker.generate_rollout(goals=np.array(cur_goal),  # list of goal configurations
+                                                            masks=masks,  # list of masks to be applied
+                                                            self_eval=self_eval,  # whether the agent performs self-evaluations
+                                                            true_eval=False,  # these are not offline evaluation episodes
+                                                            biased_init=cur_init,  # whether initializations should be biased.
+                                                            language_goal=language_goal_ep,# ignore if no language used
+                                                            trajectory_goal=trajectory_goal)    # indicates if goals are parts of a uniq trajectory
+                
+                
+
             time_dict['rollout'] += time.time() - t_i
 
             # Goal Sampler updates
@@ -129,7 +148,7 @@ def launch(args):
             for _ in range(args.n_batches):
                 policy.train()
             time_dict['policy_train'] += time.time() - t_i
-            episode_count += args.num_rollouts_per_mpi * args.num_workers
+            episode_count += len(episodes) * args.num_workers
 
         time_dict['epoch'] += time.time() -t_init
         time_dict['total'] = time.time() - t_total_init
@@ -158,15 +177,28 @@ def launch(args):
                                                        biased_init=False,
                                                        language_goal=language_goal)
 
+             # teacher evaluation : 
+            teacher_eval_sr_dict = teacher_sampler.evaluation(rollout_worker,eval_masks)
+            # gangstr evaluation : 
             results = np.array([e['success'][-1].astype(np.float32) for e in episodes])
             rewards = np.array([e['rewards'][-1] for e in episodes])
             all_results = MPI.COMM_WORLD.gather(results, root=0)
             all_rewards = MPI.COMM_WORLD.gather(rewards, root=0)
             time_dict['eval'] += time.time() - t_i
 
+            all_teacher_eval = {}
+            for k in teacher_eval_sr_dict:
+                all_teacher_eval[k] = MPI.COMM_WORLD.gather(teacher_eval_sr_dict[k],root=0)         
+    
             # Logs
             if rank == 0:
                 assert len(all_results) == args.num_workers  # MPI test
+                
+                # teacher logging : 
+                for k,v in all_teacher_eval.items():
+                    mean_sr = np.array(v).mean()
+                    logger.record_tabular(k,mean_sr)
+
                 av_res = np.array(all_results).mean(axis=0)
                 av_rewards = np.array(all_rewards).mean(axis=0)
                 global_sr = np.mean(av_res)

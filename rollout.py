@@ -21,11 +21,12 @@ class RolloutWorker:
         self.goal_sampler = goal_sampler
         self.args = args
 
-    def generate_rollout(self, goals, masks, self_eval, true_eval, biased_init=False, animated=False, language_goal=None):
+    def generate_rollout(self, goals, masks, self_eval, true_eval, biased_init=False, animated=False, language_goal=None, trajectory_goal = False):
 
         episodes = []
         for i in range(goals.shape[0]):
-            observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), biased_init=biased_init)
+            if i == 0 or not trajectory_goal:
+                observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), biased_init=biased_init)
             obs = observation['observation']
             ag = observation['achieved_goal']
             ag_bin = observation['achieved_goal_binary']
@@ -102,6 +103,8 @@ class RolloutWorker:
                 episode['language_goal'] = language_goal_ep
 
             episodes.append(episode)
+            if trajectory_goal and ep_success[-1] == False :
+                break
 
         return episodes
 
