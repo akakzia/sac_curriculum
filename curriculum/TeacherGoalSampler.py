@@ -27,12 +27,15 @@ class TrajectoryGuidingSampler():
         config_paths = list(self.goals_trajectory_dict.values())
         return copy.copy(config_paths)
 
-    def evaluation(self,rollout_worker,eval_masks):
+    def evaluation(self,rollout_worker,eval_masks,max_traj=6):
         sr_results = defaultdict(list)
-        for target_stack,config_path in self.goals_trajectory_dict.items():
+
+        target_trajectories = list(self.goals_trajectory_dict.items())[:max_traj]
+
+        for target_stack,config_path in target_trajectories:
             # evaluation while teacher is guiding student : 
             episodes = rollout_worker.generate_rollout(goals=np.array(config_path),masks=eval_masks,self_eval=True,
-                                                       true_eval=True,  biased_init=False,)
+                                                       true_eval=True,  biased_init=False,trajectory_goal = True)
             for i,episode in enumerate(episodes):
                 sr = episode['success'][-1].astype(np.float32)
                 sr_results[f"stack{i+2}_sr_guided"].append(sr)

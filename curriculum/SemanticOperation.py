@@ -64,10 +64,3 @@ def all_stack_trajectories(stack_size,GANGSTR= True):
 
     return config_to_path
 
-if __name__ == 'main':
-    print("quick debug : ")
-    goals_trajectory_dict = all_stack_trajectories(3)
-    for stack, config_path in goals_trajectory_dict : 
-        print("stack :",stack )
-        print(*config_path,sep=' -> ')
-        
