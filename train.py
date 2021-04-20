@@ -178,7 +178,7 @@ def launch(args):
                                                        language_goal=language_goal)
 
              # teacher evaluation : 
-            teacher_eval_sr_dict = teacher_sampler.evaluation(rollout_worker,eval_masks)
+            teacher_eval_sr_dict = teacher_sampler.evaluation(rollout_worker)
             # gangstr evaluation : 
             results = np.array([e['success'][-1].astype(np.float32) for e in episodes])
             rewards = np.array([e['rewards'][-1] for e in episodes])

@@ -37,7 +37,7 @@ class SemanticOperation():
     
     def empty(self):
         ''' Return the empty configuration where everything is far appart'''
-        return (self.semantic[False],) * (self.nb_blocks + self.nb_blocks*2)
+        return (self.semantic[False],) * ((3*self.nb_blocks * (self.nb_blocks-1))//2)
     
     def to_GANGSTR(config):
         tuple(1 if c > 0 else -1 
