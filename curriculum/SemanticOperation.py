@@ -14,9 +14,9 @@ class SemanticOperation():
 
         # define how truth values are replaced in semantic configurations : 
         if GANGSTR:
-            self.semantic = {True: 1, False:-1}
+            self.semantic = {True: 1., False:-1.}
         else : 
-            self.semantic = {True: 1, False:0}
+            self.semantic = {True: 1., False:0.}
 
     def close(self,config,a,b,pred_val):
         '''Return a copy of config with a close from b with value True/False'''
@@ -58,7 +58,7 @@ def all_stack_trajectories(stack_size,GANGSTR= True):
         config_path = [] 
         # construct intermediate stack config by adding blocks one by one : 
         for top,bottom in zip(stack,stack[1:]) : 
-            cur_config = sem_op.close_and_above(cur_config,top,bottom,1)
+            cur_config = sem_op.close_and_above(cur_config,bottom,top,1)
             config_path.append(cur_config)
         config_to_path[stack] = config_path
 

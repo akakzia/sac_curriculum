@@ -27,6 +27,11 @@ class RolloutWorker:
         for i in range(goals.shape[0]):
             if i == 0 or not trajectory_goal:
                 observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), biased_init=biased_init)
+            else :
+                observation = observation_new
+                self.env.unwrapped.target_goal = np.array(goals[i])
+                observation['desired_goal'] = np.array(goals[i])
+
             obs = observation['observation']
             ag = observation['achieved_goal']
             ag_bin = observation['achieved_goal_binary']
