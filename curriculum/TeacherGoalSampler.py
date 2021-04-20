@@ -45,8 +45,11 @@ class TrajectoryGuidingSampler():
                 sr = episode['success'][-1].astype(np.float32)
                 sr_results[f"stack{i+2}_sr_guided"].append(sr)
             if target_stack == self.target_stack:
-                sr = episodes[-1]['success'][-1].astype(np.float32)
-                sr_results[f"stack_{target_stack}_guided"] = sr
+                if len(episodes) == len(config_path):
+                    sr = episodes[-1]['success'][-1].astype(np.float32)
+                    sr_results[f"stack_target_guided"] = sr
+                else : 
+                    sr_results[f"stack_target_guided"] = 0
 
             # evaluation only with goal : 
             goal = config_path[-1]
@@ -56,7 +59,7 @@ class TrajectoryGuidingSampler():
             sr = episodes[0]['success'][-1].astype(np.float32)
             sr_results[f"stack_sr_goal"].append(sr)
             if target_stack == self.target_stack:
-                sr_results[f"stack_{target_stack}_goal"] = sr
+                sr_results[f"stack_target_goal"] = sr
 
         return sr_results
         
