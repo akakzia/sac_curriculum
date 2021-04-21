@@ -54,7 +54,7 @@ def launch(args):
     language_goal = None
     goal_sampler = GoalSampler(args)
     teacher_advice_freq = args.teacher_advice_freq
-    teacher_sampler = TrajectoryGuidingSampler(args.n_blocks,target_stack =(0,1,2))
+    teacher_sampler = TrajectoryGuidingSampler(args.n_blocks,target_stack =tuple(range(args.n_blocks)))
 
     # Initialize RL Agent
     if args.agent == "SAC":
