@@ -115,6 +115,7 @@ def launch(args):
                     cur_goal = [goals[num_goal]]
                     cur_init = biased_init
                     trajectory_goal = False 
+                masks = np.array(np.zeros((len(cur_goal),len(cur_goal[0]))))
                 episodes += rollout_worker.generate_rollout(goals=np.array(cur_goal),  # list of goal configurations
                                                             masks=masks,  # list of masks to be applied
                                                             self_eval=self_eval,  # whether the agent performs self-evaluations

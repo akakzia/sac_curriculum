@@ -24,13 +24,15 @@ class RolloutWorker:
     def generate_rollout(self, goals, masks, self_eval, true_eval, biased_init=False, animated=False, language_goal=None, trajectory_goal = False):
 
         episodes = []
-        for i in range(goals.shape[0]):
-            if i == 0 or not trajectory_goal:
-                observation = self.env.unwrapped.reset_goal(goal=np.array(goals[i]), biased_init=biased_init)
+        cur_goal_id = 0
+        env_to_reset = True
+        for _ in range(goals.shape[0]):
+            if env_to_reset:
+                observation = self.env.unwrapped.reset_goal(goal=np.array(goals[cur_goal_id]), biased_init=biased_init)
             else :
                 observation = observation_new
-                self.env.unwrapped.target_goal = np.array(goals[i])
-                observation['desired_goal'] = np.array(goals[i])
+                self.env.unwrapped.target_goal = np.array(goals[cur_goal_id])
+                observation['desired_goal'] = np.array(goals[cur_goal_id])
 
             obs = observation['observation']
             ag = observation['achieved_goal']
@@ -44,7 +46,7 @@ class RolloutWorker:
                 if language_goal is None:
                     language_goal_ep = sentence_from_configuration(g, eval=true_eval)
                 else:
-                    language_goal_ep = language_goal[i]
+                    language_goal_ep = language_goal[cur_goal_id]
                 lg_id = language_to_id[language_goal_ep]
             else:
                 language_goal_ep = None
@@ -59,7 +61,7 @@ class RolloutWorker:
                 # Run policy for one step
                 no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
                 # feed both the observation and mask to the policy module
-                action = self.policy.act(obs.copy(), ag.copy(), g.copy(), masks[i].copy(), no_noise, language_goal=language_goal_ep)
+                action = self.policy.act(obs.copy(), ag.copy(), g.copy(), masks[cur_goal_id].copy(), no_noise, language_goal=language_goal_ep)
 
                 # feed the actions into the environment
                 if animated:
@@ -79,8 +81,8 @@ class RolloutWorker:
                 ep_actions.append(action.copy())
                 ep_rewards.append(r)
                 ep_lg_id.append(lg_id)
-                ep_success.append(is_success(ag_new, g, masks[i]))
-                ep_masks.append(np.array(masks[i]).copy())
+                ep_success.append(is_success(ag_new, g, masks[cur_goal_id]))
+                ep_masks.append(np.array(masks[cur_goal_id]).copy())
 
                 # Re-assign the observation
                 obs = obs_new
@@ -108,8 +110,13 @@ class RolloutWorker:
                 episode['language_goal'] = language_goal_ep
 
             episodes.append(episode)
-            if trajectory_goal and ep_success[-1] == False :
-                break
+
+            if trajectory_goal :
+                cur_goal_id += int(ep_success[-1] == True)
+                env_to_reset = ep_success[-1] != True
+            else : 
+                cur_goal_id+=1
+                env_to_reset = True
 
         return episodes
 

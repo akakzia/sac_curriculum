@@ -31,9 +31,7 @@ class TrajectoryGuidingSampler():
     def evaluation(self,rollout_worker,max_traj=6,animated=False):
         sr_results = defaultdict(list)
         
-
         target_trajectories = list(self.goals_trajectory_dict.items())[:max_traj]
-
         for target_stack,config_path in target_trajectories:
             config_path = copy.copy(config_path)
             eval_masks = np.array(np.zeros((len(config_path),self.config_size)))
@@ -41,15 +39,18 @@ class TrajectoryGuidingSampler():
             episodes = rollout_worker.generate_rollout(goals=np.array(config_path),masks=eval_masks,self_eval=True,
                                                        true_eval=True,  biased_init=False,trajectory_goal = True,
                                                        animated=animated)
+
             for i,episode in enumerate(episodes):
                 sr = episode['success'][-1].astype(np.float32)
-                sr_results[f"stack{i+2}_sr_guided"].append(sr)
+                if sr == 0 : # if student fails a goal, the rest is considered as failed also
+                    for k in range(i,len(config_path)):
+                        sr_results[f"stack{k+2}_sr_guided"].append(0)
+                    break
+                else :
+                    sr_results[f"stack{i+2}_sr_guided"].append(sr)
+            
             if target_stack == self.target_stack:
-                if len(episodes) == len(config_path):
-                    sr = episodes[-1]['success'][-1].astype(np.float32)
-                    sr_results[f"stack_target_guided"] = sr
-                else : 
-                    sr_results[f"stack_target_guided"] = 0
+                sr_results[f"stack_target_guided"] = sr_results[f"stack{len(target_stack)}_sr_guided"]
 
             # evaluation only with goal : 
             goal = config_path[-1]
