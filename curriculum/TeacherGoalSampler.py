@@ -39,7 +39,7 @@ class TrajectoryGuidingSampler():
             # evaluation while teacher is guiding student : 
             episode_guided,nb_goal_reached = rollout_worker.guided_rollout(goals=np.array(config_path),self_eval=True,
                                                        true_eval=True,  biased_init=False, animated=animated,
-                                                       consecutive_success=5)
+                                                       consecutive_success_step=5)
             
             for i in range(nb_goal_reached):
                 sr_results[f"stack{i+2}_sr_guided"].append(1)
