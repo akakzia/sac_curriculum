@@ -14,6 +14,7 @@ class TrajectoryGuidingSampler():
         # convert to GANGSTR boolean values : 
 
         self.target_stack = target_stack
+        self.nb_block = nb_blocks
         
     def sample_play_goal(self):
         goals = None
@@ -23,48 +24,47 @@ class TrajectoryGuidingSampler():
             target_stack =self.target_stack
         goals = self.goals_trajectory_dict[target_stack]
         return copy.copy(goals)
-        
-    def generate_eval_goals(self):
-        config_paths = list(self.goals_trajectory_dict.values())
-        return copy.copy(config_paths)
 
-    def evaluation(self,rollout_worker,max_traj=6,animated=False):
+    def evaluation(self,rollout_worker,max_traj=6,animated=False,verbose=False):
         sr_results = defaultdict(list)
         for trajectory_type in ['advised','custom','failure'] :
-            sr_results['stack_goal_'+trajectory_type] = 0
+            for k in range(3,self.nb_block+1):
+                sr_results[f"stack{k}_sr_goal_{trajectory_type}"]=0
         
-        target_trajectories = list(self.goals_trajectory_dict.items())[:max_traj]
+        target_trajectories = random.sample(list(self.goals_trajectory_dict.items()),max_traj)
         for target_stack,config_path in target_trajectories:
+            if verbose : 
+                print("guided episodes : ",target_stack)
             config_path = copy.copy(config_path)
-            eval_masks = np.array(np.zeros((len(config_path),self.config_size)))
             # evaluation while teacher is guiding student : 
-            episodes_guided = rollout_worker.generate_rollout(goals=np.array(config_path),masks=eval_masks,self_eval=True,
-                                                       true_eval=True,  biased_init=False,trajectory_goal = True,
-                                                       animated=animated)
+            episode_guided,nb_goal_reached = rollout_worker.guided_rollout(goals=np.array(config_path),self_eval=True,
+                                                       true_eval=True,  biased_init=False, animated=animated,
+                                                       consecutive_success=5)
             
-            for i,episode in enumerate(episodes_guided):
-                sr = episode['success'][-1].astype(np.float32)
-                if sr == 0 : # if student fails a goal, the rest is considered as failed also
-                    for k in range(i,len(config_path)):
-                        sr_results[f"stack{k+2}_sr_guided"].append(0)
-                    break
-                else :
-                    sr_results[f"stack{i+2}_sr_guided"].append(sr)
+            for i in range(nb_goal_reached):
+                sr_results[f"stack{i+2}_sr_guided"].append(1)
+            for i in range(nb_goal_reached,len(config_path)):
+                sr_results[f"stack{i+2}_sr_guided"].append(0)
             
-            if target_stack == self.target_stack:
-                sr_results[f"stack_target_guided"] = sr_results[f"stack{len(target_stack)}_sr_guided"]
+            # if target_stack == self.target_stack:
+            #     sr_results[f"stack_target_guided"] = sr_results[f"stack{len(target_stack)}_sr_guided"]
 
             # evaluation only with goal : 
-            goal = config_path[-1]
-            episodes_goal = rollout_worker.generate_rollout(goals=np.array([goal]),masks=eval_masks,self_eval=True,
+            if verbose : 
+                print("goal only episodes : ",target_stack)
+            goals = config_path[1:]
+            eval_masks = np.array(np.zeros((len(config_path),self.config_size)))
+            episodes_goal = rollout_worker.generate_rollout(goals=np.array(goals),masks=eval_masks,self_eval=True,
                                                        true_eval=True,  biased_init=False,
                                                        animated=animated)
-            sr = episodes_goal[0]['success'][-1].astype(np.float32)
-            sr_results[f"stack_sr_goal"].append(sr)
-            if target_stack == self.target_stack:
-                sr_results[f"stack_target_goal"] = sr
+            for i,episode in enumerate(episodes_goal):
+                stack_size = i+3
+                sr = episode['success'][-1].astype(np.float32)
+                sr_results[f"stack{stack_size}_sr_goal"].append(sr)
+                trajectory_type = episode_trajectory_type(episode,config_path[:stack_size])
+                sr_results[f"stack{stack_size}_sr_goal_{trajectory_type}"]+=1
 
-            trajectory_type = episode_trajectory_type(episode,config_path)
-            sr_results['stack_goal_'+trajectory_type]+=1
+            # if target_stack == self.target_stack:
+            #     sr_results[f"stacktarget_goal"] = sr
             
         return sr_results

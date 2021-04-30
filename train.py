@@ -114,23 +114,21 @@ def launch(args):
             for num_goal in range(args.num_rollouts_per_mpi):
                 if (teacher_advice_freq is not None
                     and (cyle_num*args.num_rollouts_per_mpi +num_goal) % teacher_advice_freq == 0) :
-                    cur_goal = teacher_sampler.sample_play_goal()
-                    cur_init = False
-                    trajectory_goal = True
+                    guided_goals = teacher_sampler.sample_play_goal()
+                    episode,_ = rollout_worker.guided_rollout(goals=guided_goals, 
+                                                    self_eval=self_eval, 
+                                                    true_eval=False, 
+                                                    biased_init=False,
+                                                    consecutive_success_step=6)
                 else : 
-                    cur_goal = [goals[num_goal]]
-                    cur_init = biased_init
-                    trajectory_goal = False 
-                masks = np.array(np.zeros((len(cur_goal),len(cur_goal[0]))))
-                episodes += rollout_worker.generate_rollout(goals=np.array(cur_goal),  # list of goal configurations
-                                                            masks=masks,  # list of masks to be applied
-                                                            self_eval=self_eval,  # whether the agent performs self-evaluations
-                                                            true_eval=False,  # these are not offline evaluation episodes
-                                                            biased_init=cur_init,  # whether initializations should be biased.
-                                                            language_goal=language_goal_ep,# ignore if no language used
-                                                            trajectory_goal=trajectory_goal)    # indicates if goals are parts of a unique trajectory
-                
-                
+                    masks = np.array(np.zeros((1,len(goals[0]))))
+                    episode = rollout_worker.generate_rollout(goals=np.array([goals[num_goal]]),  # list of goal configurations
+                                                        masks=masks,  # list of masks to be applied
+                                                        self_eval=self_eval,  # whether the agent performs self-evaluations
+                                                        true_eval=False,  # these are not offline evaluation episodes
+                                                        biased_init=biased_init,  # whether initializations should be biased.
+                                                        language_goal=language_goal_ep)[0]   # ignore if no language used
+                episodes.append(episode)
 
             time_dict['rollout'] += time.time() - t_i
 
