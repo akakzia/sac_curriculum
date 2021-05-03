@@ -4,8 +4,13 @@ import env
 import gym
 from utils import generate_goals, generate_all_goals_in_goal_space
 
-def label_transitions(transitions, predicates, colors, n='all', add_abstract=True):
+
+TEST = True  # temporary variable to test simple instructions
+
+def label_transitions(transitions, predicates, colors, n='all', add_abstract=False):
     data_configs, data_sentences = [], []
+    b_words = [['', 'red', 'green'], ['', 'red', 'blue'], ['', 'green', 'blue']]
+    relations_ids = [[0, 3, 4], [1, 5, 6], [2, 7, 8]]
     # get all possible transitions between configs and corresponding sentence from dataset
     for transition in transitions:
         delta = transition[1] - transition[0]
@@ -61,50 +66,115 @@ def label_transitions(transitions, predicates, colors, n='all', add_abstract=Tru
                         sentences.append('Put blue on top')
                         sentences.append('Get blue on top')
         abstract_sentences = sentences.copy()
-        for i in range(len(predicates)):
-            if delta[i] != 0:
-                p = predicates[i]
-                words = p.split('_')
-                for j in range(len(words)):
-                    try:
-                        words[j] = colors[words[j]]
-                    except:
-                        pass
-                positive = delta[i] == 1
-                if words[0] == 'close':
-                    if positive:
-                        sentences.append('Put {} close_to {}'.format(words[1], words[2]))
-                        sentences.append('Get {} close_to {}'.format(words[1], words[2]))
-                        sentences.append('Put {} close_to {}'.format(words[2], words[1]))
-                        sentences.append('Get {} close_to {}'.format(words[2], words[1]))
-                        sentences.append('Get {} and {} close_from each_other'.format(words[1], words[2]))
-                        sentences.append('Get {} and {} close_from each_other'.format(words[2], words[1]))
-                        sentences.append('Bring {} and {} together'.format(words[1], words[2]))
-                        sentences.append('Bring {} and {} together'.format(words[2], words[1]))
+        if not TEST:
+            for i in range(len(predicates)):
+                if delta[i] != 0:
+                    p = predicates[i]
+                    words = p.split('_')
+                    for j in range(len(words)):
+                        try:
+                            words[j] = colors[words[j]]
+                        except:
+                            pass
+                    positive = delta[i] == 1
+                    if words[0] == 'close':
+                        if positive:
+                            sentences.append('Put {} close_to {}'.format(words[1], words[2]))
+                            sentences.append('Get {} close_to {}'.format(words[1], words[2]))
+                            sentences.append('Put {} close_to {}'.format(words[2], words[1]))
+                            sentences.append('Get {} close_to {}'.format(words[2], words[1]))
+                            sentences.append('Get {} and {} close_from each_other'.format(words[1], words[2]))
+                            sentences.append('Get {} and {} close_from each_other'.format(words[2], words[1]))
+                            sentences.append('Bring {} and {} together'.format(words[1], words[2]))
+                            sentences.append('Bring {} and {} together'.format(words[2], words[1]))
+                        else:
+                            sentences.append('Put {} far_from {}'.format(words[1], words[2]))
+                            sentences.append('Get {} far_from {}'.format(words[1], words[2]))
+                            sentences.append('Put {} far_from {}'.format(words[2], words[1]))
+                            sentences.append('Get {} far_from {}'.format(words[2], words[1]))
+                            sentences.append('Get {} and {} far_from each_other'.format(words[1], words[2]))
+                            sentences.append('Get {} and {} far_from each_other'.format(words[2], words[1]))
+                            sentences.append('Bring {} and {} apart'.format(words[1], words[2]))
+                            sentences.append('Bring {} and {} apart'.format(words[2], words[1]))
+                    elif words[0] == 'above':
+                        if positive:
+                            sentences.append('Put {} above {}'.format(words[1], words[2]))
+                            sentences.append('Put {} on_top_of {}'.format(words[1], words[2]))
+                            sentences.append('Put {} under {}'.format(words[2], words[1]))
+                            sentences.append('Put {} below {}'.format(words[2], words[1]))
+                        else:
+                            sentences.append('Remove {} from {}'.format(words[1], words[2]))
+                            sentences.append('Remove {} from_above {}'.format(words[1], words[2]))
+                            sentences.append('Remove {} from_under {}'.format(words[2], words[1]))
+                            sentences.append('Remove {} from_below {}'.format(words[2], words[1]))
+                            sentences.append('Put {} and {} on_the_same_plane'.format(words[1], words[2]))
+                            sentences.append('Put {} and {} on_the_same_plane'.format(words[2], words[1]))
                     else:
-                        sentences.append('Put {} far_from {}'.format(words[1], words[2]))
-                        sentences.append('Get {} far_from {}'.format(words[1], words[2]))
-                        sentences.append('Put {} far_from {}'.format(words[2], words[1]))
-                        sentences.append('Get {} far_from {}'.format(words[2], words[1]))
-                        sentences.append('Get {} and {} far_from each_other'.format(words[1], words[2]))
-                        sentences.append('Get {} and {} far_from each_other'.format(words[2], words[1]))
-                        sentences.append('Bring {} and {} apart'.format(words[1], words[2]))
-                        sentences.append('Bring {} and {} apart'.format(words[2], words[1]))
-                elif words[0] == 'above':
-                    if positive:
-                        sentences.append('Put {} above {}'.format(words[1], words[2]))
-                        sentences.append('Put {} on_top_of {}'.format(words[1], words[2]))
-                        sentences.append('Put {} under {}'.format(words[2], words[1]))
-                        sentences.append('Put {} below {}'.format(words[2], words[1]))
-                    else:
-                        sentences.append('Remove {} from {}'.format(words[1], words[2]))
-                        sentences.append('Remove {} from_above {}'.format(words[1], words[2]))
-                        sentences.append('Remove {} from_under {}'.format(words[2], words[1]))
-                        sentences.append('Remove {} from_below {}'.format(words[2], words[1]))
-                        sentences.append('Put {} and {} on_the_same_plane'.format(words[1], words[2]))
-                        sentences.append('Put {} and {} on_the_same_plane'.format(words[2], words[1]))
-                else:
-                    raise NotImplementedError
+                        raise NotImplementedError
+        else:
+            # aa = np.count_nonzero(delta[:3])
+            unchanged_relations = np.array([np.sum(abs(delta[r_id])) == 0. for r_id in relations_ids])  # a variable to check how many relations are involved
+            if np.count_nonzero(unchanged_relations) == 2:
+            # if aa == 1:
+                nb = 0
+                i = 0
+                while nb == 0 and i < 3:
+                    r_id = relations_ids[i]
+                    if (delta[r_id] == np.array([1, 0, 0])).all():
+                        nb = 1
+                        sentences.append('Put {} close_to {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Get {} close_to {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Put {} close_to {}'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Get {} close_to {}'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Get {} and {} close_from each_other'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Get {} and {} close_from each_other'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Bring {} and {} together'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Bring {} and {} together'.format(b_words[i][2], b_words[i][1]))
+                    elif (delta[r_id] == np.array([-1, 0, 0])).all():
+                        nb = 1
+                        sentences.append('Put {} far_from {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Get {} far_from {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Put {} far_from {}'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Get {} far_from {}'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Get {} and {} far_from each_other'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Get {} and {} far_from each_other'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Bring {} and {} apart'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Bring {} and {} apart'.format(b_words[i][2], b_words[i][1]))
+                    elif (delta[r_id] == np.array([1, 1, 0])).all() or (delta[r_id] == np.array([0, 1, 0])).all():
+                        nb = 1
+                        sentences.append('Put {} above {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Put {} on_top_of {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Put {} under {}'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Put {} below {}'.format(b_words[i][2], b_words[i][1]))
+                    elif (delta[r_id] == np.array([1, 0, 1])).all() or (delta[r_id] == np.array([0, 0, 1])).all():
+                        nb = 1
+                        sentences.append('Put {} above {}'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Put {} on_top_of {}'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Put {} under {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Put {} below {}'.format(b_words[i][1], b_words[i][2]))
+                    elif (delta[r_id] == np.array([1, 1, 0])).all() or (delta[r_id] == np.array([0, 1, 0])).all():
+                        nb = 1
+                        sentences.append('Put {} above {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Put {} on_top_of {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Put {} under {}'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Put {} below {}'.format(b_words[i][2], b_words[i][1]))
+                    elif (delta[r_id] == np.array([-1, 0, -1])).all() or (delta[r_id] == np.array([0, 0, -1])).all():
+                        nb = 1
+                        sentences.append('Remove {} from {}'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Remove {} from_above {}'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Remove {} from_under {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Remove {} from_below {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Put {} and {} on_the_same_plane'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Put {} and {} on_the_same_plane'.format(b_words[i][1], b_words[i][2]))
+                    elif (delta[r_id] == np.array([-1, -1, 0])).all() or (delta[r_id] == np.array([0, -1, 0])).all():
+                        nb = 1
+                        sentences.append('Remove {} from {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Remove {} from_above {}'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Remove {} from_under {}'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Remove {} from_below {}'.format(b_words[i][2], b_words[i][1]))
+                        sentences.append('Put {} and {} on_the_same_plane'.format(b_words[i][1], b_words[i][2]))
+                        sentences.append('Put {} and {} on_the_same_plane'.format(b_words[i][2], b_words[i][1]))
+                    i += 1
         if len(sentences) != 0:
             if n == 'all':
                 data_configs += [transition.copy()] * len(sentences)

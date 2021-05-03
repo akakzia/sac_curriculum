@@ -73,14 +73,14 @@ def main(args):
     # Test set 1
     remove1 = [[[0, 1, 0, 0, 0, 0, 0, 0, 0], 'Put blue close_to green'],
                [[0, 0, 1, 0, 0, 0, 0, 0, 0], 'Put green below red']]
-    remove1_str = ['start' +  str(np.array(r[0])) + r[1] for r in remove1]
+    remove1_str = ['start' + str(np.array(r[0])) + r[1] for r in remove1]
 
     # Test set 2
     remove2 = [[1, 1, 0, 0, 0, 0, 0, 0, 0]]
     remove2_str = ['start' + str(np.array(r)) for r in remove2]
 
     # Test set 3
-    remove3 = ['Put green on_top_of red', 'Put blue far_from red', 'Put green on top', 'Get green on top', 'Make a construction', 'Build a stack of two', 'Make a stack of two']
+    remove3 = ['Put green on_top_of red', 'Put blue far_from red']
     remove3_str = remove3.copy()
 
     # Find indices of the different sets in the total dataset.
@@ -217,6 +217,8 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
         results_per_sentence = dict()
         data_set = get_test_sets(configs, sentences, set_inds[i_gen], all_possible_configs, str_to_index)
         for c_i, s, c_f_dataset, c_f_possible in zip(*data_set):
+            if len(c_f_possible) > 1:
+                a = None
             if s not in results_per_sentence.keys():
                 results_per_sentence[s] = dict(proba_valid=[],
                                                coverage_possible=[],)
@@ -234,7 +236,7 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
             c_ii = np.repeat(c_ii, factor, axis=0)
             c_ii, s_one_hot = torch.Tensor(c_ii).to(device), torch.Tensor(one_hot).to(device)
 
-            x = (vae.inference(c_ii, s_one_hot, n=factor).detach().numpy() > 0.5).astype(np.int)
+            x = (vae.inference(c_ii, s_one_hot, n=factor).detach().numpy() > 0.5).astype(int)
 
 
             x_strs = [str(xi) for xi in x]
@@ -277,15 +279,16 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
         stuff_to_save.append(results_per_sentence)
 
         for s in results_per_sentence.keys():
-            filter = ['Remove', 'Put blue', 'Put green', 'Put red', 'Get red', 'Get blue', 'Get green', 'apart', 'together']
-            exceptions = ['Put red on ', 'Put blue on ', 'Put green on ', 'Get red on ', 'Get green on ', 'Get blue on ']
+            # filter = ['Remove', 'Put blue', 'Put green', 'Put red', 'Get red', 'Get blue', 'Get green', 'apart', 'together']
+            filter = ['Put', 'Build', 'Make', 'Stack some', 'Stack two', 'Get', 'Bring', 'Remove']
+            exceptions = ['Put blue above red']
+            # exceptions = ['Put red on ', 'Put blue on ', 'Put green on ', 'Get red on ', 'Get green on ', 'Get blue on ']
             if any([f in s for f in filter]) and not any([e in s for e in exceptions]):
                 continue
             else:
                 print(s)
                 for k in results_per_sentence[s]:
                     print('\t', k, ':', np.mean(results_per_sentence[s][k]))
-
         print('\n{}: Probability that a sampled goal is valid {}'.format(set_name, 1 - np.mean(false_preds)))
         print('{}: Number of different valid sampled goals: {}'.format(set_name, np.mean(valid_goals)))
         print('{}: Number of valid sampled goals not in dataset: {}'.format(set_name, np.mean(found_beyond_dataset)))
@@ -301,11 +304,12 @@ def train(vocab, configs, device, data_loader, inst_to_one_hot, train_test_data,
         results[i_gen, 5] = np.mean(nb_cf_dataset)
         results[i_gen, 6] = np.mean(coverage_dataset)
         results[i_gen, 7] = np.mean(coverage_possible)
-    with open(SAVE_PATH + 'res{}.pkl'.format(vae_id), 'wb') as f:
-        pickle.dump(results, f)
-    with open(SAVE_PATH + 'res_abs{}.pkl'.format(vae_id), 'wb') as f:
-        pickle.dump(stuff_to_save, f)
-    return results.copy()
+
+    # with open(SAVE_PATH + 'res{}.pkl'.format(vae_id), 'wb') as f:
+    #     pickle.dump(results, f)
+    # with open(SAVE_PATH + 'res_abs{}.pkl'.format(vae_id), 'wb') as f:
+    #     pickle.dump(stuff_to_save, f)
+    # return results.copy()
 
 
 
@@ -332,7 +336,7 @@ if __name__ == '__main__':
     latent_size = 27
     k_param = 0.6
 
-    for i in range(10):
+    for i in range(1):
         print('ICIII', i)
         vocab, configs, device, data_loader, inst_to_one_hot, train_test_data, set_inds, sentences, \
         all_possible_configs, str_to_index = main(args)
