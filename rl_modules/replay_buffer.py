@@ -2,7 +2,6 @@ import threading
 import numpy as np
 from language.build_dataset import sentence_from_configuration
 from utils import language_to_id
-from mpi4py import MPI
 
 """
 the replay buffer here is basically from the openai baselines code
@@ -12,7 +11,6 @@ the replay buffer here is basically from the openai baselines code
 
 class MultiBuffer:
     def __init__(self, env_params, buffer_size, sample_func, multi_head, goal_sampler):
-        self.num_workers = MPI.COMM_WORLD.Get_size()
         self.env_params = env_params
         self.T = env_params['max_timesteps']
         self.size = buffer_size // self.T
@@ -65,7 +63,7 @@ class MultiBuffer:
             if not self.multi_head:
                 for key in self.buffer.keys():
                     if assisted:
-                        temp_buffers[key] = self.buffer[key][self.current_size-2*self.num_workers:self.current_size]
+                        temp_buffers[key] = self.buffer[key][self.current_size-2:self.current_size]
                     else:
                         temp_buffers[key] = self.buffer[key][:self.current_size]
                     # if key == 'language_goal':
