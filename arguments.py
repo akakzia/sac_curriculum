@@ -65,8 +65,8 @@ def get_args():
     # the testing arguments
     parser.add_argument('--n-test-rollouts', type=int, default=1, help='the number of tests')
     # the teacher arguments : 
-    parser.add_argument('--teacher_advice_freq', type=int, default=None, help='the teacher will give goal every \"teacher_advice_freq\" episodes')
-    parser.add_argument('--teacher_advice_diversity', type=str, default='all', help=' unique or all ')
+    parser.add_argument('--teacher-advice-freq', type=int, default=None, help='the teacher will give goal every \"teacher_advice_freq\" episodes')
+    parser.add_argument('--teacher-advice-diversity', type=str, default='all', help=' unique or all ')
 
     args = parser.parse_args()
 
