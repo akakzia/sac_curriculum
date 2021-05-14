@@ -106,13 +106,16 @@ class RolloutWorker:
 
         return episodes
 
-    def guided_rollout(self, goals, self_eval, true_eval, biased_init=False, animated=False,consecutive_success_step=1):
+    def guided_rollout(self, goals, masks, self_eval, true_eval, biased_init=False, animated=False,consecutive_success_step=1):
         '''Generate rollout with given goals in a single episode. If the agent succeed, the next goal is given.
             Returns the episode and last achieved goal'''
 
         cur_goal_id = 0
         observation = self.env.unwrapped.reset_goal(goal=np.array(goals[0]), biased_init=biased_init)
-        empty_mask = np.zeros((len(goals[0])))
+        # empty_mask = np.zeros((len(goals[0])))
+        ones = np.ones((len(goals[0])))
+        mask = ones.copy()
+        mask[masks[cur_goal_id]] = 0.
         obs = observation['observation']
         ag = observation['achieved_goal']
         ag_bin = observation['achieved_goal_binary']
@@ -126,7 +129,7 @@ class RolloutWorker:
             # Run policy for one step
             no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
             # feed both the observation and mask to the policy module
-            action = self.policy.act(obs.copy(), ag.copy(), g.copy(), empty_mask.copy(), no_noise, language_goal=None)
+            action = self.policy.act(obs.copy(), ag.copy(), g.copy(), mask.copy(), no_noise, language_goal=None)
 
             # feed the actions into the environment
             if animated:
@@ -141,12 +144,11 @@ class RolloutWorker:
             ep_obs.append(obs.copy())
             ep_ag.append(ag.copy())
             ep_ag_bin.append(ag_bin.copy())
-            ep_g.append(g.copy())
             ep_g_bin.append(g_bin.copy())
             ep_actions.append(action.copy())
             ep_rewards.append(r)
-            ep_success.append(is_success(ag_new, g, empty_mask))
-            ep_masks.append(np.array(empty_mask).copy())
+            ep_success.append(is_success(ag_new, g, mask))
+            ep_masks.append(np.array(mask).copy())
 
             # Re-assign the observation
             obs = obs_new
@@ -160,11 +162,14 @@ class RolloutWorker:
                     # print("cur_goal is ",cur_goal_id)
                     self.env.unwrapped.target_goal = np.array(goals[cur_goal_id])
                     g = np.array(goals[cur_goal_id])
+                    mask = ones.copy()
+                    mask[masks[cur_goal_id]] = 0.
 
 
         ep_obs.append(obs.copy())
         ep_ag.append(ag.copy())
         ep_ag_bin.append(ag_bin.copy())
+        ep_g = [g.copy() for _ in range(self.env_params['max_timesteps'])]
 
         # Gather everything
         episode = dict(obs=np.array(ep_obs).copy(),

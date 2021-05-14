@@ -111,11 +111,12 @@ def launch(args):
             t_i = time.time()
 
             episodes = []
+            assist = (teacher_advice_freq is not None and cyle_num % teacher_advice_freq == 0)
             for num_goal in range(args.num_rollouts_per_mpi):
-                if (teacher_advice_freq is not None
-                    and (cyle_num*args.num_rollouts_per_mpi +num_goal) % teacher_advice_freq == 0) :
-                    guided_goals = teacher_sampler.sample_play_goal()
-                    episode,_ = rollout_worker.guided_rollout(goals=guided_goals, 
+                if assist:
+                    guided_goals, guided_masks = teacher_sampler.sample_play_goal()
+                    episode,_ = rollout_worker.guided_rollout(goals=guided_goals,
+                                                              masks=guided_masks,
                                                     self_eval=self_eval, 
                                                     true_eval=False, 
                                                     biased_init=False,
@@ -151,7 +152,7 @@ def launch(args):
             # Policy updates
             t_i = time.time()
             for _ in range(args.n_batches):
-                policy.train()
+                policy.train(assisted=assist)
             time_dict['policy_train'] += time.time() - t_i
             episode_count += len(episodes) * args.num_workers
 
@@ -182,8 +183,9 @@ def launch(args):
                                                        biased_init=False,
                                                        language_goal=language_goal)
 
-             # teacher evaluation : 
-            teacher_eval_sr_dict = teacher_sampler.evaluation(rollout_worker)
+             # teacher evaluation :
+            if teacher_advice_freq is not None:
+                teacher_eval_sr_dict = teacher_sampler.evaluation(rollout_worker)
             # gangstr evaluation : 
             results = np.array([e['success'][-1].astype(np.float32) for e in episodes])
             rewards = np.array([e['rewards'][-1] for e in episodes])
@@ -191,18 +193,20 @@ def launch(args):
             all_rewards = MPI.COMM_WORLD.gather(rewards, root=0)
             time_dict['eval'] += time.time() - t_i
 
-            all_teacher_eval = {}
-            for k in teacher_eval_sr_dict:
-                all_teacher_eval[k] = MPI.COMM_WORLD.gather(teacher_eval_sr_dict[k],root=0)         
+            if teacher_advice_freq is not None:
+                all_teacher_eval = {}
+                for k in teacher_eval_sr_dict:
+                    all_teacher_eval[k] = MPI.COMM_WORLD.gather(teacher_eval_sr_dict[k],root=0)
     
             # Logs
             if rank == 0:
                 assert len(all_results) == args.num_workers  # MPI test
                 
-                # teacher logging : 
-                for k,v in all_teacher_eval.items():
-                    mean_sr = np.array(v).mean()
-                    logger.record_tabular(k,mean_sr)
+                # teacher logging :
+                if teacher_advice_freq is not None:
+                    for k,v in all_teacher_eval.items():
+                        mean_sr = np.array(v).mean()
+                        logger.record_tabular(k,mean_sr)
 
                 av_res = np.array(all_results).mean(axis=0)
                 av_rewards = np.array(all_rewards).mean(axis=0)

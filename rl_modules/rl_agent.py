@@ -177,10 +177,10 @@ class RLAgent:
             inputs = inputs.cuda()
         return inputs
 
-    def train(self):
+    def train(self, assisted=False):
         # train the network
         self.total_iter += 1
-        self._update_network()
+        self._update_network(assisted=assisted)
 
         # soft update
         if self.total_iter % self.freq_target_update == 0:
@@ -246,10 +246,10 @@ class RLAgent:
             target_param.data.copy_((1 - self.args.polyak) * param.data + self.args.polyak * target_param.data)
 
     # update the network
-    def _update_network(self):
+    def _update_network(self, assisted=False):
 
         # sample from buffer, this is done with LP is multi-head is true
-        transitions = self.buffer.sample(self.args.batch_size)
+        transitions = self.buffer.sample(self.args.batch_size, assisted=assisted)
 
         # pre-process the observation and goal
         o, o_next, g, ag, ag_next, actions, rewards = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['ag'], \

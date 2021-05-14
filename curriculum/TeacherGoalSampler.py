@@ -10,7 +10,7 @@ class TrajectoryGuidingSampler():
     def __init__(self,nb_blocks,target_stack):
         # probablement mieux de le mettre à l'extérieur de la classe. 
         self.config_size = nb_blocks * (nb_blocks - 1) * 3 // 2
-        self.goals_trajectory_dict = all_stack_trajectories(nb_blocks)
+        self.goals_trajectory_dict, self.masks_trajectory_dict = all_stack_trajectories(nb_blocks)
         # convert to GANGSTR boolean values : 
 
         self.target_stack = target_stack
@@ -23,7 +23,8 @@ class TrajectoryGuidingSampler():
         else : 
             target_stack =self.target_stack
         goals = self.goals_trajectory_dict[target_stack]
-        return copy.copy(goals)
+        masks = self.masks_trajectory_dict[target_stack]
+        return copy.copy(goals), copy.copy(masks)
 
     def evaluation(self,rollout_worker,max_traj=6,animated=False,verbose=False):
         sr_results = defaultdict(list)
@@ -32,12 +33,13 @@ class TrajectoryGuidingSampler():
                 sr_results[f"stack{k}_sr_goal_{trajectory_type}"]=0
         
         target_trajectories = random.sample(list(self.goals_trajectory_dict.items()),max_traj)
-        for target_stack,config_path in target_trajectories:
+        target_masks = [(k[0], self.masks_trajectory_dict[k[0]]) for k in target_trajectories]
+        for (target_stack,config_path), (_, mask_path) in zip(target_trajectories, target_masks):
             if verbose : 
                 print("guided episodes : ",target_stack)
             config_path = copy.copy(config_path)
             # evaluation while teacher is guiding student : 
-            episode_guided,nb_goal_reached = rollout_worker.guided_rollout(goals=np.array(config_path),self_eval=True,
+            episode_guided,nb_goal_reached = rollout_worker.guided_rollout(goals=np.array(config_path),masks=mask_path,self_eval=True,
                                                        true_eval=True,  biased_init=False, animated=animated,
                                                        consecutive_success_step=5)
             

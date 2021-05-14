@@ -53,14 +53,19 @@ def all_stack_trajectories(stack_size,GANGSTR= True):
 
     sem_op = SemanticOperation(stack_size,GANGSTR)
     config_to_path = {}
+    mask_to_path = {}
     for stack in all_stack:
         cur_config = sem_op.empty() # start with the empy config [0,0, ... ]
-        config_path = [] 
+        config_path = []
+        masks_path = []
         # construct intermediate stack config by adding blocks one by one : 
         for top,bottom in zip(stack,stack[1:]) : 
             cur_config = sem_op.close_and_above(cur_config,bottom,top,1)
             config_path.append(cur_config)
+            masks_path.append([sem_op.edge_to_close_ids[(top, bottom)], sem_op.edge_to_above_ids[(top, bottom)],
+                               sem_op.edge_to_above_ids[(bottom, top)]])
         config_to_path[stack] = config_path
+        mask_to_path[stack] = masks_path
 
-    return config_to_path
+    return config_to_path, mask_to_path
 
