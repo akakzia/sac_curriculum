@@ -6,13 +6,14 @@ from utils import id_to_language, language_to_id, get_idxs_per_relation, get_idx
 
 class her_sampler:
     def __init__(self, args, reward_func=None):
+        assert args.replay_strategy in ['future', 'final']
         self.reward_type = args.reward_type
         self.replay_strategy = args.replay_strategy
         self.replay_k = args.replay_k
         if self.replay_strategy == 'future':
             self.future_p = 1 - (1. / (1 + args.replay_k))
         else:
-            self.future_p = 0
+            self.future_p = 1
         self.reward_func = reward_func
         self.continuous = args.algo == 'continuous'  # whether to use semantic configurations or continuous goals
         self.language = args.algo == 'language'
@@ -42,7 +43,10 @@ class her_sampler:
                     her_indexes = np.where(np.random.uniform(size=batch_size) < self.future_p)
                     future_offset = np.random.uniform(size=batch_size) * (T - t_samples)
                     future_offset = future_offset.astype(int)
-                    future_t = (t_samples + 1 + future_offset)[her_indexes]
+                    if self.replay_strategy == 'future':
+                        future_t = (t_samples + 1 + future_offset)[her_indexes]
+                    else:
+                        future_t = np.array([-1 for _ in her_indexes[0]])
                     # Replace
                     future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
                     transition_goals = transitions['g'][her_indexes]
