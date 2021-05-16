@@ -140,7 +140,7 @@ def launch(args):
 
             # Storing episodes
             t_i = time.time()
-            policy.store(episodes)
+            policy.store(episodes, assist)
             time_dict['store'] += time.time() - t_i
 
             # Updating observation normalization

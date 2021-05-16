@@ -126,6 +126,13 @@ class RLAgent:
                                   goal_sampler=self.goal_sampler
                                   )
 
+        self.teacher_buffer = MultiBuffer(env_params=self.env_params,
+                                          buffer_size=self.args.buffer_size,
+                                          sample_func=self.her_module.sample_her_transitions,
+                                          multi_head=self.args.multihead_buffer if not self.language else False,
+                                          goal_sampler=self.goal_sampler
+                                          )
+
     def act(self, obs, ag, g, mask, no_noise, language_goal=None):
         # apply mask
         if mask is not None:
@@ -162,8 +169,11 @@ class RLAgent:
 
         return action.copy()
     
-    def store(self, episodes):
-        self.buffer.store_episode(episode_batch=episodes)
+    def store(self, episodes, assisted=False):
+        if assisted:
+            self.teacher_buffer.store_episode(episode_batch=episodes)
+        else:
+            self.buffer.store_episode(episode_batch=episodes)
 
     # pre_process the inputs
     def _preproc_inputs(self, obs, ag, g):
@@ -249,7 +259,10 @@ class RLAgent:
     def _update_network(self, assisted=False):
 
         # sample from buffer, this is done with LP is multi-head is true
-        transitions = self.buffer.sample(self.args.batch_size, assisted=assisted)
+        if assisted and self.teacher_buffer.current_size > 0:
+            transitions = self.teacher_buffer.sample(self.args.batch_size)
+        else:
+            transitions = self.buffer.sample(self.args.batch_size)
 
         # pre-process the observation and goal
         o, o_next, g, ag, ag_next, actions, rewards = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['ag'], \

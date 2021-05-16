@@ -57,15 +57,12 @@ class MultiBuffer:
                     self.buffer['lg_ids'][idxs[i]] = e['lg_ids']
 
     # sample the data from the replay buffer
-    def sample(self, batch_size, assisted=False):
+    def sample(self, batch_size):
         temp_buffers = {}
         with self.lock:
             if not self.multi_head:
                 for key in self.buffer.keys():
-                    if assisted:
-                        temp_buffers[key] = self.buffer[key][self.current_size-2:self.current_size]
-                    else:
-                        temp_buffers[key] = self.buffer[key][:self.current_size]
+                    temp_buffers[key] = self.buffer[key][:self.current_size]
                     # if key == 'language_goal':
                     #     temp_buffers[key] = np.array([np.array(self.buffer[key][:self.current_size]) for _ in range(self.T)]).T
                     #     temp_buffers[key] = temp_buffers[key].astype('object')
