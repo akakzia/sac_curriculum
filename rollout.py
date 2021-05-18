@@ -127,7 +127,7 @@ class RolloutWorker:
         for _ in range(self.env_params['max_timesteps']):
             # Start to collect samples
             # Run policy for one step
-            no_noise = self_eval or true_eval  # do not use exploration noise if running self-evaluations or offline evaluations
+            no_noise = False
             # feed both the observation and mask to the policy module
             action = self.policy.act(obs.copy(), ag.copy(), g.copy(), mask.copy(), no_noise, language_goal=None)
 
