@@ -67,6 +67,7 @@ def get_args():
     # the teacher arguments : 
     parser.add_argument('--teacher-advice-freq', type=int, default=None, help='the teacher will give goal every \"teacher_advice_freq\" episodes')
     parser.add_argument('--teacher-advice-diversity', type=str, default='all', help=' unique or all ')
+    parser.add_argument('--start-teach', type=int, default=99, help='Epoch from which SP intervenes')
 
     args = parser.parse_args()
 

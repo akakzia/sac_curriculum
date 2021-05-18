@@ -111,7 +111,7 @@ def launch(args):
             t_i = time.time()
 
             episodes = []
-            assist = (teacher_advice_freq is not None and cyle_num % teacher_advice_freq == 0)
+            assist = (teacher_advice_freq is not None and cyle_num % teacher_advice_freq == 0 and epoch > args.start_teach)
             for num_goal in range(args.num_rollouts_per_mpi):
                 if assist:
                     guided_goals, guided_masks = teacher_sampler.sample_play_goal()
