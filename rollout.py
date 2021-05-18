@@ -162,7 +162,7 @@ class RolloutWorker:
                     # print("cur_goal is ",cur_goal_id)
                     self.env.unwrapped.target_goal = np.array(goals[cur_goal_id])
                     g = np.array(goals[cur_goal_id])
-                    mask = ones.copy()
+                    # mask = ones.copy()
                     mask[masks[cur_goal_id]] = 0.
 
 
@@ -173,16 +173,16 @@ class RolloutWorker:
 
         # Gather everything
         episode = dict(obs=np.array(ep_obs).copy(),
-                        act=np.array(ep_actions).copy(),
-                        g=np.array(ep_g).copy(),
-                        ag=np.array(ep_ag).copy(),
-                        success=np.array(ep_success).copy(),
-                        g_binary=np.array(ep_g_bin).copy(),
-                        ag_binary=np.array(ep_ag_bin).copy(),
-                        rewards=np.array(ep_rewards).copy(),
-                        lg_ids=np.array([None]*self.env_params['max_timesteps']).copy(),
-                        masks=np.array(ep_masks).copy(),
-                        self_eval=self_eval)
+                       act=np.array(ep_actions).copy(),
+                       g=np.array(ep_g).copy(),
+                       ag=np.array(ep_ag).copy(),
+                       success=np.array(ep_success).copy(),
+                       g_binary=np.array(ep_g_bin).copy(),
+                       ag_binary=np.array(ep_ag_bin).copy(),
+                       rewards=np.array(ep_rewards).copy(),
+                       lg_ids=np.array([None]*self.env_params['max_timesteps']).copy(),
+                       masks=np.array(ep_masks).copy(),
+                       self_eval=self_eval)
 
         return episode,cur_goal_id
 

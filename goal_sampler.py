@@ -156,7 +156,7 @@ class GoalSampler:
         self.stats = dict()
         # Number of classes of eval
         if self.goal_dim == 30:
-            n = 12
+            n = 11
         else:
             n = 6
         for i in np.arange(1, n+1):

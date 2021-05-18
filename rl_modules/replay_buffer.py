@@ -57,7 +57,7 @@ class MultiBuffer:
                     self.buffer['lg_ids'][idxs[i]] = e['lg_ids']
 
     # sample the data from the replay buffer
-    def sample(self, batch_size):
+    def sample(self, batch_size, assisted=False):
         temp_buffers = {}
         with self.lock:
             if not self.multi_head:
@@ -89,7 +89,7 @@ class MultiBuffer:
 
 
         # sample transitions
-        transitions = self.sample_func(temp_buffers, batch_size)
+        transitions = self.sample_func(temp_buffers, batch_size, assisted)
         return transitions
 
     def _get_storage_idx(self, inc=None):

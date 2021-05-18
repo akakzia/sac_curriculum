@@ -260,7 +260,7 @@ class RLAgent:
 
         # sample from buffer, this is done with LP is multi-head is true
         if assisted and self.teacher_buffer.current_size > 0:
-            transitions = self.teacher_buffer.sample(self.args.batch_size)
+            transitions = self.teacher_buffer.sample(self.args.batch_size, assisted=True)
         else:
             transitions = self.buffer.sample(self.args.batch_size)
 

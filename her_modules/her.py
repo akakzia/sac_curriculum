@@ -26,7 +26,7 @@ class her_sampler:
             self.semantic_ids = get_idxs_per_relation(n=args.n_blocks)
         self.mask_ids = get_idxs_per_relation(n=args.n_blocks)
 
-    def sample_her_transitions(self, episode_batch, batch_size_in_transitions):
+    def sample_her_transitions(self, episode_batch, batch_size_in_transitions, assisted=False):
         T = episode_batch['actions'].shape[1]
         rollout_batch_size = episode_batch['actions'].shape[0]
         batch_size = batch_size_in_transitions
@@ -35,6 +35,13 @@ class her_sampler:
         episode_idxs = np.random.randint(0, rollout_batch_size, batch_size)
         t_samples = np.random.randint(T, size=batch_size)
         transitions = {key: episode_batch[key][episode_idxs, t_samples].copy() for key in episode_batch.keys()}
+
+        # If SP provided the samples, than no HER
+        if assisted:
+            transitions['r'] = np.expand_dims(np.array([self.compute_reward_masks(ag_next, g, mask) for ag_next, g, mask in zip(transitions['ag_next'],
+                                                                                                                                transitions['g'],
+                                                                                                                                transitions['masks'])]), 1)
+            return transitions
 
         if not self.continuous:
             # her idx

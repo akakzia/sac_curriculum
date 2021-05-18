@@ -26,7 +26,7 @@ class TrajectoryGuidingSampler():
         masks = self.masks_trajectory_dict[target_stack]
         return copy.copy(goals), copy.copy(masks)
 
-    def evaluation(self,rollout_worker,max_traj=6,animated=False,verbose=False):
+    def evaluation(self,rollout_worker,max_traj=1,animated=False,verbose=False):
         sr_results = defaultdict(list)
         for trajectory_type in ['advised','custom','failure'] :
             for k in range(3,self.nb_block+1):
