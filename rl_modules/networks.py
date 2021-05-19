@@ -114,7 +114,6 @@ class RhoActorDeepSet(nn.Module):
     def __init__(self, inp, out, action_space=None):
         super(RhoActorDeepSet, self).__init__()
         self.linear1 = nn.Linear(inp, 256)
-        self.linear2 = nn.Linear(256, 256)
         self.mean_linear = nn.Linear(256, out)
         self.log_std_linear = nn.Linear(256, out)
 
@@ -130,7 +129,6 @@ class RhoActorDeepSet(nn.Module):
 
     def forward(self, state):
         x = F.relu(self.linear1(state))
-        x = F.relu(self.linear2(x))
         mean = self.mean_linear(x)
         log_std = self.log_std_linear(x)
         log_std = torch.clamp(log_std, min=LOG_SIG_MIN, max=LOG_SIG_MAX)
@@ -175,22 +173,18 @@ class RhoCriticDeepSet(nn.Module):
     def __init__(self, inp, out):
         super(RhoCriticDeepSet, self).__init__()
         self.linear1 = nn.Linear(inp, 256)
-        self.linear2 = nn.Linear(256, 256)
         self.linear3 = nn.Linear(256, out)
 
         self.linear4 = nn.Linear(inp, 256)
-        self.linear5 = nn.Linear(256, 256)
         self.linear6 = nn.Linear(256, out)
 
         self.apply(weights_init_)
 
     def forward(self, inp1, inp2):
         x1 = F.relu(self.linear1(inp1))
-        x1 = F.relu(self.linear2(x1))
         x1 = self.linear3(x1)
 
         x2 = F.relu(self.linear4(inp2))
-        x2 = F.relu(self.linear5(x2))
         x2 = self.linear6(x2)
 
         return x1, x2
