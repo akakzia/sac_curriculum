@@ -4,7 +4,7 @@ from language.build_dataset import sentence_from_configuration
 from utils import id_to_language, language_to_id, get_idxs_per_relation, get_idxs_per_object, get_objects_per_floor
 
 
-USE_SP_REWARD = True
+USE_SP_REWARD = False
 
 
 class her_sampler:
@@ -27,6 +27,7 @@ class her_sampler:
             self.semantic_ids = get_idxs_per_object(n=args.n_blocks)
         else:
             self.semantic_ids = get_idxs_per_relation(n=args.n_blocks)
+        self.relation_ids = get_idxs_per_relation(n=args.n_blocks)
         self.mask_ids = get_idxs_per_relation(n=args.n_blocks)
 
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions, assisted=False):
@@ -120,7 +121,7 @@ class her_sampler:
             return (ag == g).astype(np.float32).sum()
         else:
             reward = 0.
-            for subgoal in self.semantic_ids:
+            for subgoal in self.relation_ids:
                 if (ag[subgoal] == g[subgoal]).all():
                     reward = reward + 1.
         return reward
