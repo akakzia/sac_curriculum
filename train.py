@@ -8,12 +8,13 @@ from rl_modules.rl_agent import RLAgent
 import random
 import torch
 from rollout import RolloutWorker
-from temporary_lg_goal_sampler import LanguageGoalSampler
 from goal_sampler import GoalSampler
-from utils import init_storage, get_instruction, get_eval_goals
+from utils import init_storage, get_eval_goals
 import time
 from mpi_utils import logger
-from language.build_dataset import sentence_from_configuration
+from graph.semantic_graph import SemanticGraph
+from graph.agent_network import AgentNetwork
+
 
 def get_env_params(env):
     obs = env.reset()
@@ -50,7 +51,6 @@ def launch(args):
 
     args.env_params = get_env_params(env)
 
-    language_goal = None
     goal_sampler = GoalSampler(args)
 
     # Initialize RL Agent
@@ -61,6 +61,10 @@ def launch(args):
 
     # Initialize Rollout Worker
     rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
+
+    # initialize graph components : 
+    semantic_graph = SemanticGraph.load(args.n_blocks)
+    agent_network = AgentNetwork(semantic_graph,args)
 
     # Main interaction loop
     episode_count = 0
@@ -82,14 +86,9 @@ def launch(args):
 
         # Cycles loop
         for _ in range(args.n_cycles):
-
             # Sample goals
             t_i = time.time()
-            goals, masks, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False)
-            if args.algo == 'language':
-                language_goal_ep = np.random.choice(language_goal, size=args.num_rollouts_per_mpi)
-            else:
-                language_goal_ep = None
+            goals = agent_network.sample_goal(args.num_rollouts_per_mpi*args.n_blocks)
             time_dict['goal_sampler'] += time.time() - t_i
 
             # Control biased initializations
@@ -100,12 +99,14 @@ def launch(args):
 
             # Environment interactions
             t_i = time.time()
-            episodes = rollout_worker.generate_rollout(goals=goals,  # list of goal configurations
-                                                       masks=masks,  # list of masks to be applied
-                                                       self_eval=self_eval,  # whether the agent performs self-evaluations
-                                                       true_eval=False,  # these are not offline evaluation episodes
-                                                       biased_init=biased_init,  # whether initializations should be biased.
-                                                       language_goal=language_goal_ep)   # ignore if no language used
+            episodes = rollout_worker.guided_rollouts(goals=goals,  # list of goal configurations
+                                                    self_eval=False,  # whether the agent performs self-evaluations
+                                                    true_eval=False,  # these are not offline evaluation episodes
+                                                    semantic_graph = semantic_graph, 
+                                                    max_episodes=args.num_rollouts_per_mpi*args.n_blocks,
+                                                    episode_duration=args.episode_duration,
+                                                    biased_init=biased_init,  # whether initializations should be biased.
+                                                    )
             time_dict['rollout'] += time.time() - t_i
 
             # Goal Sampler updates
@@ -130,6 +131,8 @@ def launch(args):
                 policy.train()
             time_dict['policy_train'] += time.time() - t_i
             episode_count += args.num_rollouts_per_mpi * args.num_workers
+            # Agent Network Update : 
+            agent_network.update(episodes)
 
         time_dict['epoch'] += time.time() -t_init
         time_dict['total'] = time.time() - t_total_init
@@ -151,12 +154,15 @@ def launch(args):
                 eval_goals.append(eval_goal.squeeze(0))
             eval_goals = np.array(eval_goals)
             eval_masks = np.array(np.zeros((eval_goals.shape[0], args.n_blocks * (args.n_blocks - 1) * 3 // 2)))
-            episodes = rollout_worker.generate_rollout(goals=eval_goals,
-                                                       masks=eval_masks,
-                                                       self_eval=True,  # this parameter is overridden by true_eval
-                                                       true_eval=True,  # this is offline evaluations
-                                                       biased_init=False,
-                                                       language_goal=language_goal)
+            
+            episodes = rollout_worker.guided_rollouts(goals=eval_goals,  # list of goal configurations
+                                                    self_eval=True,  # whether the agent performs self-evaluations
+                                                    true_eval=True,  # these are not offline evaluation episodes
+                                                    semantic_graph = semantic_graph, 
+                                                    episode_duration=args.episode_duration,
+                                                    max_episodes=None,
+                                                    biased_init=False,  # whether initializations should be biased.
+                                                    )
 
             results = np.array([e['success'][-1].astype(np.float32) for e in episodes])
             rewards = np.array([e['rewards'][-1] for e in episodes])
@@ -170,6 +176,9 @@ def launch(args):
                 av_res = np.array(all_results).mean(axis=0)
                 av_rewards = np.array(all_rewards).mean(axis=0)
                 global_sr = np.mean(av_res)
+                
+                agent_network.log(logger)
+                logger.record_tabular('replay_nb_edges', policy.buffer.get_nb_edges())
                 log_and_save(goal_sampler, epoch, episode_count, av_res, av_rewards, global_sr, time_dict)
 
                 # Saving policy models

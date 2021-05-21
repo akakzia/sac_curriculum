@@ -22,7 +22,7 @@ def get_args():
     parser.add_argument('--n-blocks', type=int, default=3, help='The number of blocks to be considered in the FetchManipulate env')
     parser.add_argument('--masks', type=bool, default=False, help='Whether or not to use masked semantic goals')
     parser.add_argument('--mask-application', type=str, default='hindsight', help='hindsight, initial or opaque')
-    parser.add_argument('--biased-init', type=bool, default=True, help='use biased environment initializations')
+    parser.add_argument('--biased-init', type=bool, default=False, help='use biased environment initializations')
     parser.add_argument('--start-biased-init', type=int, default=10, help='Number of epoch before biased initializations start')
     # the training arguments
     parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
@@ -31,10 +31,9 @@ def get_args():
     parser.add_argument('--num-rollouts-per-mpi', type=int, default=2, help='the rollouts per mpi')
     parser.add_argument('--batch-size', type=int, default=256, help='the sample batch size')
     # the replay arguments
-    parser.add_argument('--multi-criteria-her', type=bool, default=True, help='test')
-    parser.add_argument('--replay-strategy', type=str, default='future', help='the HER strategy')
+    parser.add_argument('--replay-strategy', type=str, default='final', help='the HER strategy')
     parser.add_argument('--replay-k', type=int, default=4, help='ratio to be replace')
-    parser.add_argument('--reward-type', type=str, default='per_object', help='per_object, per_relation, per_predicate or sparse')
+    parser.add_argument('--reward-type', type=str, default='sparse', help='per_object, per_relation, per_predicate or sparse')
     # The RL arguments
     parser.add_argument('--self-eval-prob', type=float, default=0.1, help='Probability to perform self-evaluation')
     parser.add_argument('--gamma', type=float, default=0.98, help='the discount factor')
@@ -52,7 +51,7 @@ def get_args():
     parser.add_argument('--save-dir', type=str, default='output/', help='the path to save the models')
     # the memory arguments
     parser.add_argument('--buffer-size', type=int, default=int(1e6), help='the size of the buffer')
-    parser.add_argument('--multihead-buffer', type=bool, default=False, help='use a multihead replay buffer')
+    parser.add_argument('--replay-sampling', type=str, default='edge_distance', help='buffer_uniform or edge_uniform or edge_distance')
     # the preprocessing arguments
     parser.add_argument('--clip-obs', type=float, default=5, help='the clip ratio')
     parser.add_argument('--normalize_goal', type=bool, default=False, help='do evaluation at the end of the epoch w/ frequency')
@@ -64,6 +63,9 @@ def get_args():
     parser.add_argument('--readout-fct', type=str, default='sum', help='readout aggregation function')
     # the testing arguments
     parser.add_argument('--n-test-rollouts', type=int, default=1, help='the number of tests')
+    # graph arguments : 
+    parser.add_argument('--episode_duration', type=int, default=40, help='number of timestep for each episodes')
+    parser.add_argument('--play_goal_strategy', type=str, default='frontier', help='uniform or frontier')
 
     args = parser.parse_args()
 

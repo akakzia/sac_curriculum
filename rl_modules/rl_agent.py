@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from mpi_utils.mpi_utils import sync_networks
-from rl_modules.replay_buffer import MultiBuffer
+from rl_modules.EdgeBuffer import EdgeBuffer
 from rl_modules.networks import QNetworkFlat, GaussianPolicyFlat
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
@@ -119,12 +119,12 @@ class RLAgent:
         self.her_module = her_sampler(self.args, compute_rew)
 
         # create the replay buffer
-        self.buffer = MultiBuffer(env_params=self.env_params,
+        self.buffer = EdgeBuffer(env_params=self.env_params,
                                   buffer_size=self.args.buffer_size,
                                   sample_func=self.her_module.sample_her_transitions,
-                                  multi_head=self.args.multihead_buffer if not self.language else False,
-                                  goal_sampler=self.goal_sampler
-                                  )
+                                  replay_sampling=self.args.replay_sampling ,
+                                  goal_sampler=self.goal_sampler,
+                                  args=args)
 
     def act(self, obs, ag, g, mask, no_noise, language_goal=None):
         # apply mask
