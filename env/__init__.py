@@ -31,4 +31,4 @@ register(id='FetchManipulate5Objects-v0',
                  'num_blocks': 5,
                  'model_path': 'fetch/stack5.xml'
                  },
-         max_episode_steps=200,)
+         max_episode_steps=100,)

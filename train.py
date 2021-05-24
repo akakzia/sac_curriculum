@@ -176,6 +176,8 @@ def launch(args):
                 eval_goals.append(eval_goal.squeeze(0))
             eval_goals = np.array(eval_goals)
             eval_masks = np.array(np.zeros((eval_goals.shape[0], args.n_blocks * (args.n_blocks - 1) * 3 // 2)))
+            policy.model.critic.eval()
+            policy.model.actor.eval()
             episodes = rollout_worker.generate_rollout(goals=eval_goals,
                                                        masks=eval_masks,
                                                        self_eval=True,  # this parameter is overridden by true_eval
@@ -183,6 +185,8 @@ def launch(args):
                                                        biased_init=False,
                                                        language_goal=language_goal)
 
+            policy.model.critic.train()
+            policy.model.actor.train()
              # teacher evaluation :
             if teacher_advice_freq is not None:
                 teacher_eval_sr_dict = teacher_sampler.evaluation(rollout_worker)

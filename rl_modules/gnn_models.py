@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 from itertools import permutations
 import numpy as np
-from rl_modules.networks import GnnMessagePassing, PhiCriticDeepSet, PhiActorDeepSet, RhoActorDeepSet, RhoCriticDeepSet
+from rl_modules.networks import GnnMessagePassing, PhiCriticDeepSet, PhiActorDeepSet, RhoActorDeepSet, RhoCriticDeepSet, GATLayer
 from utils import get_graph_structure
 
 epsilon = 1e-6
@@ -24,6 +24,7 @@ class GnnCritic(nn.Module):
         self.aggregation = aggregation
         self.readout = readout
 
+        self.gat_layer = GATLayer(3, 3, dropout=0.6, alpha=0.2)
         self.mp_critic = GnnMessagePassing(dim_mp_input, dim_mp_output)
         self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 256, dim_phi_critic_output)
         self.rho_critic = RhoCriticDeepSet(dim_rho_critic_input, dim_rho_critic_output)
@@ -69,17 +70,21 @@ class GnnCritic(nn.Module):
         batch_size = obs.shape[0]
         assert batch_size == len(ag)
 
-        obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * (i + 1)]
+        obs_objects = [obs[:, self.dim_body + self.dim_object * i: self.dim_body + self.dim_object * i + 3]
                        for i in range(self.nb_objects)]
 
-        delta_g = g - ag
+        attention, inp_mp = self.gat_layer(torch.stack(obs_objects, dim=1), ag, g, self.predicate_ids, self.edges, self.n_permutations)
 
-        inp_mp = torch.stack([torch.cat([delta_g[:, self.predicate_ids[i]], obs_objects[self.edges[i][0]][:, :3],
-                                         obs_objects[self.edges[i][1]][:, :3]], dim=-1) for i in range(self.n_permutations)])
+        # delta_g = g - ag
+        #
+        # inp_mp = torch.stack([torch.cat([delta_g[:, self.predicate_ids[i]], obs_objects[self.edges[i][0]][:, :3],
+        #                                  obs_objects[self.edges[i][1]][:, :3]], dim=-1) for i in range(self.n_permutations)])
 
         output_mp = self.mp_critic(inp_mp)
 
-        return output_mp
+        a_output_mp = output_mp * attention.unsqueeze(-1).repeat(1, 1, output_mp.shape[-1])
+
+        return a_output_mp.permute(1, 0, -1)
 
 
 class GnnActor(nn.Module):

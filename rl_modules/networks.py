@@ -218,3 +218,50 @@ class GnnMessagePassing(nn.Module):
         x = F.relu(self.linear2(x))
 
         return x
+
+
+class GATLayer(nn.Module):
+    """
+    Simple PyTorch Implementation of the Graph Attention layer.
+    """
+
+    def __init__(self, in_features, out_features, dropout, alpha, concat=True):
+        super(GATLayer, self).__init__()
+        self.dropout = dropout  # drop prob = 0.6
+        self.in_features = in_features  #
+        self.out_features = out_features  #
+        self.alpha = alpha  # LeakyReLU with negative input slope, alpha = 0.2
+        self.concat = concat  # conacat = True for all layers except the output layer.
+
+        # Xavier Initialization of Weights
+        # Alternatively use weights_init to apply weights of choice
+        self.W = nn.Parameter(torch.zeros(size=(in_features, out_features)))
+        nn.init.xavier_uniform_(self.W.data, gain=1.414)
+        self.a = nn.Parameter(torch.zeros(size=(2 * out_features + 2, 1)))  # +2 to add goal
+        nn.init.xavier_uniform_(self.a.data, gain=1.414)
+
+        # LeakyReLU
+        self.leakyrelu = nn.LeakyReLU(self.alpha)
+
+    def forward(self, input, ag, g, predicate_ids, edges, n_permutations):
+        batch_size = input.size()[0]
+        # Linear Transformation
+        h = torch.matmul(input, self.W)
+        N = h.size()[1]
+
+        # Attention Mechanism
+        # a_input = torch.cat([h.repeat(1, 1, N).view(batch_size, N * N, -1), h.repeat(1, N, 1)], dim=-1).view(batch_size, N, -1, 2 * self.out_features)
+        # e = self.leakyrelu(torch.matmul(a_input, self.a).squeeze(-1))
+        a_input = torch.stack([torch.cat([g[:, predicate_ids[i]], h[:, edges[i][0], :], h[:, edges[i][1], :]], dim=-1)
+                         for i in range(n_permutations)], dim=1)
+        e = self.leakyrelu(torch.matmul(a_input, self.a).squeeze(-1))
+
+        attention = F.softmax(e, dim=1)
+        attention = F.dropout(attention, self.dropout, training=self.training)
+        return attention, a_input
+        # h_prime = torch.matmul(attention, h)
+        #
+        # if self.concat:
+        #     return F.elu(h_prime)
+        # else:
+        #     return h_prime
