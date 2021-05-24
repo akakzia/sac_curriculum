@@ -616,19 +616,3 @@ def get_eval_goals(instruction, n, nb_goals=1):
         return np.array(res)
 
 
-def get_objects_per_floor(c, n=5):
-    n_combinations = n * (n-1) // 2
-    map_list = list(combinations(np.arange(n), 2)) + list(permutations(np.arange(n), 2))
-    ordered_obj = []
-    obj_ids = np.arange(n)
-    stacked = [i for i in obj_ids]
-    while len(stacked) > 0:
-        unstacked = [i for i in obj_ids if i not in stacked]
-        ordered_obj += [e for e in unstacked if e not in ordered_obj]
-        stacks = [map_list[i] for i in range(n_combinations, len(map_list)) if c[i] == 1. and map_list[i][-1] not in unstacked]
-        stacked = [s[0] for s in stacks]
-    # add last obj
-    ordered_obj += [e for e in obj_ids if e not in ordered_obj]
-    return ordered_obj
-
-

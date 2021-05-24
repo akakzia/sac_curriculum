@@ -1,10 +1,7 @@
 import numpy as np
 from scipy.linalg import block_diag
 from language.build_dataset import sentence_from_configuration
-from utils import id_to_language, language_to_id, get_idxs_per_relation, get_idxs_per_object, get_objects_per_floor
-
-
-USE_SP_REWARD = False
+from utils import id_to_language, language_to_id, get_idxs_per_relation, get_idxs_per_object
 
 
 class her_sampler:
@@ -27,7 +24,6 @@ class her_sampler:
             self.semantic_ids = get_idxs_per_object(n=args.n_blocks)
         else:
             self.semantic_ids = get_idxs_per_relation(n=args.n_blocks)
-        self.relation_ids = get_idxs_per_relation(n=args.n_blocks)
         self.mask_ids = get_idxs_per_relation(n=args.n_blocks)
 
     def sample_her_transitions(self, episode_batch, batch_size_in_transitions, assisted=False):
@@ -106,22 +102,13 @@ class her_sampler:
     def compute_reward_masks(self, ag, g, mask):
         # ids = np.where(mask != 1.)[0]
         # semantic_ids = [np.intersect1d(semantic_id, ids) for semantic_id in self.semantic_ids]
-        if USE_SP_REWARD:
-            ordered_obj = get_objects_per_floor(g)
-            assert len(ordered_obj) == 5
-            i = 0
-            reward = 0
-            while i < len(ordered_obj) and (ag[self.semantic_ids[ordered_obj[i]]] == g[self.semantic_ids[ordered_obj[i]]]).all():
-                reward += 1
-                i += 1
-            return reward
         if self.reward_type == 'sparse':
             return (ag == g).all().astype(np.float32)
         elif self.reward_type == 'per_predicate':
             return (ag == g).astype(np.float32).sum()
         else:
             reward = 0.
-            for subgoal in self.relation_ids:
+            for subgoal in self.semantic_ids:
                 if (ag[subgoal] == g[subgoal]).all():
                     reward = reward + 1.
         return reward
