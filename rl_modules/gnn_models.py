@@ -24,7 +24,7 @@ class GnnCritic(nn.Module):
         self.aggregation = aggregation
         self.readout = readout
 
-        self.gat_layer = GATLayer(3, 3, dropout=0.6, alpha=0.2)
+        self.gat_layer = GATLayer(3, 3, dropout=0.0, alpha=0.2)
         self.mp_critic = GnnMessagePassing(dim_mp_input, dim_mp_output)
         self.phi_critic = PhiCriticDeepSet(dim_phi_critic_input, 256, dim_phi_critic_output)
         self.rho_critic = RhoCriticDeepSet(dim_rho_critic_input, dim_rho_critic_output)
