@@ -60,7 +60,7 @@ def launch(args):
         target_stack = tuple(range(args.n_blocks))
     else : 
         raise NotImplementedError()
-    teacher_sampler = TrajectoryGuidingSampler(args.n_blocks,target_stack = target_stack)
+    # teacher_sampler = TrajectoryGuidingSampler(args.n_blocks,target_stack = target_stack)
 
     # Initialize RL Agent
     if args.agent == "SAC":
@@ -175,7 +175,7 @@ def launch(args):
                 eval_goal = get_eval_goals(instruction, n=args.n_blocks)
                 eval_goals.append(eval_goal.squeeze(0))
             eval_goals = np.array(eval_goals)
-            eval_masks = np.array(np.zeros((eval_goals.shape[0], args.n_blocks * (args.n_blocks - 1) * 3 // 2)))
+            eval_masks = np.array(np.zeros((eval_goals.shape[0], args.n_blocks + args.n_blocks * (args.n_blocks - 1) * 3 // 2)))
             policy.model.critic.eval()
             policy.model.actor.eval()
             episodes = rollout_worker.generate_rollout(goals=eval_goals,

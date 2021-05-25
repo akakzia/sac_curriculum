@@ -69,7 +69,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         self.p_stack_two = p_stack_two
         self.p_grasp = p_grasp
 
-        self.goal_size = num_blocks * (num_blocks - 1) * 3 // 2
+        self.goal_size = num_blocks + num_blocks * (num_blocks - 1) * 3 // 2
 
         # self.mask = np.zeros(self.goal_size)
 
@@ -179,6 +179,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
         """
         close_config = np.array([])
         above_config = np.array([])
+        above_table = np.array([1. if p[-1] - 0.423 < 0.005 else -1 for p in positions])
         if "close" in self.predicates:
             object_combinations = itertools.combinations(positions, 2)
             object_rel_distances = np.array([objects_distance(obj[0], obj[1]) for obj in object_combinations])
@@ -194,7 +195,7 @@ class FetchManipulateEnv(robot_env.RobotEnv):
 
             above_config = np.array([is_above(obj[0], obj[1]) for obj in object_permutations])
         
-        res = np.concatenate([close_config, above_config])
+        res = np.concatenate([above_table, close_config, above_config])
         return res
 
     def _get_obs(self):

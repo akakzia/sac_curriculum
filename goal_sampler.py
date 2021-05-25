@@ -155,7 +155,7 @@ class GoalSampler:
     def init_stats(self):
         self.stats = dict()
         # Number of classes of eval
-        if self.goal_dim == 30:
+        if self.goal_dim == 35:
             n = 11
         else:
             n = 6
