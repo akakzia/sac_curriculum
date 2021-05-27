@@ -37,7 +37,6 @@ class AgentNetwork():
             self.frontier.remove(new_goal)
 
     def update(self,episodes):
-        pass
         all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
         if self.rank == 0:
             all_episode_list = [e for eps in all_episodes 

@@ -16,7 +16,7 @@ class UnstableException(Exception):
     pass
 
 class Block:
-    CLOSE_DIST = np.sqrt(1+1.6**2)
+    CLOSE_DIST = np.sqrt(1+1.4**2)
     ABOVE_DIST = np.sqrt(1.9)
     @property
     def h(self):
