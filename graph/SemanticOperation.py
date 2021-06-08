@@ -56,19 +56,11 @@ class SemanticOperation():
         return (self.semantic[False],) * ((3*self.nb_blocks * (self.nb_blocks-1))//2)
     
     def to_GANGSTR(config):
-        tuple(1 if c > 0 else -1 
+        return tuple(1 if c > 0 else -1 
                         for c in config)
-    def is_valid(self,config):
-        ''' To check if a config is valid.
-        Current rules for the validity f a configuraiton includes : 
-            (1) above(a,b) -> close(a,b)
-            (2) above(a,b) and above(b,c) -> ~above(a,c)
-            en vrai on pourrait ajouter une condition de hauteur. 
-        '''
-        # for each object combination possible :
-        for a,b in combinations(range(self.nb_blocks), 2):
-            if self.is_above(config,a,b) and self.is_close(config,a,b) == False : 
-                return False
+    def to_BOOLEAN(config):
+        return tuple(1 if c > 0 else 0 
+                        for c in config)
 
 
 def all_stack_trajectories(stack_size,GANGSTR= True):

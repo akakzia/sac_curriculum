@@ -8,6 +8,8 @@ import time
 from graph.SemanticOperation import SemanticOperation
 import networkit as nk
 
+PATH = 'data/'
+
 def generate_unordered_network(nb_blocks,GANGSTR):
     '''
         Generate nk network with configs as nodes and save it in file.
@@ -24,15 +26,18 @@ def generate_unordered_network(nb_blocks,GANGSTR):
     
     nk_graph,explored_graph_hash,explored_sem = generate_unordered_tree_from_start(nb_blocks,start_grid)
     sem_graph = SemanticGraph(explored_sem,nk_graph,nb_blocks,GANGSTR)
-    sem_graph.save("unordered")
+    sem_graph.save(SemanticGraph.ORACLE_PATH,f"{SemanticGraph.ORACLE_NAME}{nb_blocks}_unordered")
     
     nk.overview(nk_graph)
     elapsed = time.time()-start
     print(f"elapsed : {nb_blocks} unordered",elapsed)
 
     # nk.viztasks.drawGraph(nk_graph,with_labels =True)
-    # plt.savefig(f'test{nb_blocks}.png')
+    # plt.savefig(f'network{nb_blocks}.png')
     # plt.close()
+
+    # for n in nk_graph.iterNodes():
+    #     print(f"{n} => {explored_sem.inverse[n]}")
 
 def generate_ordered_network(nb_blocks,GANGSTR):
     '''
@@ -40,18 +45,21 @@ def generate_ordered_network(nb_blocks,GANGSTR):
         Rsulting graph is savedc in file.
     '''
     start = time.time()
-    unordered_sem_graph = SemanticGraph.load(nb_blocks,'unordered')
+        
+    unordered_sem_graph = SemanticGraph.load(SemanticGraph.ORACLE_PATH,
+                                            f"{SemanticGraph.ORACLE_NAME}{nb_blocks}_unordered",
+                                            nb_blocks)
     nk_graph,explored_sem = augment_with_all_permutation(unordered_sem_graph.nk_graph,
                                                         unordered_sem_graph.configs,
                                                         nb_blocks,GANGSTR=GANGSTR)
     ordered_sem_graph = SemanticGraph(explored_sem,nk_graph,nb_blocks,GANGSTR)
-    ordered_sem_graph.save()
+    ordered_sem_graph.save(SemanticGraph.ORACLE_PATH,f"{SemanticGraph.ORACLE_NAME}{nb_blocks}")
     nk.overview(nk_graph)
     elapsed = time.time()-start
     print(f"elapsed : {nb_blocks} ordered",elapsed)
     if nb_blocks ==3:
         nk.viztasks.drawGraph(nk_graph,with_labels =True)
-        plt.savefig(f'test{nb_blocks}_ordered.png')
+        plt.savefig(f'network{nb_blocks}_ordered.png')
 
 if __name__=='__main__':
     GANGSTR= True

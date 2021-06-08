@@ -1,6 +1,7 @@
+from typing import DefaultDict
+from bidict import bidict
 import numpy as np
 from mpi4py import MPI
-import env
 import gym
 import os
 from arguments import get_args
@@ -12,9 +13,10 @@ from goal_sampler import GoalSampler
 from utils import init_storage, get_eval_goals
 import time
 from mpi_utils import logger
+import networkit as nk
 from graph.semantic_graph import SemanticGraph
 from graph.agent_network import AgentNetwork
-
+from graph.SemanticOperation import SemanticOperation
 
 def get_env_params(env):
     obs = env.reset()
@@ -63,7 +65,10 @@ def launch(args):
     rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
 
     # initialize graph components : 
-    semantic_graph = SemanticGraph.load(args.n_blocks)
+    sem_op = SemanticOperation(args.n_blocks,True)
+    configs = bidict({sem_op.empty():0})
+    nk_graph = nk.Graph(1,weighted=True, directed=True)
+    semantic_graph = SemanticGraph(configs,nk_graph,args.n_blocks,True)
     agent_network = AgentNetwork(semantic_graph,args)
 
     # Main interaction loop
@@ -72,41 +77,20 @@ def launch(args):
         t_init = time.time()
 
         # setup time_tracking
-        time_dict = dict(goal_sampler=0,
-                         rollout=0,
-                         gs_update=0,
-                         store=0,
-                         norm_update=0,
-                         policy_train=0,
-                         eval=0,
-                         epoch=0)
+        time_dict = DefaultDict(int)
 
         # log current epoch
         if rank == 0: logger.info('\n\nEpoch #{}'.format(epoch))
 
         # Cycles loop
         for _ in range(args.n_cycles):
-            # Sample goals
-            t_i = time.time()
-            goals = agent_network.sample_goal(args.num_rollouts_per_mpi*args.n_blocks)
-            time_dict['goal_sampler'] += time.time() - t_i
-
-            # Control biased initializations
-            if epoch < args.start_biased_init:
-                biased_init = False
-            else:
-                biased_init = args.biased_init
 
             # Environment interactions
             t_i = time.time()
-            episodes = rollout_worker.guided_rollouts(goals=goals,  # list of goal configurations
-                                                    self_eval=False,  # whether the agent performs self-evaluations
-                                                    true_eval=False,  # these are not offline evaluation episodes
-                                                    semantic_graph = semantic_graph, 
+            episodes = rollout_worker.train_rollout(agentNetwork= agent_network, 
                                                     max_episodes=args.num_rollouts_per_mpi*args.n_blocks,
                                                     episode_duration=args.episode_duration,
-                                                    biased_init=biased_init,  # whether initializations should be biased.
-                                                    )
+                                                    time_dict=time_dict)
             time_dict['rollout'] += time.time() - t_i
 
             # Goal Sampler updates
@@ -119,6 +103,11 @@ def launch(args):
             policy.store(episodes)
             time_dict['store'] += time.time() - t_i
 
+            # Agent Network Update : 
+            t_i = time.time()
+            agent_network.update(episodes)
+            time_dict['update_graph'] += time.time() - t_i
+
             # Updating observation normalization
             t_i = time.time()
             for e in episodes:
@@ -130,9 +119,8 @@ def launch(args):
             for _ in range(args.n_batches):
                 policy.train()
             time_dict['policy_train'] += time.time() - t_i
-            episode_count += args.num_rollouts_per_mpi * args.num_workers
-            # Agent Network Update : 
-            agent_network.update(episodes)
+            episode_count += len(episodes) * args.num_workers
+
 
         time_dict['epoch'] += time.time() -t_init
         time_dict['total'] = time.time() - t_total_init
@@ -154,15 +142,9 @@ def launch(args):
                 eval_goals.append(eval_goal.squeeze(0))
             eval_goals = np.array(eval_goals)
             eval_masks = np.array(np.zeros((eval_goals.shape[0], args.n_blocks * (args.n_blocks - 1) * 3 // 2)))
-            
-            episodes = rollout_worker.guided_rollouts(goals=eval_goals,  # list of goal configurations
-                                                    self_eval=True,  # whether the agent performs self-evaluations
-                                                    true_eval=True,  # these are not offline evaluation episodes
-                                                    semantic_graph = semantic_graph, 
-                                                    episode_duration=args.episode_duration,
-                                                    max_episodes=None,
-                                                    biased_init=False,  # whether initializations should be biased.
-                                                    )
+            episodes = rollout_worker.test_rollout(eval_goals,agent_network,
+                                                        episode_duration=args.episode_duration,
+                                                        animated=False)
 
             results = np.array([e['success'][-1].astype(np.float32) for e in episodes])
             rewards = np.array([e['rewards'][-1] for e in episodes])
@@ -184,6 +166,7 @@ def launch(args):
                 # Saving policy models
                 if epoch % args.save_freq == 0:
                     policy.save(model_path, epoch)
+                    agent_network.save(model_path,epoch)
                 if rank==0: logger.info('\tEpoch #{}: SR: {}'.format(epoch, global_sr))
 
 

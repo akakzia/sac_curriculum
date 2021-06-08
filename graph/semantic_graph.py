@@ -1,29 +1,66 @@
-from graph.SemanticOperation import SemanticOperation,config_permutations
-import networkit as nk
+import os.path
+import copy 
+from collections import defaultdict
+import math
+import numpy as np
 import pickle
 from bidict import bidict
-import copy 
+import networkit as nk
+from graph.SemanticOperation import SemanticOperation,config_permutations
 
 class SemanticGraph:
-    def __init__(self,configs : bidict,graph :nk.graph,nb_blocks,GANGSTR=True):
+
+    ORACLE_PATH = 'data/'
+    ORACLE_NAME = 'oracle_block'
+
+    def __init__(self,configs : bidict,graph :nk.graph,nb_blocks,GANGSTR=True,edges_infos=None):
         self.configs = configs
+        if edges_infos == None:
+            self.edges_infos = defaultdict(dict)
+        else : 
+            self.edges_infos = edges_infos
         self.nk_graph = graph
         self.nb_blocks = nb_blocks
         self.GANGSTR = GANGSTR
         self.semantic_operation = SemanticOperation(nb_blocks,True)
-    
-    def save(self,suffix=''):
-        writer = nk.Format.NetworkitBinary
-        nk.writeGraph(self.nk_graph,f"data/oracle_graph_block{self.nb_blocks}_{suffix}.nk", writer)
-        with open(f"data/oracle_configs_block{self.nb_blocks}_{suffix}.config", 'wb') as f:
-            pickle.dump(self.configs,f,protocol=pickle.HIGHEST_PROTOCOL)
 
-    def load(nb_blocks,suffix=''):
-        with open(f"data/oracle_configs_block{nb_blocks}_{suffix}.config",'rb') as f:
+        self.dijkstra_from_coplanar = nk.distance.Dijkstra(self.nk_graph,self.configs[self.empty()], True, False)
+        self.dijkstra_from_coplanar.run()
+        self.frontier = set(self.get_frontier_nodes())
+    
+    def save(self,path,name):
+        writer = nk.Format.NetworkitBinary
+        graph_filename = f"{path}graph_{name}.nk"
+        if os.path.isfile(graph_filename):
+                os.remove(graph_filename)
+        nk.writeGraph(self.nk_graph,graph_filename, writer)
+        with open(f"{path}configs_{name}.config", 'wb') as f:
+            pickle.dump(self.configs,f,protocol=pickle.HIGHEST_PROTOCOL)
+        if len(self.edges_infos)>0:
+            with open(f"{path}edges_{name}.infos", 'wb') as f:
+                pickle.dump(self.edges_infos,f,protocol=pickle.HIGHEST_PROTOCOL)
+
+    def load(path:str,name:str,nb_blocks:int):
+        with open(f"{path}configs_{name}.config", 'rb') as f:
             configs = pickle.load(f)
+        if os.path.isfile(f"{path}edges_{name}.infos"):
+            with open(f"{path}edges_{name}.infos", 'rb') as f:
+                edges_infos = pickle.load(f)
+        else : 
+            edges_infos = None
         reader = nk.Format.NetworkitBinary
-        nk_graph = nk.readGraph(f"data/oracle_graph_block{nb_blocks}_{suffix}.nk", reader)
-        return SemanticGraph(configs,nk_graph,nb_blocks)
+        nk_graph = nk.readGraph(f"{path}graph_{name}.nk", reader)
+        return SemanticGraph(configs,nk_graph,nb_blocks,edges_infos=edges_infos)
+
+    def load_oracle(nb_blocks:int):
+        return SemanticGraph.load(SemanticGraph.ORACLE_PATH,
+                                f'{SemanticGraph.ORACLE_NAME}{nb_blocks}',nb_blocks)
+
+    def update_shortest_tree(self):
+        self.dijkstra_from_coplanar.run()
+
+    def distance_from_coplanar(self,target):
+        return self.dijkstra_from_coplanar.distance(self.empty(),target)
 
     def get_path_from_coplanar(self,goal):
         return self.get_path(self.semantic_operation.empty(),goal)
@@ -39,19 +76,73 @@ class SemanticGraph:
         except KeyError:
             config_path = [c1,c2]
         return config_path
-    
-    def get_frontiere_from_configs(self,configs):
-        nexts = []
+        
+    def sample_path(self,c1,c2,k):
+        raise NotImplementedError()
+            
+    def get_isolated_nodes(self):
         isolated = []
-        for c in configs : 
-            if self.nk_graph.isIsolated(self.configs[c]):
-                isolated.append(self.configs[c])
-            nexts += [neighbour for neighbour in self.nk_graph.iterNeighbors(c)
-                                if neighbour not in configs] 
-        return nexts
+        for c in self.nk_graph.iterNodes():
+            if self.nk_graph.isIsolated(c):
+                isolated.append(c)
+        return isolated
 
-    def getNode(self,config):
-        return self.configs[config]
+    def get_frontier_nodes(self):
+        self.dijkstra_from_coplanar.run()
+        intermediate_nodes = set()
+        for node in self.nk_graph.iterNodes():
+            predecessors = self.dijkstra_from_coplanar.getPredecessors(node)
+            if predecessors : 
+                intermediate_nodes.update(predecessors)
+        isolated = []
+        for node in self.nk_graph.iterNodes():
+            if node not in intermediate_nodes:
+                isolated.append(node)
+        return isolated
+
+    def add_config(self,config):
+        if config not in self.configs:
+            self.configs[config] = self.nk_graph.addNode()
+
+    def update_edge(self,edge,success):
+        c1,c2 = edge
+        n1,n2 = self.configs[c1],self.configs[c2]
+        if not self.nk_graph.hasEdge(n1,n2):
+            self.nk_graph.addEdge(n1,n2)
+            self.edges_infos[(n1,n2)] = {'SR':0,'Count':0}
+
+        # update SR  :
+        self.edges_infos[(n1,n2)]['Count']+=1
+        count = self.edges_infos[(n1,n2)]['Count']
+        last_mean_sr = self.edges_infos[(n1,n2)]['SR']
+        new_mean_sr = last_mean_sr + (1/count)*(success-last_mean_sr)
+        clamped_sr = max(np.finfo(float).eps, min(new_mean_sr, 1-np.finfo(float).eps))
+        self.edges_infos[(n1,n2)]['SR'] = new_mean_sr
+
+        # weight is set to -log(SR) because Djikstra is used for shortest-path algorithm
+        self.nk_graph.setWeight(n1,n2,-math.log(clamped_sr))
+
+    def hasNode(self,config):
+        if config in self.configs:
+            return self.nk_graph.hasNode(self.configs[config])
+        return False
+
+    def hasEdge(self,config_start,config_end):
+        if config_start in self.configs and config_end in self.configs:
+            return self.nk_graph.hasEdge(self.configs[config_start],
+                                         self.configs[config_end])
+        return False
+
+    def iterNeighbors(self,config):
+        '''iter over neighbors of a node, take in a semantic config
+            return a generator over semantic configs.'''
+        if config in self.configs:
+            return (self.configs.inverse[node_id] for node_id in self.nk_graph.iterNeighbors(self.configs[config]))
+        else : 
+            return []
+
+    def getNodeId(self,config):
+        return self.configs.get(config,None)
 
     def getConfig(self,nodeId):
         return self.configs.inverse[nodeId]
@@ -89,10 +180,3 @@ def augment_with_all_permutation(nk_graph,configs,nb_blocks,GANGSTR=True):
                     new_nk_graph.addEdge(new_perm_id,perm_corresponding_id)
 
     return new_nk_graph,new_configs
-        
-
-
-
-
-
-

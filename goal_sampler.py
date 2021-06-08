@@ -166,7 +166,7 @@ class GoalSampler:
         self.stats['episodes'] = []
         self.stats['global_sr'] = []
         self.stats['nb_discovered'] = []
-        keys = ['goal_sampler', 'rollout', 'gs_update', 'store', 'norm_update',
+        keys = ['goal_sampler', 'rollout', 'gs_update', 'store', 'norm_update','update_graph',
                 'policy_train', 'eval', 'epoch', 'total']
         for k in keys:
             self.stats['t_{}'.format(k)] = []
