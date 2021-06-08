@@ -17,6 +17,7 @@ import networkit as nk
 from graph.semantic_graph import SemanticGraph
 from graph.agent_network import AgentNetwork
 from graph.SemanticOperation import SemanticOperation
+import env
 
 def get_env_params(env):
     obs = env.reset()
