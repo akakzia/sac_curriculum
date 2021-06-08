@@ -242,8 +242,7 @@ def init_storage(args):
         logdir += '_masks'
     logdir += '_{}'.format(args.reward_type)
     # add commit hash : 
-    # args.commit_hash = subprocess.check_output(["git", "describe"]).strip()
-    args.commit_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
+    # args.commit_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
     # path to save evaluations
     model_path = os.path.join(logdir, 'models')
     if not os.path.exists(logdir):

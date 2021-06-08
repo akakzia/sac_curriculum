@@ -15,7 +15,7 @@ def generate_unordered_network(nb_blocks,GANGSTR):
         Generate nk network with configs as nodes and save it in file.
         (Blocks are only ordered one way).
     '''
-    start = time.time()
+    # start = time.time()
     semantic_operation = SemanticOperation(nb_blocks,GANGSTR)
 
     # choose inital grid with blocks far appart.
@@ -28,9 +28,9 @@ def generate_unordered_network(nb_blocks,GANGSTR):
     sem_graph = SemanticGraph(explored_sem,nk_graph,nb_blocks,GANGSTR)
     sem_graph.save(SemanticGraph.ORACLE_PATH,f"{SemanticGraph.ORACLE_NAME}{nb_blocks}_unordered")
     
-    nk.overview(nk_graph)
-    elapsed = time.time()-start
-    print(f"elapsed : {nb_blocks} unordered",elapsed)
+    # nk.overview(nk_graph)
+    # elapsed = time.time()-start
+    # print(f"elapsed : {nb_blocks} unordered",elapsed)
 
     # nk.viztasks.drawGraph(nk_graph,with_labels =True)
     # plt.savefig(f'network{nb_blocks}.png')
@@ -44,7 +44,7 @@ def generate_ordered_network(nb_blocks,GANGSTR):
         Load unordered nk network from file and generate all other permutations.
         Rsulting graph is savedc in file.
     '''
-    start = time.time()
+    # start = time.time()
         
     unordered_sem_graph = SemanticGraph.load(SemanticGraph.ORACLE_PATH,
                                             f"{SemanticGraph.ORACLE_NAME}{nb_blocks}_unordered",
@@ -54,15 +54,18 @@ def generate_ordered_network(nb_blocks,GANGSTR):
                                                         nb_blocks,GANGSTR=GANGSTR)
     ordered_sem_graph = SemanticGraph(explored_sem,nk_graph,nb_blocks,GANGSTR)
     ordered_sem_graph.save(SemanticGraph.ORACLE_PATH,f"{SemanticGraph.ORACLE_NAME}{nb_blocks}")
-    nk.overview(nk_graph)
-    elapsed = time.time()-start
-    print(f"elapsed : {nb_blocks} ordered",elapsed)
-    if nb_blocks ==3:
-        nk.viztasks.drawGraph(nk_graph,with_labels =True)
-        plt.savefig(f'network{nb_blocks}_ordered.png')
+    # nk.overview(nk_graph)
+    # elapsed = time.time()-start
+    # print(f"elapsed : {nb_blocks} ordered",elapsed)
+    # if nb_blocks ==3:
+    #     nk.viztasks.drawGraph(nk_graph,with_labels =True)
+    #     plt.savefig(f'network{nb_blocks}_ordered.png')
+
+def generate_expert_graph(n_blocks,GANGSTR):
+    generate_unordered_network(n_blocks,GANGSTR)
+    generate_ordered_network(n_blocks,GANGSTR)
 
 if __name__=='__main__':
     GANGSTR= True
     for nb_blocks in [3,5]:
-        generate_unordered_network(nb_blocks,GANGSTR)
-        generate_ordered_network(nb_blocks,GANGSTR)
+        generate_expert_graph(nb_blocks)

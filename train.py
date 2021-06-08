@@ -17,7 +17,9 @@ import networkit as nk
 from graph.semantic_graph import SemanticGraph
 from graph.agent_network import AgentNetwork
 from graph.SemanticOperation import SemanticOperation
+from generate_graph import generate_expert_graph
 import env
+
 
 def get_env_params(env):
     obs = env.reset()
@@ -66,6 +68,7 @@ def launch(args):
     rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
 
     # initialize graph components : 
+    generate_expert_graph(args.n_blocks,True)
     sem_op = SemanticOperation(args.n_blocks,True)
     configs = bidict({sem_op.empty():0})
     nk_graph = nk.Graph(1,weighted=True, directed=True)
