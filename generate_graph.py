@@ -1,3 +1,4 @@
+import os
 import time
 from graph.SemanticOperation import SemanticOperation
 from graph.connect4_3d_Simulator import EnvSimulatorSimplified,generate_unordered_tree_from_start
@@ -62,6 +63,8 @@ def generate_ordered_network(nb_blocks,GANGSTR):
     #     plt.savefig(f'network{nb_blocks}_ordered.png')
 
 def generate_expert_graph(n_blocks,GANGSTR):
+    if not os.path.isdir('data'):
+        not os.mkdir('data')
     generate_unordered_network(n_blocks,GANGSTR)
     generate_ordered_network(n_blocks,GANGSTR)
 

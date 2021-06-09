@@ -67,8 +67,11 @@ def launch(args):
     # Initialize Rollout Worker
     rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
 
+    # create graph if necessary
+    if rank == 0 and not os.path.isdir('data'):
+        generate_expert_graph(args.n_blocks,True)
+    MPI.COMM_WORLD.Barrier()
     # initialize graph components : 
-    generate_expert_graph(args.n_blocks,True)
     sem_op = SemanticOperation(args.n_blocks,True)
     configs = bidict({sem_op.empty():0})
     nk_graph = nk.Graph(1,weighted=True, directed=True)
