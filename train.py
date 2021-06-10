@@ -49,10 +49,12 @@ def launch(args):
         torch.cuda.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
 
     # get saving paths
-    logdir, model_path = init_storage(args,dump_config=rank==0)
+    logdir = None
     if rank == 0:
+        logdir, model_path = init_storage(args)
         logger.configure(dir=logdir)
         logger.info(vars(args))
+    logdir = MPI.COMM_WORLD.bcast(logdir, root=0)
 
     args.env_params = get_env_params(env)
 
