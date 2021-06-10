@@ -13,7 +13,7 @@ class SemanticGraph:
     ORACLE_PATH = 'data/'
     ORACLE_NAME = 'oracle_block'
 
-    def __init__(self,configs : bidict,graph :nk.graph,nb_blocks,GANGSTR=True,edges_infos=None):
+    def __init__(self,configs : bidict,graph :nk.graph,nb_blocks,GANGSTR=True,edges_infos=None,args=None):
         self.configs = configs
         if edges_infos == None:
             self.edges_infos = defaultdict(dict)
@@ -22,6 +22,7 @@ class SemanticGraph:
         self.nk_graph = graph
         self.nb_blocks = nb_blocks
         self.GANGSTR = GANGSTR
+        self.args = args
         self.semantic_operation = SemanticOperation(nb_blocks,True)
 
         self.dijkstra_from_coplanar = nk.distance.Dijkstra(self.nk_graph,self.configs[self.empty()], True, False)
@@ -40,7 +41,7 @@ class SemanticGraph:
             with open(f"{path}edges_{name}.infos", 'wb') as f:
                 pickle.dump(self.edges_infos,f,protocol=pickle.HIGHEST_PROTOCOL)
 
-    def load(path:str,name:str,nb_blocks:int):
+    def load(path:str,name:str,nb_blocks:int,args=None):
         with open(f"{path}configs_{name}.config", 'rb') as f:
             configs = pickle.load(f)
         if os.path.isfile(f"{path}edges_{name}.infos"):
@@ -50,7 +51,7 @@ class SemanticGraph:
             edges_infos = None
         reader = nk.Format.NetworkitBinary
         nk_graph = nk.readGraph(f"{path}graph_{name}.nk", reader)
-        return SemanticGraph(configs,nk_graph,nb_blocks,edges_infos=edges_infos)
+        return SemanticGraph(configs,nk_graph,nb_blocks,edges_infos=edges_infos,args=args)
 
     def load_oracle(nb_blocks:int):
         return SemanticGraph.load(SemanticGraph.ORACLE_PATH,
@@ -115,7 +116,12 @@ class SemanticGraph:
         self.edges_infos[(n1,n2)]['Count']+=1
         count = self.edges_infos[(n1,n2)]['Count']
         last_mean_sr = self.edges_infos[(n1,n2)]['SR']
-        new_mean_sr = last_mean_sr + (1/count)*(success-last_mean_sr)
+        if self.args.edge_sr == 'moving_average':
+            new_mean_sr = last_mean_sr + (1/count)*(success-last_mean_sr)
+        elif self.args.edge_sr == 'exp_moving_average':
+            new_mean_sr = self.args.edge_discount* last_mean_sr + (1-self.args.edge_discount)*(success-last_mean_sr)
+        else : 
+            raise Exception(f"Unknown self.args.edge_sr vakue : {self.args.edge_sr}")
         clamped_sr = max(np.finfo(float).eps, min(new_mean_sr, 1-np.finfo(float).eps))
         self.edges_infos[(n1,n2)]['SR'] = new_mean_sr
 

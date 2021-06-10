@@ -233,7 +233,7 @@ def get_instruction():
             ]
 
 
-def init_storage(args):
+def init_storage(args,dump_config= True):
     if not os.path.exists(args.save_dir):
         os.mkdir(args.save_dir)
     # path to save the model
@@ -249,8 +249,9 @@ def init_storage(args):
         os.mkdir(logdir)
     if not os.path.exists(model_path):
         os.mkdir(model_path)
-    with open(os.path.join(logdir, 'config.json'), 'w') as f:
-        json.dump(vars(args), f, indent=2)
+    if dump_config: 
+        with open(os.path.join(logdir, 'config.json'), 'w') as f:
+            json.dump(vars(args), f, indent=2)
     return logdir, model_path
 
 

@@ -19,7 +19,7 @@ def get_args():
     # the environment arguments
     parser.add_argument('--algo', type=str, default='semantic', help="'semantic', 'continuous', 'language'")
     parser.add_argument('--agent', type=str, default='SAC', help='the RL algorithm name')
-    parser.add_argument('--n-blocks', type=int, default=5, help='The number of blocks to be considered in the FetchManipulate env')
+    parser.add_argument('--n-blocks', type=int, default=3, help='The number of blocks to be considered in the FetchManipulate env')
     parser.add_argument('--masks', type=bool, default=False, help='Whether or not to use masked semantic goals')
     parser.add_argument('--mask-application', type=str, default='hindsight', help='hindsight, initial or opaque')
     parser.add_argument('--biased-init', type=bool, default=False, help='use biased environment initializations')
@@ -65,9 +65,9 @@ def get_args():
     parser.add_argument('--n-test-rollouts', type=int, default=1, help='the number of tests')
     # graph arguments : 
     
-    # TODO : Add exponential weighted average for EDGE-SR estimation.  
-    # parser.add_argument('--edge_sr', type=str, default='moving_average', help='moving_average or exp_moving_average')
-    # parser.add_argument('--edge_discount', type=float, default=0.8, help='SR discount value')
+    parser.add_argument('--edge_sr', type=str, default='exp_moving_average', help='moving_average or exp_moving_average')
+    parser.add_argument('--edge_discount', type=float, default=0.8, help='SR discount value')
+    # TODO : Add sampling for agent paths.  
     #parser.add_argument('--sample_path', type=bool, default=False, help='if the agent takes the best path or sample it')
     
     parser.add_argument('--episode_duration', type=int, default=40, help='number of timestep for each episodes')

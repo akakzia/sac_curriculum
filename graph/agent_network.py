@@ -5,11 +5,12 @@ import pickle
 
 class AgentNetwork():
     
-    def __init__(self,semantic_graph :SemanticGraph,args):
+    def __init__(self,semantic_graph :SemanticGraph,exp_path,args):
         self.teacher = Teacher(args)
         self.semantic_graph = semantic_graph
         self.args = args
         self.rank = MPI.COMM_WORLD.Get_rank()
+        self.exp_path = exp_path
 
     def update(self,episodes):
         all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
@@ -27,7 +28,8 @@ class AgentNetwork():
                 self.semantic_graph.add_config(achieved_goal)
                 self.semantic_graph.add_config(goal)
                 self.update_edge(start_config,goal,success)
-                self.update_edge(start_config,achieved_goal,True)
+                if achieved_goal != goal:
+                    self.update_edge(start_config,achieved_goal,True)
 
             # update frontier :  
             self.teacher.computeFrontier(self.semantic_graph)
@@ -79,14 +81,15 @@ class AgentNetwork():
         semantic_graph = SemanticGraph.load(model_path,f'{epoch}',args.n_blocks)
         with open(f"{model_path}frontier_{epoch}.config", 'rb') as f:
             frontier = pickle.load(f)
-        agent_network = AgentNetwork(semantic_graph,args)
+        agent_network = AgentNetwork(semantic_graph,None,args)
         agent_network.teacher.agent_frontier = frontier
         return agent_network
 
     def sync(self):
         self.teacher.agent_frontier = MPI.COMM_WORLD.bcast(self.teacher.agent_frontier, root=0)
         if self.rank == 0:
-            self.semantic_graph.save('data/','temp')
+            self.semantic_graph.save(self.exp_path+'/','temp')
+
         MPI.COMM_WORLD.Barrier()
         if self.rank!=0:
-            self.semantic_graph = SemanticGraph.load('data/','temp',self.args.n_blocks)
+            self.semantic_graph = SemanticGraph.load(self.exp_path+'/','temp',self.args.n_blocks,self.args)

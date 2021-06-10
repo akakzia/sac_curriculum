@@ -49,8 +49,8 @@ def launch(args):
         torch.cuda.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
 
     # get saving paths
+    logdir, model_path = init_storage(args,dump_config=rank==0)
     if rank == 0:
-        logdir, model_path = init_storage(args)
         logger.configure(dir=logdir)
         logger.info(vars(args))
 
@@ -75,8 +75,8 @@ def launch(args):
     sem_op = SemanticOperation(args.n_blocks,True)
     configs = bidict({sem_op.empty():0})
     nk_graph = nk.Graph(1,weighted=True, directed=True)
-    semantic_graph = SemanticGraph(configs,nk_graph,args.n_blocks,True)
-    agent_network = AgentNetwork(semantic_graph,args)
+    semantic_graph = SemanticGraph(configs,nk_graph,args.n_blocks,True,args=args)
+    agent_network = AgentNetwork(semantic_graph,logdir,args)
 
     # Main interaction loop
     episode_count = 0
