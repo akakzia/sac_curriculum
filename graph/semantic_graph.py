@@ -107,24 +107,27 @@ class SemanticGraph:
 
     def update_edge(self,edge,success):
         c1,c2 = edge
+        success =int(success)
         n1,n2 = self.configs[c1],self.configs[c2]
+        
         if not self.nk_graph.hasEdge(n1,n2):
             self.nk_graph.addEdge(n1,n2)
-            self.edges_infos[(n1,n2)] = {'SR':0,'Count':0}
+            self.edges_infos[(n1,n2)] = {'SR':success,'Count':1}
+            new_mean_sr = success
+        else:
+            # update SR  :
+            self.edges_infos[(n1,n2)]['Count']+=1
+            count = self.edges_infos[(n1,n2)]['Count']
+            last_mean_sr = self.edges_infos[(n1,n2)]['SR']
+            if self.args.edge_sr == 'moving_average':
+                new_mean_sr = last_mean_sr + (1/count)*(success-last_mean_sr)
+            elif self.args.edge_sr == 'exp_moving_average':
+                new_mean_sr = self.args.edge_discount* last_mean_sr + (1-self.args.edge_discount)*(success-last_mean_sr)
+            else : 
+                raise Exception(f"Unknown self.args.edge_sr vakue : {self.args.edge_sr}")
+            self.edges_infos[(n1,n2)]['SR'] = new_mean_sr
 
-        # update SR  :
-        self.edges_infos[(n1,n2)]['Count']+=1
-        count = self.edges_infos[(n1,n2)]['Count']
-        last_mean_sr = self.edges_infos[(n1,n2)]['SR']
-        if self.args.edge_sr == 'moving_average':
-            new_mean_sr = last_mean_sr + (1/count)*(success-last_mean_sr)
-        elif self.args.edge_sr == 'exp_moving_average':
-            new_mean_sr = self.args.edge_discount* last_mean_sr + (1-self.args.edge_discount)*(success-last_mean_sr)
-        else : 
-            raise Exception(f"Unknown self.args.edge_sr vakue : {self.args.edge_sr}")
         clamped_sr = max(np.finfo(float).eps, min(new_mean_sr, 1-np.finfo(float).eps))
-        self.edges_infos[(n1,n2)]['SR'] = new_mean_sr
-
         # weight is set to -log(SR) because Djikstra is used for shortest-path algorithm
         self.nk_graph.setWeight(n1,n2,-math.log(clamped_sr))
 
