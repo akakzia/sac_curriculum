@@ -74,9 +74,11 @@ class SemanticGraph:
             dijkstra = nk.distance.Dijkstra(self.nk_graph, n1, True, False, n2)
             dijkstra.run()
             config_path =  [self.configs.inverse[node] for node in  dijkstra.getPath(n2)]
+            distance = np.exp(-dijkstra.distance(n2))
         except KeyError:
-            config_path = [c1,c2]
-        return config_path
+            config_path = []
+            distance = None
+        return config_path,distance
         
     def sample_path(self,c1,c2,k):
         raise NotImplementedError()
@@ -155,6 +157,9 @@ class SemanticGraph:
 
     def getConfig(self,nodeId):
         return self.configs.inverse[nodeId]
+
+    def getWeight(self,c1,c2):
+        return self.nk_graph.weight(self.getNodeId(c1),self.getNodeId(c2))
     
     def empty(self):
         return self.semantic_operation.empty()

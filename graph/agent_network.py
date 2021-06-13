@@ -28,8 +28,9 @@ class AgentNetwork():
                 self.semantic_graph.add_config(achieved_goal)
                 self.semantic_graph.add_config(goal)
                 self.update_edge(start_config,goal,success)
-                if achieved_goal != goal:
-                    self.update_edge(start_config,achieved_goal,True)
+                if self.args.hindsight_edge :
+                    if achieved_goal != goal:
+                        self.update_edge(start_config,achieved_goal,True)
 
             # update frontier :  
             self.teacher.computeFrontier(self.semantic_graph)

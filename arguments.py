@@ -67,6 +67,8 @@ def get_args():
     
     parser.add_argument('--edge_sr', type=str, default='exp_moving_average', help='moving_average or exp_moving_average')
     parser.add_argument('--edge_discount', type=float, default=0.8, help='SR discount value')
+    parser.add_argument('--hindsight_edge', type=bool, default=False, help='SR discount value')
+    
     # TODO : Add sampling for agent paths.  
     #parser.add_argument('--sample_path', type=bool, default=False, help='if the agent takes the best path or sample it')
     

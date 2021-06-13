@@ -61,15 +61,11 @@ class RolloutWorker:
         episodes = []
         observation = self.env.unwrapped.reset_goal(goal=np.array(goal), biased_init=biased_init)
         self.last_obs = observation
-        config_path = agent_network.get_path(observation['achieved_goal_binary'],goal)[1:]
-        sem_op = SemanticOperation(5,True)
-        # print(f'goal : {config_to_name(goal,sem_op)}')
-        # print("path : ",[config_to_name(c,sem_op) for c in config_path])
-
+        start = observation['achieved_goal_binary']
+        config_path,_ = agent_network.get_path(start,goal)
         if len(config_path)==0:
-            config_path = [goal]
-        for intermediate_goal in config_path:
-            # print("intermediate : ",config_to_name(intermediate_goal,sem_op))
+            config_path = [start,goal]
+        for intermediate_goal in config_path[1:]:
             goal_dist = len(agent_network.get_path_from_coplanar(self.last_obs["achieved_goal"])[1:])+1
             episode = self.generate_one_rollout(intermediate_goal,goal_dist, 
                                                 evaluation, episode_duration, animated=animated)
