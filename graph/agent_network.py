@@ -33,7 +33,7 @@ class AgentNetwork():
                 # hindsight edge creation : 
                 if (self.args.hindsight_edge and achieved_goal != goal
                     and not self.semantic_graph.hasEdge(start_config,achieved_goal)):
-                        self.semantic_graph.create_edge(start_config,achieved_goal,self.args.edge_prior)
+                        self.semantic_graph.create_edge((start_config,achieved_goal),self.args.edge_prior)
 
             # update frontier :  
             self.teacher.computeFrontier(self.semantic_graph)
