@@ -68,16 +68,17 @@ class SemanticGraph:
 
     def get_path(self,c1,c2):
         c1,c2 = tuple(c1),tuple(c2)
+        distance = None
         try :
             n1 = self.configs[c1]
             n2 = self.configs[c2]
             dijkstra = nk.distance.Dijkstra(self.nk_graph, n1, True, False, n2)
             dijkstra.run()
             config_path =  [self.configs.inverse[node] for node in  dijkstra.getPath(n2)]
-            distance = np.exp(-dijkstra.distance(n2))
+            if config_path:
+                distance = np.exp(-dijkstra.distance(n2))
         except KeyError:
             config_path = []
-            distance = None
         return config_path,distance
         
     def sample_path(self,c1,c2,k):
@@ -89,6 +90,18 @@ class SemanticGraph:
             if self.nk_graph.isIsolated(c):
                 isolated.append(c)
         return isolated
+    
+
+    def get_reachables_node_ids(self,source):
+        reachables = []
+        if source in self.configs:
+            source_id = self.configs[source]
+            bfs = nk.distance.BFS(self.nk_graph, source_id, True, True)
+            bfs.run()
+            reachables = bfs.getNodesSortedByDistance()
+        return reachables
+
+
 
     def get_frontier_nodes(self):
         self.dijkstra_from_coplanar.run()
@@ -107,15 +120,25 @@ class SemanticGraph:
         if config not in self.configs:
             self.configs[config] = self.nk_graph.addNode()
 
-    def update_edge(self,edge,success):
+
+    def create_edge(self,edge,start_sr):
         c1,c2 = edge
-        success =int(success)
         n1,n2 = self.configs[c1],self.configs[c2]
-        
         if not self.nk_graph.hasEdge(n1,n2):
             self.nk_graph.addEdge(n1,n2)
-            self.edges_infos[(n1,n2)] = {'SR':success,'Count':1}
-            new_mean_sr = success
+            self.edges_infos[(n1,n2)] = {'SR':start_sr,'Count':1}
+            clamped_sr = max(np.finfo(float).eps, min(start_sr, 1-np.finfo(float).eps))
+            self.nk_graph.setWeight(n1,n2,-math.log(clamped_sr))
+        else : 
+            raise Exception(f'Already existing edge {n1}->{n2}')
+
+    def update_edge(self,edge,success):
+        c1,c2 = edge
+        n1,n2 = self.configs[c1],self.configs[c2]
+        success = int(success)
+        
+        if not self.nk_graph.hasEdge(n1,n2):
+            raise Exception(f"unknown edge {n1}->{n2}")
         else:
             # update SR  :
             self.edges_infos[(n1,n2)]['Count']+=1
@@ -124,14 +147,14 @@ class SemanticGraph:
             if self.args.edge_sr == 'moving_average':
                 new_mean_sr = last_mean_sr + (1/count)*(success-last_mean_sr)
             elif self.args.edge_sr == 'exp_moving_average':
-                new_mean_sr = self.args.edge_discount* last_mean_sr + (1-self.args.edge_discount)*(success-last_mean_sr)
+                new_mean_sr = self.args.edge_lr* last_mean_sr + (1-self.args.edge_lr)*(success-last_mean_sr)
             else : 
-                raise Exception(f"Unknown self.args.edge_sr vakue : {self.args.edge_sr}")
+                raise Exception(f"Unknown self.args.edge_sr value : {self.args.edge_sr}")
             self.edges_infos[(n1,n2)]['SR'] = new_mean_sr
 
-        clamped_sr = max(np.finfo(float).eps, min(new_mean_sr, 1-np.finfo(float).eps))
-        # weight is set to -log(SR) because Djikstra is used for shortest-path algorithm
-        self.nk_graph.setWeight(n1,n2,-math.log(clamped_sr))
+            clamped_sr = max(np.finfo(float).eps, min(new_mean_sr, 1-np.finfo(float).eps))
+            # weight is set to -log(SR) because Djikstra is used for shortest-path algorithm
+            self.nk_graph.setWeight(n1,n2,-math.log(clamped_sr))
 
     def hasNode(self,config):
         if config in self.configs:

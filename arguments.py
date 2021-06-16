@@ -66,8 +66,9 @@ def get_args():
     # graph arguments : 
     
     parser.add_argument('--edge_sr', type=str, default='exp_moving_average', help='moving_average or exp_moving_average')
-    parser.add_argument('--edge_discount', type=float, default=0.8, help='SR discount value')
-    parser.add_argument('--hindsight_edge', type=bool, default=False, help='SR discount value')
+    parser.add_argument('--edge_lr', type=float, default=0.8, help='SR learning rate')
+    parser.add_argument('--hindsight_edge', type=bool, default=False, help='use hindsight edges')
+    parser.add_argument('--edge_prior', type=float, default=0.5, help='default value for edges')
     
     # TODO : Add sampling for agent paths.  
     #parser.add_argument('--sample_path', type=bool, default=False, help='if the agent takes the best path or sample it')

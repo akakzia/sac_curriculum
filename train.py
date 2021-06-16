@@ -79,6 +79,7 @@ def launch(args):
     nk_graph = nk.Graph(1,weighted=True, directed=True)
     semantic_graph = SemanticGraph(configs,nk_graph,args.n_blocks,True,args=args)
     agent_network = AgentNetwork(semantic_graph,logdir,args)
+    agent_network.teacher.computeFrontier(agent_network.semantic_graph)
 
     # Main interaction loop
     episode_count = 0

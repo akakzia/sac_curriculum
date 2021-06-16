@@ -1,13 +1,15 @@
 
+from collections import defaultdict
 import random
 
 from graph.semantic_graph import SemanticGraph
+import networkit as nk
 
 class Teacher():
     def __init__(self,args):
         self.oracle_graph = SemanticGraph.load_oracle(args.n_blocks)
         self.args = args
-        self.agent_frontier = [self.oracle_graph.empty()]
+        self.agent_frontier = {0} # store configuration through networkit node_id from agent_graph 
 
     def is_in_frontier(self,config,agent_graph:SemanticGraph):
         '''
@@ -29,13 +31,20 @@ class Teacher():
         return False
 
     def computeFrontier(self,agent_graph:SemanticGraph):
-        self.agent_frontier = []
+        self.agent_frontier = set()
         for node in agent_graph.configs:
             if self.is_in_frontier(node,agent_graph):
-                self.agent_frontier.append(node)
+                self.agent_frontier.add( agent_graph.getNodeId(node))
         
-    def sample_in_frontier(self,k):
-        return random.choices(self.agent_frontier,k=k) # sample with replacement
+    def sample_in_frontier(self,current_node,agent_graph,k):
+        reachables = agent_graph.get_reachables_node_ids(current_node)
+        reachable_frontier = [agent_graph.getConfig(node_id) 
+                              for node_id in reachables 
+                              if node_id in self.agent_frontier] 
+        if reachable_frontier:
+            return random.choices(reachable_frontier,k=k) # sample with replacement
+        else: 
+            return []
 
     def sample_from_frontier(self,node,agent_graph,k):
         to_explore = []

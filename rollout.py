@@ -12,7 +12,6 @@ def is_success(ag, g, mask=None):
 
 class RolloutWorker:
     def __init__(self, env, policy, goal_sampler, args):
-
         self.env = env
         self.policy = policy
         self.env_params = args.env_params
@@ -20,71 +19,107 @@ class RolloutWorker:
         self.goal_sampler = goal_sampler
         self.args = args
         self.last_obs = None
+        self.reset(False)
+        
 
+    def reset(self,biased_init):
+        self.long_term_goal = None
+        self.config_path = None
+        self.current_goal_id = None
+        self.last_episode = None
+        self.last_obs = self.env.unwrapped.reset_goal(goal=np.array([None]), biased_init=biased_init)
+        self.state ='GoToFrontier'
 
-    def train_rollout(self,agentNetwork:AgentNetwork,episode_duration,max_episodes=None,time_dict=None, animated=False):
+    def train_rollout(self,agentNetwork:AgentNetwork,episode_duration,max_episodes=None,time_dict=None, animated=False,biased_init=False):
         all_episodes = []
 
         while len(all_episodes) < max_episodes:
-            # step 1 : go to the frontier of knowns goals
-            t_i = time.time()
-            goal = agentNetwork.sample_goal(1)[0]
-            if time_dict:
-                time_dict['goal_sampler'] += time.time() - t_i
-            episodes,_ = self.guided_rollout(goal,False, agentNetwork, episode_duration, 
-                                            episode_budget=max_episodes-len(all_episodes), biased_init=False,animated=animated)
-            all_episodes+= episodes
-            # step 2 : explore outside the frontier of known goals
-            last_ag = episodes[-1]['ag'][-1]
-            if (self.args.play_goal_strategy == 'frontier' and len(all_episodes) < max_episodes 
-                and (last_ag == goal).all()):
-                t_i = time.time()
-                frontier_goal = next(iter(agentNetwork.sample_from_frontier(goal,1)),None) # first element or None
-                if frontier_goal:
-                    goal_dist = episodes[-1]["edge_dist"]+1
+            
+            if self.state == 'GoToFrontier':
+                if self.long_term_goal == None : 
+                    t_i = time.time()
+                    current_config = tuple(self.last_obs['achieved_goal_binary'])
+                    self.long_term_goal = next(iter(agentNetwork.sample_goal(current_config,1)),None) # first element or None
                     if time_dict:
                         time_dict['goal_sampler'] += time.time() - t_i
-                    episode = self.generate_one_rollout(frontier_goal, goal_dist, False, episode_duration,animated=animated)
+                    if self.long_term_goal == None: # if can't find frontier goal, explore directly
+                        self.state = 'Explore'
+                        continue
+                episodes,_ = self.guided_rollout(self.long_term_goal,False, agentNetwork, episode_duration, 
+                                        episode_budget=max_episodes-len(all_episodes), biased_init=False,animated=animated)
+                all_episodes += episodes
+
+                success = episodes[-1]['success'][-1]
+                if success == False: # reset at the first failure
+                    self.reset(biased_init)
+                elif success and len(self.config_path) == self.current_goal_id:
+                    self.state = 'Explore'
+
+            elif self.state =='Explore':
+                t_i = time.time()
+                last_ag = tuple(self.last_obs['achieved_goal_binary'])
+                explore_goal = next(iter(agentNetwork.sample_from_frontier(last_ag,1)),None) # first element or None
+                if time_dict:
+                    time_dict['goal_sampler'] += time.time() - t_i
+                if explore_goal:
+                    if self.last_episode:
+                        goal_dist = self.last_episode["edge_dist"]+1
+                    else : 
+                        goal_dist = 1
+                    episode = self.generate_one_rollout(explore_goal, goal_dist, False, episode_duration,animated=animated)
                     all_episodes.append(episode)
-            
+                    success = episode['success'][-1]
+                if explore_goal == None or  success == False:
+                        self.reset(biased_init)
+                        continue
+            else : 
+                raise Exception(f"unknown state : {self.state}")
         return all_episodes
+    
     
     def test_rollout(self,goals,agent_network:AgentNetwork,episode_duration, animated=False):
         end_episodes = []
         for goal in goals : 
+            self.reset(False)
             _,last_episode = self.guided_rollout(goal,True, agent_network, episode_duration, biased_init=False, animated=animated)
             end_episodes.append(last_episode)
+        self.reset(False)
         return end_episodes
 
 
     def guided_rollout(self,goal,evaluation,agent_network:AgentNetwork,episode_duration,episode_budget=None,biased_init=False, animated=False):
+        episode = None
         episodes = []
-        observation = self.env.unwrapped.reset_goal(goal=np.array(goal), biased_init=biased_init)
-        self.last_obs = observation
-        start = observation['achieved_goal_binary']
-        config_path,_ = agent_network.get_path(start,goal)
-        if len(config_path)==0:
-            config_path = [start,goal]
-        for intermediate_goal in config_path[1:]:
-            goal_dist = len(agent_network.get_path_from_coplanar(self.last_obs["achieved_goal"])[1:])+1
-            episode = self.generate_one_rollout(intermediate_goal,goal_dist, 
+        start = tuple(self.last_obs['achieved_goal_binary'])
+        goal = tuple(goal)
+        if self.current_goal_id == None:
+            self.current_goal_id = 1
+            self.config_path,_ = agent_network.get_path(start,goal)
+            if len(self.config_path)==0:
+                self.config_path = [start,goal]
+
+        while self.current_goal_id < len(self.config_path):
+            goal_dist = self.current_goal_id
+            current_goal = self.config_path[self.current_goal_id]
+            episode = self.generate_one_rollout(current_goal,goal_dist, 
                                                 evaluation, episode_duration, animated=animated)
             episodes.append(episode)
-            achieved_goal = episode['ag_binary'][-1]
+            self.current_goal_id+=1
             
             if episode_budget != None and len(episodes) >= episode_budget:
                 break
-            
-            if not (achieved_goal == intermediate_goal).all():
-                break            
+
+            success = episodes[-1]['success'][-1]
+            if success == False:
+                break 
         
-        last_episode = episode
-        return episodes,last_episode
+        return episodes,self.last_episode
 
     def generate_one_rollout(self, goal,goal_dist, evaluation, episode_duration, animated=False):            
 
         g = np.array(goal)
         self.env.unwrapped.target_goal = np.array(goal)
+        self.env.unwrapped.binary_goal = np.array(goal)
         obs = self.last_obs['observation']
         ag = self.last_obs['achieved_goal']
         ag_bin = self.last_obs['achieved_goal_binary']
@@ -143,5 +178,6 @@ class RolloutWorker:
                         self_eval=evaluation)
 
         self.last_obs = observation_new
+        self.last_episode = episode
 
         return episode

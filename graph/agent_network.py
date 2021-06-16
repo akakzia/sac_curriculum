@@ -11,6 +11,7 @@ class AgentNetwork():
         self.args = args
         self.rank = MPI.COMM_WORLD.Get_rank()
         self.exp_path = exp_path
+        
 
     def update(self,episodes):
         all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
@@ -27,19 +28,24 @@ class AgentNetwork():
                 self.semantic_graph.add_config(start_config)
                 self.semantic_graph.add_config(achieved_goal)
                 self.semantic_graph.add_config(goal)
-                self.update_edge(start_config,goal,success)
-                if self.args.hindsight_edge :
-                    if achieved_goal != goal:
-                        self.update_edge(start_config,achieved_goal,True)
+                self.update_or_create_edge(start_config,goal,success)
+
+                # hindsight edge creation : 
+                if (self.args.hindsight_edge and achieved_goal != goal
+                    and not self.semantic_graph.hasEdge(start_config,achieved_goal)):
+                        self.create_edge(start_config,achieved_goal,self.args.edge_prior)
 
             # update frontier :  
             self.teacher.computeFrontier(self.semantic_graph)
             self.semantic_graph.update_shortest_tree()
         self.sync()
     
-    def update_edge(self,start,end,success):
+    def update_or_create_edge(self,start,end,success):
         if (start!=end):
+            if not self.semantic_graph.hasEdge(start,end):
+                self.semantic_graph.create_edge((start,end),self.args.edge_prior)
             self.semantic_graph.update_edge((start,end),success)
+
     
     def get_path(self,start,goal):
         if self.args.expert_graph_start: 
@@ -53,17 +59,17 @@ class AgentNetwork():
         else : 
             return self.semantic_graph.get_path_from_coplanar(target)
 
-    def sample_goal(self,k):
+    def sample_goal(self,current_node,k):
         if self.args.play_goal_strategy == 'uniform':
             return self.sample_goal_uniform(k)
         elif self.args.play_goal_strategy == 'frontier':
-            return self.sample_goal_in_frontier(k)
+            return self.sample_goal_in_frontier(current_node,k)
 
     def sample_goal_uniform(self,nb_goal):
         return self.teacher.sample_goal_uniform(nb_goal)
 
-    def sample_goal_in_frontier(self,k):
-        return self.teacher.sample_in_frontier(k)
+    def sample_goal_in_frontier(self,current_node,k):
+        return self.teacher.sample_in_frontier(current_node,self.semantic_graph,k)
     
     def sample_from_frontier(self,frontier_node,k):
         return self.teacher.sample_from_frontier(frontier_node,self.semantic_graph,k)
