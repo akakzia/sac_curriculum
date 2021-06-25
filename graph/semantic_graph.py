@@ -6,7 +6,7 @@ import numpy as np
 import pickle
 from bidict import bidict
 import networkit as nk
-from graph.SemanticOperation import SemanticOperation,config_permutations
+from graph.SemanticOperation import SemanticOperation,config_permutations, config_to_unique_str
 
 class SemanticGraph:
 
@@ -25,8 +25,6 @@ class SemanticGraph:
         self.args = args
         self.semantic_operation = SemanticOperation(nb_blocks,True)
 
-        self.dijkstra_from_coplanar = nk.distance.Dijkstra(self.nk_graph,self.configs[self.empty()], True, False)
-        self.dijkstra_from_coplanar.run()
         self.frontier = set(self.get_frontier_nodes())
     
     def save(self,path,name):
@@ -57,11 +55,6 @@ class SemanticGraph:
         return SemanticGraph.load(SemanticGraph.ORACLE_PATH,
                                 f'{SemanticGraph.ORACLE_NAME}{nb_blocks}',nb_blocks)
 
-    def update_shortest_tree(self):
-        self.dijkstra_from_coplanar.run()
-
-    def distance_from_coplanar(self,target):
-        return self.dijkstra_from_coplanar.distance(self.empty(),target)
 
     def get_path_from_coplanar(self,goal):
         return self.get_path(self.semantic_operation.empty(),goal)
@@ -91,7 +84,6 @@ class SemanticGraph:
                 isolated.append(c)
         return isolated
     
-
     def get_reachables_node_ids(self,source):
         reachables = []
         if source in self.configs:
@@ -101,13 +93,15 @@ class SemanticGraph:
             reachables = bfs.getNodesSortedByDistance()
         return reachables
 
-
-
     def get_frontier_nodes(self):
-        self.dijkstra_from_coplanar.run()
+        if self.empty() not in self.configs:
+            return []
+        
+        dijkstra_from_coplanar = nk.distance.Dijkstra(self.nk_graph,self.configs[self.empty()], True, False)
+        dijkstra_from_coplanar.run()
         intermediate_nodes = set()
         for node in self.nk_graph.iterNodes():
-            predecessors = self.dijkstra_from_coplanar.getPredecessors(node)
+            predecessors = dijkstra_from_coplanar.getPredecessors(node)
             if predecessors : 
                 intermediate_nodes.update(predecessors)
         isolated = []
@@ -116,14 +110,17 @@ class SemanticGraph:
                 isolated.append(node)
         return isolated
 
-    def add_config(self,config):
+    def create_node(self,config):
         if config not in self.configs:
             self.configs[config] = self.nk_graph.addNode()
 
+    def edge_config_to_edge_id(self,edge_config):
+        c1,c2 = edge_config
+        return (self.configs[c1],self.configs[c2])
 
-    def create_edge(self,edge,start_sr):
-        c1,c2 = edge
-        n1,n2 = self.configs[c1],self.configs[c2]
+    def create_edge_stats(self,edge,start_sr):
+
+        n1,n2 = self.edge_config_to_edge_id(edge)
         if not self.nk_graph.hasEdge(n1,n2):
             self.nk_graph.addEdge(n1,n2)
             self.edges_infos[(n1,n2)] = {'SR':start_sr,'Count':1}
@@ -132,30 +129,41 @@ class SemanticGraph:
         else : 
             raise Exception(f'Already existing edge {n1}->{n2}')
 
-    def update_edge(self,edge,success):
-        c1,c2 = edge
-        n1,n2 = self.configs[c1],self.configs[c2]
+
+    def update_edge_stats(self,edge_configs,success):
+        edge_id = self.edge_config_to_edge_id(edge_configs)
         success = int(success)
         
-        if not self.nk_graph.hasEdge(n1,n2):
-            raise Exception(f"unknown edge {n1}->{n2}")
+        if not self.edges_infos[edge_id]:
+            raise Exception(f"unknown edge {edge_id[0]}->{edge_id[1]}")
         else:
             # update SR  :
-            self.edges_infos[(n1,n2)]['Count']+=1
-            count = self.edges_infos[(n1,n2)]['Count']
-            last_mean_sr = self.edges_infos[(n1,n2)]['SR']
+            self.edges_infos[edge_id]['Count']+=1
+            count = self.edges_infos[edge_id]['Count']
+            last_mean_sr = self.edges_infos[edge_id]['SR']
             if self.args.edge_sr == 'moving_average':
                 new_mean_sr = last_mean_sr + (1/count)*(success-last_mean_sr)
             elif self.args.edge_sr == 'exp_moving_average':
                 new_mean_sr = self.args.edge_lr* last_mean_sr + (1-self.args.edge_lr)*(success)
             else : 
                 raise Exception(f"Unknown self.args.edge_sr value : {self.args.edge_sr}")
-            self.edges_infos[(n1,n2)]['SR'] = new_mean_sr
+            self.edges_infos[edge_id]['SR'] = new_mean_sr
 
-            clamped_sr = max(np.finfo(float).eps, min(new_mean_sr, 1-np.finfo(float).eps))
-            # weight is set to -log(SR) because Djikstra is used for shortest-path algorithm
-            self.nk_graph.setWeight(n1,n2,-math.log(clamped_sr))
+    def update_graph_edge_weight(self,edge):
+        n1,n2 = edge
+        new_mean_sr = self.edges_infos[(n1,n2)]['SR']
+        clamped_sr = max(np.finfo(float).eps, min(new_mean_sr, 1-np.finfo(float).eps))
+        self.nk_graph.setWeight(n1,n2,-math.log(clamped_sr))
 
+    def update_edge(self,edge,success):
+        self.update_edge_stats(edge,success)
+        self.update_graph_edge_weight(edge)
+
+    def update(self):
+        ''' Synchronize edges stats and edge weigth in nk_graph '''
+        for edge in self.edges_infos:
+            self.update_graph_edge_weight(edge)
+    
     def hasNode(self,config):
         if config in self.configs:
             return self.nk_graph.hasNode(self.configs[config])
@@ -186,7 +194,11 @@ class SemanticGraph:
     
     def empty(self):
         return self.semantic_operation.empty()
-
+    
+    def log(self,logger):
+        logger.record_tabular('agent_nodes',self.nk_graph.numberOfNodes())
+        logger.record_tabular('agent_edges',self.nk_graph.numberOfEdges())
+        
 def augment_with_all_permutation(nk_graph,configs,nb_blocks,GANGSTR=True):
     '''
     Takes a nk_graph as entry, configs wich translate configuration into node id. 
@@ -200,7 +212,7 @@ def augment_with_all_permutation(nk_graph,configs,nb_blocks,GANGSTR=True):
 
     # creates new nodes
     for config in configs:
-        config_to_perms[config] = config_permutations(config,semantic_operator,nb_blocks)
+        config_to_perms[config] = config_permutations(config,semantic_operator)
         for config_perm in config_to_perms[config]:
             if config_perm not in new_configs:
                 new_config_perm_id = new_nk_graph.addNode()

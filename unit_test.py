@@ -1,20 +1,41 @@
 
 
 from collections import defaultdict
-from graph.SemanticOperation import SemanticOperation, all_stack_trajectories, config_to_unique_str
+from graph.SemanticOperation import SemanticOperation, all_stack_trajectories, config_to_unique_str,config_permutations
 from graph.semantic_graph import SemanticGraph
+from graph.UnorderedSemanticGraph import UnorderedSemanticGraph
 from graph.agent_network import AgentNetwork
 from utils import get_eval_goals
 import numpy as np
 import math 
 import networkit as nk
-
+from types import SimpleNamespace
+from bidict import bidict
 
 def start_test(name):
     print()
     print('_'*10,name,'_'*10)
     print('_'*20 + '_'*(len(name)+2))
 
+
+def check_semantic_hash(block_size):
+    unordered_sem_graph = SemanticGraph.load(SemanticGraph.ORACLE_PATH,
+                                            f"{SemanticGraph.ORACLE_NAME}{block_size}_unordered",
+                                            block_size)
+    sem_op = unordered_sem_graph.semantic_operation
+    all_hash = set()
+    for config in unordered_sem_graph.configs:
+        all_perm = set(config_permutations(config,sem_op))
+        t = [sem_op.to_nx_graph_hash(c) for c in all_perm]
+        graph_hash = set([sem_op.to_nx_graph_hash(c) for c in all_perm])
+        assert len(graph_hash) == 1
+        all_hash.add(graph_hash.pop())
+    assert len(all_hash) == len(unordered_sem_graph.configs),f'error in : {len(all_hash)}!={len(unordered_sem_graph.configs)}'
+
+    print('semantic hash diversity ok for ',block_size)
+
+
+ 
 def graph_overview(nb_block):
     start_test(f'overview for {nb_block}')
     semantic_graph = SemanticGraph.load_oracle(nb_block)
@@ -22,19 +43,35 @@ def graph_overview(nb_block):
     print(f"frontier size : {len(semantic_graph.get_frontier_nodes())}")
         
 
-def check_generate_goals():
+def check_generate_goals(nb_block,unordered_edge = False):
     ''' Check frontier goal sampling'''
-    nb_blocks = 3
     GANGSTR = True
-    semantic_operator = SemanticOperation(nb_blocks,GANGSTR)
-    semantic_graph = SemanticGraph.load_oracle(nb_blocks)
-    agentNetwork = AgentNetwork(semantic_graph,None)
-    agentNetwork.add_goal(semantic_operator.empty())
-    print([agentNetwork.semantic_graph.configs[c] for c in  agentNetwork.frontier])
-    stack2 = semantic_operator.close_and_above(semantic_operator.empty(),0,1,True)
-    agentNetwork.add_goal(stack2)
-    print(agentNetwork.semantic_graph.getNodeId(stack2))
-    print([agentNetwork.semantic_graph.configs[c] for c in  agentNetwork.frontier])
+    semantic_operator = SemanticOperation(nb_block,GANGSTR)
+    configs = bidict()
+    args = SimpleNamespace()
+    nk_graph = nk.Graph(0,weighted=True, directed=True)
+
+    args.n_blocks = nb_block
+    if unordered_edge:
+        semantic_graph = UnorderedSemanticGraph(configs,nb_block,True,args=args)
+    else : 
+        semantic_graph = SemanticGraph(configs,nk_graph,args.n_blocks,True,args=args)
+    agentNetwork = AgentNetwork(semantic_graph,'',args)
+    print([agentNetwork.semantic_graph.configs.inverse[n] for n in  agentNetwork.teacher.agent_frontier])
+
+    agentNetwork.semantic_graph.create_node(semantic_operator.empty())
+    agentNetwork.teacher.computeFrontier(agentNetwork.semantic_graph)
+    print([agentNetwork.semantic_graph.configs.inverse[n] for n in  agentNetwork.teacher.agent_frontier])
+
+    stack2 = semantic_operator.close_and_above(semantic_operator.empty(),1,0,True)
+    agentNetwork.semantic_graph.create_node(stack2)
+    agentNetwork.teacher.computeFrontier(agentNetwork.semantic_graph)
+    print([agentNetwork.semantic_graph.configs.inverse[c] for c in  agentNetwork.teacher.agent_frontier])
+
+    stack3 = semantic_operator.close_and_above(stack2,2,1,True)
+    agentNetwork.semantic_graph.create_node(stack3)
+    agentNetwork.teacher.computeFrontier(agentNetwork.semantic_graph)
+    print([agentNetwork.semantic_graph.configs.inverse[c] for c in  agentNetwork.teacher.agent_frontier])
 
 def check_stack_number(block_size):
     start_test(f"check_stack_number {block_size}")
@@ -90,7 +127,7 @@ def check_goal(semantic_graph,semantic_operator,goal,true_length,node_name,verbo
     if goal not in semantic_graph.configs:
         result = 'missing_goal'
     else : 
-        path = semantic_graph.get_path(semantic_operator.empty(),goal)
+        path,dist = semantic_graph.get_path(semantic_operator.empty(),goal)
         path_length = len(path)-1
         if path == []:
             result = 'no_path'
@@ -104,7 +141,8 @@ def check_goal(semantic_graph,semantic_operator,goal,true_length,node_name,verbo
 if __name__ == '__main__':
     block_sizes = [3,5]
     for block_size in block_sizes:
+        check_semantic_hash(block_size)
         graph_overview(block_size)
-        check_stack_number(block_size)
+        check_stack_number(block_size)        
         test_eval_goals(block_size)
-        # check_generate_goals()
+        # check_generate_goals(block_size)

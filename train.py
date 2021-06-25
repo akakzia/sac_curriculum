@@ -15,6 +15,7 @@ import time
 from mpi_utils import logger
 import networkit as nk
 from graph.semantic_graph import SemanticGraph
+from graph.UnorderedSemanticGraph import UnorderedSemanticGraph
 from graph.agent_network import AgentNetwork
 from graph.SemanticOperation import SemanticOperation
 from generate_graph import generate_expert_graph
@@ -75,9 +76,12 @@ def launch(args):
     MPI.COMM_WORLD.Barrier()
     # initialize graph components : 
     sem_op = SemanticOperation(args.n_blocks,True)
-    configs = bidict({sem_op.empty():0})
-    nk_graph = nk.Graph(1,weighted=True, directed=True)
-    semantic_graph = SemanticGraph(configs,nk_graph,args.n_blocks,True,args=args)
+    configs = bidict()
+    nk_graph = nk.Graph(0,weighted=True, directed=True)
+    if args.unordered_edge:
+        semantic_graph = UnorderedSemanticGraph(configs,nk_graph,args.n_blocks,True,args=args)
+    else : 
+        semantic_graph = SemanticGraph(configs,nk_graph,args.n_blocks,True,args=args)
     agent_network = AgentNetwork(semantic_graph,logdir,args)
     agent_network.teacher.computeFrontier(agent_network.semantic_graph)
 

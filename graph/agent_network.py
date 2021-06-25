@@ -25,26 +25,26 @@ class AgentNetwork():
                 goal = tuple(e['g'][-1])
                 success = e['success'][-1]
                 
-                self.semantic_graph.add_config(start_config)
-                self.semantic_graph.add_config(achieved_goal)
-                self.semantic_graph.add_config(goal)
+                self.semantic_graph.create_node(start_config)
+                self.semantic_graph.create_node(achieved_goal)
+                self.semantic_graph.create_node(goal)
                 self.update_or_create_edge(start_config,goal,success)
 
                 # hindsight edge creation : 
                 if (self.args.hindsight_edge and achieved_goal != goal
                     and not self.semantic_graph.hasEdge(start_config,achieved_goal)):
-                        self.semantic_graph.create_edge((start_config,achieved_goal),self.args.edge_prior)
+                        self.semantic_graph.create_edge_stats((start_config,achieved_goal),self.args.edge_prior)
 
             # update frontier :  
+            self.semantic_graph.update()
             self.teacher.computeFrontier(self.semantic_graph)
-            self.semantic_graph.update_shortest_tree()
         self.sync()
     
     def update_or_create_edge(self,start,end,success):
         if (start!=end):
             if not self.semantic_graph.hasEdge(start,end):
-                self.semantic_graph.create_edge((start,end),self.args.edge_prior)
-            self.semantic_graph.update_edge((start,end),success)
+                self.semantic_graph.create_edge_stats((start,end),self.args.edge_prior)
+            self.semantic_graph.update_edge_stats((start,end),success)
 
     
     def get_path(self,start,goal):
@@ -75,9 +75,10 @@ class AgentNetwork():
         return self.teacher.sample_from_frontier(frontier_node,self.semantic_graph,k)
 
     def log(self,logger):
-        logger.record_tabular('agent_nodes',self.semantic_graph.nk_graph.numberOfNodes())
-        logger.record_tabular('agent_edges',self.semantic_graph.nk_graph.numberOfEdges())
+        self.semantic_graph.log(logger)
+        # TODO : , à change selon qu'on soit unordered ou pas. 
         logger.record_tabular('frontier_len',len(self.teacher.agent_frontier))
+
 
     def save(self,model_path, epoch):
         self.semantic_graph.save(model_path+'/',f'{epoch}')

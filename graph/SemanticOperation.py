@@ -1,5 +1,7 @@
 
 from collections import defaultdict
+from bidict import bidict
+import networkx as nx
 from itertools import combinations,permutations
 from utils import get_graph_structure
 
@@ -22,9 +24,9 @@ class SemanticOperation():
 
         # define how truth values are replaced in semantic configurations : 
         if GANGSTR:
-            self.semantic = {True: 1., False:-1.}
+            self.semantic = bidict({True: 1., False:-1.})
         else : 
-            self.semantic = {True: 1, False:0}
+            self.semantic = bidict({True: 1, False:0})
 
     def is_close(self,config,a,b):
         close_id = self.edge_to_close_ids[(a,b)]
@@ -62,6 +64,23 @@ class SemanticOperation():
         return tuple(1 if c > 0 else 0 
                         for c in config)
 
+    def to_nx_graph(self,config):
+        ''' Convert a configuration in an unordered semantic multi-graph'''
+        multi_di_graph = nx.MultiDiGraph()
+
+        for pred_id,pred_val in enumerate(config):
+            pred_name = self.pred_id_to_pred_name[pred_id]
+            obj_a,obj_b = self.pred_id_to_edge[pred_id]
+            if self.semantic.inverse[pred_val]:
+                multi_di_graph.add_edge(obj_a,obj_b,label=pred_name)
+                if pred_name == 'close':
+                    multi_di_graph.add_edge(obj_b,obj_a,label=pred_name)
+        return multi_di_graph
+    def to_nx_graph_hash(self,config):
+        nx_graph = self.to_nx_graph(config)
+        return nx.weisfeiler_lehman_graph_hash(nx_graph)
+
+
 
 def all_stack_trajectories(stack_size,GANGSTR= True):
     '''Return a dictionnary of cube-stack associated with semantic-trajectories :
@@ -83,8 +102,8 @@ def all_stack_trajectories(stack_size,GANGSTR= True):
         config_to_path[stack] = config_path
     return config_to_path
 
-def config_permutations(config,semantic_operator,nb_blocks):
-    perms = permutations(range(nb_blocks))
+def config_permutations(config,semantic_operator):
+    perms = permutations(range(semantic_operator.nb_blocks))
     all_config_perms = []
     for perm in perms : 
         new_config = semantic_operator.empty()

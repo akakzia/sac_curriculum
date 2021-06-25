@@ -9,7 +9,7 @@ class Teacher():
     def __init__(self,args):
         self.oracle_graph = SemanticGraph.load_oracle(args.n_blocks)
         self.args = args
-        self.agent_frontier = {0} # store configuration through networkit node_id from agent_graph 
+        self.agent_frontier = {} # store configuration through networkit node_id from agent_graph 
 
     def is_in_frontier(self,config,agent_graph:SemanticGraph):
         '''
