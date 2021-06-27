@@ -144,7 +144,7 @@ class SemanticGraph:
             if self.args.edge_sr == 'moving_average':
                 new_mean_sr = last_mean_sr + (1/count)*(success-last_mean_sr)
             elif self.args.edge_sr == 'exp_moving_average':
-                new_mean_sr = self.args.edge_lr* last_mean_sr + (1-self.args.edge_lr)*(success)
+                new_mean_sr = last_mean_sr + self.args.edge_lr* (success-last_mean_sr)
             else : 
                 raise Exception(f"Unknown self.args.edge_sr value : {self.args.edge_sr}")
             self.edges_infos[edge_id]['SR'] = new_mean_sr
