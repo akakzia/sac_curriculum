@@ -86,7 +86,7 @@ class AgentNetwork():
             pickle.dump(self.teacher.agent_frontier,f,protocol=pickle.HIGHEST_PROTOCOL)
             
     def load(model_path,epoch,args) ->'AgentNetwork':
-        semantic_graph = SemanticGraph.load(model_path,f'{epoch}',args.n_blocks)
+        semantic_graph = SemanticGraph.load(model_path,f'{epoch}')
         with open(f"{model_path}frontier_{epoch}.config", 'rb') as f:
             frontier = pickle.load(f)
         agent_network = AgentNetwork(semantic_graph,None,args)
@@ -100,4 +100,4 @@ class AgentNetwork():
 
         MPI.COMM_WORLD.Barrier()
         if self.rank!=0:
-            self.semantic_graph = SemanticGraph.load(self.exp_path+'/','temp',self.args.n_blocks,self.args)
+            self.semantic_graph = SemanticGraph.load(self.exp_path+'/','temp')

@@ -48,8 +48,7 @@ def generate_ordered_network(nb_blocks,GANGSTR):
     # start = time.time()
         
     unordered_sem_graph = SemanticGraph.load(SemanticGraph.ORACLE_PATH,
-                                            f"{SemanticGraph.ORACLE_NAME}{nb_blocks}_unordered",
-                                            nb_blocks)
+                                            f"{SemanticGraph.ORACLE_NAME}{nb_blocks}_unordered")
     nk_graph,explored_sem = augment_with_all_permutation(unordered_sem_graph.nk_graph,
                                                         unordered_sem_graph.configs,
                                                         nb_blocks,GANGSTR=GANGSTR)
@@ -71,4 +70,4 @@ def generate_expert_graph(n_blocks,GANGSTR):
 if __name__=='__main__':
     GANGSTR= True
     for nb_blocks in [3,5]:
-        generate_expert_graph(nb_blocks)
+        generate_expert_graph(nb_blocks,GANGSTR)

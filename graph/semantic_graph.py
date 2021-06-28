@@ -33,13 +33,13 @@ class SemanticGraph:
         if os.path.isfile(graph_filename):
             os.remove(graph_filename)
         nk.writeGraph(self.nk_graph,graph_filename, writer)
-        with open(f'{path}semantic_network.pk', 'wb') as f:
+        with open(f'{path}semantic_network_{name}.pk', 'wb') as f:
             pickle.dump(self,f)
 
-    def load(path:str,name:str,nb_blocks:int,args=None):
+    def load(path:str,name:str):
         reader = nk.Format.NetworkitBinary
         nk_graph = nk.readGraph(f"{path}graph_{name}.nk", reader)
-        with open(f'{path}semantic_network.pk', 'rb') as f:
+        with open(f'{path}semantic_network_{name}.pk', 'rb') as f:
             semantic_graph = pickle.load(f)
         semantic_graph.nk_graph = nk_graph
         return semantic_graph
@@ -49,7 +49,7 @@ class SemanticGraph:
 
     def load_oracle(nb_blocks:int):
         return SemanticGraph.load(SemanticGraph.ORACLE_PATH,
-                                f'{SemanticGraph.ORACLE_NAME}{nb_blocks}',nb_blocks)
+                                f'{SemanticGraph.ORACLE_NAME}{nb_blocks}')
 
 
     def get_path_from_coplanar(self,goal):
@@ -61,6 +61,13 @@ class SemanticGraph:
         try :
             n1 = self.configs[c1]
             n2 = self.configs[c2]
+            # print("number of nk nodes : ",self.nk_graph.numberOfNodes() )
+            # print("number of nk configs",len(self.configs))
+            # if self.nk_graph.hasNode(n2) == False:
+            #     print('n1,n2',n1,n2,self.nk_graph.hasNode(n1),self.nk_graph.hasNode(n2))
+            #     print("number of nk nodes : ",self.nk_graph.numberOfNodes() )
+            #     print("number of nk configs",len(self.configs))
+            #     print('...')
             dijkstra = nk.distance.Dijkstra(self.nk_graph, n1, True, False, n2)
             dijkstra.run()
             config_path =  [self.configs.inverse[node] for node in  dijkstra.getPath(n2)]

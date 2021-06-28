@@ -20,8 +20,8 @@ def start_test(name):
 
 def check_semantic_hash(block_size):
     unordered_sem_graph = SemanticGraph.load(SemanticGraph.ORACLE_PATH,
-                                            f"{SemanticGraph.ORACLE_NAME}{block_size}_unordered",
-                                            block_size)
+                                            f"{SemanticGraph.ORACLE_NAME}{block_size}_unordered"
+                                            )
     sem_op = unordered_sem_graph.semantic_operation
     all_hash = set()
     for config in unordered_sem_graph.configs:
