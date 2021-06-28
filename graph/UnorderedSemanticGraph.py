@@ -22,9 +22,9 @@ class UnorderedSemanticGraph(SemanticGraph):
     
     def create_edge_stats(self,edge,start_sr):
         c1,c2 = edge
-        
-        if (c1,c2) not in self.ordered_edge_to_unordered_edge:
-            unordered_id = len(self.ordered_edge_to_unordered_edge)
+
+        if not self.hasEdge(c1,c2):
+            unordered_id = len(self.unordered_edge_to_ordered_edge)
             self.edges_infos[unordered_id] = {'SR':start_sr,'Count':1}
 
             clamped_sr = max(np.finfo(float).eps, min(start_sr, 1-np.finfo(float).eps))
@@ -55,7 +55,6 @@ class UnorderedSemanticGraph(SemanticGraph):
 
         for n1,n2 in self.unordered_edge_to_ordered_edge[edge]:
             self.nk_graph.setWeight(n1,n2,-math.log(clamped_sr))
-
 
     def log(self,logger):
         logger.record_tabular('agent_nodes_ordered',self.nk_graph.numberOfNodes())

@@ -31,25 +31,21 @@ class SemanticGraph:
         writer = nk.Format.NetworkitBinary
         graph_filename = f"{path}graph_{name}.nk"
         if os.path.isfile(graph_filename):
-                os.remove(graph_filename)
+            os.remove(graph_filename)
         nk.writeGraph(self.nk_graph,graph_filename, writer)
-        with open(f"{path}configs_{name}.config", 'wb') as f:
-            pickle.dump(self.configs,f,protocol=pickle.HIGHEST_PROTOCOL)
-        if len(self.edges_infos)>0:
-            with open(f"{path}edges_{name}.infos", 'wb') as f:
-                pickle.dump(self.edges_infos,f,protocol=pickle.HIGHEST_PROTOCOL)
+        with open(f'{path}semantic_network.pk', 'wb') as f:
+            pickle.dump(self,f)
 
     def load(path:str,name:str,nb_blocks:int,args=None):
-        with open(f"{path}configs_{name}.config", 'rb') as f:
-            configs = pickle.load(f)
-        if os.path.isfile(f"{path}edges_{name}.infos"):
-            with open(f"{path}edges_{name}.infos", 'rb') as f:
-                edges_infos = pickle.load(f)
-        else : 
-            edges_infos = None
         reader = nk.Format.NetworkitBinary
         nk_graph = nk.readGraph(f"{path}graph_{name}.nk", reader)
-        return SemanticGraph(configs,nk_graph,nb_blocks,edges_infos=edges_infos,args=args)
+        with open(f'{path}semantic_network.pk', 'rb') as f:
+            semantic_graph = pickle.load(f)
+        semantic_graph.nk_graph = nk_graph
+        return semantic_graph
+
+    def __getstate__(self):
+        return {k:v for (k, v) in self.__dict__.items() if not isinstance(v,nk.graph.Graph)}
 
     def load_oracle(nb_blocks:int):
         return SemanticGraph.load(SemanticGraph.ORACLE_PATH,
