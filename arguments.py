@@ -67,8 +67,8 @@ def get_args():
     
     parser.add_argument('--edge_sr', type=str, default='exp_moving_average', help='moving_average or exp_moving_average')
     parser.add_argument('--edge_lr', type=float, default=0.001, help='SR learning rate')
-    parser.add_argument('--hindsight_edge', type=bool, default=False, help='use hindsight edges')
-    parser.add_argument('--edge_prior', type=float, default=0.5, help='default value for edges')
+    parser.add_argument('--hindsight_edge', type=bool, default=True, help='use hindsight edges')
+    parser.add_argument('--edge_prior', type=float, default=0.1, help='default value for edges')
     parser.add_argument('--unordered_edge', type=bool, default=True, help='if the agent learns unordered_edge SR')
     parser.add_argument('--epsilon_edge_exploration', type=int, default=0.5, help='at step of a path to the frontier, the agent has an epsilon chance to take a random edge')
     
