@@ -103,7 +103,7 @@ class RolloutWorker:
             goal_dist = self.current_goal_id
 
             # epsilon greedy exploration : 
-            random_exploration = random.random()<self.args.epsilon_edge_exploration
+            random_exploration = random.random()<self.args.epsilon_edge_exploration and not evaluation
             current_goal = None
             if random_exploration:
                 last_config = self.config_path[self.current_goal_id-2] if self.current_goal_id >=2 else None
