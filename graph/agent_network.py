@@ -77,7 +77,10 @@ class AgentNetwork():
 
     def sample_rand_neighbour(self,source,excluding = []):
         neighbours = list(filter( lambda x : x not in excluding, self.semantic_graph.iterNeighbors(source)))
-        return random.choice(neighbours)
+        if neighbours:
+            return random.choice(neighbours)
+        else : 
+            return None
 
     def log(self,logger):
         self.semantic_graph.log(logger)
