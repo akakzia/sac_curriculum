@@ -1,3 +1,4 @@
+import random
 from graph.semantic_graph import SemanticGraph
 from mpi4py import MPI
 from graph.teacher import Teacher
@@ -73,6 +74,10 @@ class AgentNetwork():
     
     def sample_from_frontier(self,frontier_node,k):
         return self.teacher.sample_from_frontier(frontier_node,self.semantic_graph,k)
+
+    def sample_rand_neighbour(self,source,excluding = []):
+        neighbours = list(filter( lambda x : x not in excluding, self.semantic_graph.iterNeighbors(source)))
+        return random.choice(neighbours)
 
     def log(self,logger):
         self.semantic_graph.log(logger)

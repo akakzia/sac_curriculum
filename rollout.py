@@ -1,3 +1,4 @@
+import random
 from graph.agent_network import AgentNetwork
 import numpy as np
 from graph.SemanticOperation import SemanticOperation, config_to_name,config_to_unique_str
@@ -46,7 +47,7 @@ class RolloutWorker:
                         self.state = 'Explore'
                         continue
                 episodes,_ = self.guided_rollout(self.long_term_goal,False, agentNetwork, episode_duration, 
-                                        episode_budget=max_episodes-len(all_episodes), biased_init=False,animated=animated)
+                                        episode_budget=max_episodes-len(all_episodes),animated=animated)
                 all_episodes += episodes
 
                 success = episodes[-1]['success'][-1]
@@ -81,26 +82,34 @@ class RolloutWorker:
         end_episodes = []
         for goal in goals : 
             self.reset(False)
-            _,last_episode = self.guided_rollout(goal,True, agent_network, episode_duration, biased_init=False, animated=animated)
+            _,last_episode = self.guided_rollout(goal,True, agent_network, episode_duration, animated=animated)
             end_episodes.append(last_episode)
         self.reset(False)
         return end_episodes
 
 
-    def guided_rollout(self,goal,evaluation,agent_network:AgentNetwork,episode_duration,episode_budget=None,biased_init=False, animated=False):
+    def guided_rollout(self,goal,evaluation,agent_network:AgentNetwork,episode_duration,episode_budget=None, animated=False):
         episode = None
         episodes = []
-        start = tuple(self.last_obs['achieved_goal_binary'])
+        current_config = tuple(self.last_obs['achieved_goal_binary'])
         goal = tuple(goal)
         if self.current_goal_id == None:
             self.current_goal_id = 1
-            self.config_path,_ = agent_network.get_path(start,goal)
+            self.config_path,_ = agent_network.get_path(current_config,goal)
             if len(self.config_path)==0:
-                self.config_path = [start,goal]
+                self.config_path = [current_config,goal]
 
         while self.current_goal_id < len(self.config_path):
             goal_dist = self.current_goal_id
-            current_goal = self.config_path[self.current_goal_id]
+
+            # epsilon greedy exploration : 
+            random_exploration = random.random()>self.args.epsilon_edge_exploration
+            if random_exploration:
+                last_config = self.config_path[self.current_goal_id-2] if self.current_goal_id >=2 else None
+                current_goal = agent_network.sample_rand_neighbour(current_config,[last_config])
+            else : 
+                current_goal = self.config_path[self.current_goal_id]
+
             episode = self.generate_one_rollout(current_goal,goal_dist, 
                                                 evaluation, episode_duration, animated=animated)
             episodes.append(episode)
@@ -112,6 +121,12 @@ class RolloutWorker:
             success = episodes[-1]['success'][-1]
             if success == False:
                 break 
+
+            if random_exploration: # if we used random exploration and succeded, recompute optimal path. 
+                self.current_goal_id = 1
+                self.config_path,_ = agent_network.get_path(current_goal,goal)
+                if len(self.config_path)==0:
+                    self.config_path = [current_config,goal]
         
         return episodes,self.last_episode
 
