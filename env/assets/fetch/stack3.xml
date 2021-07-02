@@ -18,7 +18,7 @@
 			<geom size="0.25 0.35 0.2" type="box" mass="2000" material="table_mat"></geom>
 		</body>
 <!--		<camera name="main1" mode="targetbody" target="table0" pos="0.4869 0.7641 0.8" fovy="40.5"/>-->
-		<camera name="main1" euler="0 -1.2 -1.57"  pos="0.4869 0.7641 0.8" fovy="30.5"/>
+		<camera name="main1" euler="0 -0.9 -1.57"  pos="0.7869 0.75 0.8" fovy="40.5"/>
 		<body name="object0" pos="0.025 0.025 0.025">
 			<joint name="object0:joint" type="free" damping="0.01"></joint>
 			<geom size="0.025 0.025 0.025" type="box" condim="3" name="object0" rgba="0.78 0.25 0.25 1" material="block0_mat" mass="2"></geom>
@@ -33,7 +33,7 @@
 
 		<body name="object2" pos="0.025 0.025 0.025">
 			<joint name="object2:joint" type="free" damping="0.01"></joint>
-			<geom size="0.025 0.025 0.025" type="box" condim="3" name="object2" rgba="0.3 0.6 0.78  1" material="block2_mat" mass="2"></geom>
+			<geom size="0.025 0.025 0.025" type="box" condim="3" name="object2" rgba="0.1 0.4 0.78  1" material="block2_mat" mass="2"></geom>
 			<site name="object2" pos="0 0 0" size="0.02 0.02 0.02" rgba="1 0 0 1" type="sphere"></site>
 		</body>
 
