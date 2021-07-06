@@ -130,7 +130,7 @@ class SemanticGraph:
         '''
         if goal in self.configs:
             graph_tranpose = nk.graphtools.transpose(self.nk_graph)
-            dijkstra_from_goal = nk.distance.Dijkstra(graph_tranpose,self.configs[goal], True, False)
+            dijkstra_from_goal = nk.distance.Dijkstra(graph_tranpose,self.configs[goal], True, True)
             dijkstra_from_goal.run()
             return dijkstra_from_goal
         else : 
@@ -224,6 +224,8 @@ class SemanticGraph:
         return self.configs.inverse[nodeId]
 
     def getWeight(self,c1,c2):
+        if self.getNodeId(c1) == None or self.getNodeId(c2) == None:
+            raise Exception("Unknown edge")
         return self.nk_graph.weight(self.getNodeId(c1),self.getNodeId(c2))
     
     def empty(self):
