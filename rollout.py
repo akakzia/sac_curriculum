@@ -109,8 +109,9 @@ class RolloutWorker:
             
         while self.current_config != goal:
             goal_dist = self.current_goal_id
-            
-            current_goal = agent_network.sample_neighbour_based_on_SR_to_goal(self.current_config,self.dijkstra_to_goal,goal=goal)
+            current_goal = None
+            if self.dijkstra_to_goal: 
+                current_goal = agent_network.sample_neighbour_based_on_SR_to_goal(self.current_config,self.dijkstra_to_goal,goal=goal)
             if current_goal == None: # if no path to goal, try to reach directly 
                 current_goal = goal
             if animated:

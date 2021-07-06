@@ -128,10 +128,13 @@ class SemanticGraph:
         '''
         Return a  Dijstra object of shortest path from goal to all other nodes on the tranposed graph.
         '''
-        graph_tranpose = nk.graphtools.transpose(self.nk_graph)
-        dijkstra_from_goal = nk.distance.Dijkstra(graph_tranpose,self.configs[goal], True, False)
-        dijkstra_from_goal.run()
-        return dijkstra_from_goal
+        if goal in self.configs:
+            graph_tranpose = nk.graphtools.transpose(self.nk_graph)
+            dijkstra_from_goal = nk.distance.Dijkstra(graph_tranpose,self.configs[goal], True, False)
+            dijkstra_from_goal.run()
+            return dijkstra_from_goal
+        else : 
+            return None
 
     def create_node(self,config):
         if config not in self.configs:
@@ -144,7 +147,7 @@ class SemanticGraph:
     def create_edge_stats(self,edge,start_sr):
 
         if self.args.one_object_edge and not self.semantic_operation.one_object_edge(edge):
-            return 
+            return
 
         n1,n2 = self.edge_config_to_edge_id(edge)
         if not self.nk_graph.hasEdge(n1,n2):
