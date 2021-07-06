@@ -53,9 +53,6 @@ class UnorderedSemanticGraph(SemanticGraph):
 
     def update_graph_edge_weight(self,edge):
 
-        if self.args.one_object_edge and not self.semantic_operation.one_object_edge(edge):
-            return
-
         new_mean_sr = self.edges_infos[edge]['SR']
         clamped_sr = max(np.finfo(float).eps, min(new_mean_sr, 1-np.finfo(float).eps))
 
