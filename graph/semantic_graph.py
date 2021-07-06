@@ -61,13 +61,6 @@ class SemanticGraph:
         try :
             n1 = self.configs[c1]
             n2 = self.configs[c2]
-            # print("number of nk nodes : ",self.nk_graph.numberOfNodes() )
-            # print("number of nk configs",len(self.configs))
-            # if self.nk_graph.hasNode(n2) == False:
-            #     print('n1,n2',n1,n2,self.nk_graph.hasNode(n1),self.nk_graph.hasNode(n2))
-            #     print("number of nk nodes : ",self.nk_graph.numberOfNodes() )
-            #     print("number of nk configs",len(self.configs))
-            #     print('...')
             dijkstra = nk.distance.Dijkstra(self.nk_graph, n1, True, False, n2)
             dijkstra.run()
             config_path =  [self.configs.inverse[node] for node in  dijkstra.getPath(n2)]
@@ -76,7 +69,14 @@ class SemanticGraph:
         except KeyError:
             config_path = []
         return config_path,distance
-        
+
+    def get_neighbors_to_goal_sr(self,source,neighbors,dijkstra):
+        edge_to_neighbors_sr = np.exp(-np.array([self.getWeight(source,neighbour)
+                                        for neighbour in neighbors]))
+        neighbors_to_goal_sr = np.exp(-np.array([dijkstra.distance(self.getNodeId(neighbour))
+                                        for neighbour in neighbors]))
+        return edge_to_neighbors_sr*neighbors_to_goal_sr
+
     def sample_path(self,c1,c2,k):
         raise NotImplementedError()
             
@@ -113,6 +113,15 @@ class SemanticGraph:
                 isolated.append(node)
         return isolated
 
+    def get_dijkstra_to_goal(self,goal):
+        '''
+        Return a  Dijstra object of shortest path from goal to all other nodes on the tranposed graph.
+        '''
+        graph_tranpose = nk.graphtools.transpose(self.nk_graph)
+        dijkstra_from_coplanar = nk.distance.Dijkstra(graph_tranpose,self.configs[goal], True, False)
+        dijkstra_from_coplanar.run()
+        return dijkstra_from_coplanar
+
     def create_node(self,config):
         if config not in self.configs:
             self.configs[config] = self.nk_graph.addNode()
@@ -122,6 +131,9 @@ class SemanticGraph:
         return (self.configs[c1],self.configs[c2])
 
     def create_edge_stats(self,edge,start_sr):
+
+        if self.args.one_object_edge and not self.semantic_operation.one_object_edge(edge):
+            return 
 
         n1,n2 = self.edge_config_to_edge_id(edge)
         if not self.nk_graph.hasEdge(n1,n2):
@@ -134,6 +146,10 @@ class SemanticGraph:
 
 
     def update_edge_stats(self,edge_configs,success):
+        
+        if self.args.one_object_edge and not self.semantic_operation.one_object_edge(edge_configs):
+            return
+
         edge_id = self.edge_config_to_edge_id(edge_configs)
         success = int(success)
         
@@ -166,6 +182,7 @@ class SemanticGraph:
         ''' Synchronize edges stats and edge weigth in nk_graph '''
         for edge in self.edges_infos:
             self.update_graph_edge_weight(edge)
+        self.frontier = set(self.get_frontier_nodes())
     
     def hasNode(self,config):
         if config in self.configs:

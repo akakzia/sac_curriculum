@@ -18,6 +18,25 @@ def start_test(name):
     print('_'*20 + '_'*(len(name)+2))
 
 
+def number_of_one_object_change_edges(semantic_graph: SemanticGraph):
+    sem_op = SemanticOperation(semantic_graph.nb_blocks,True)
+    n_object_move_edges = 0
+    all_edges = list(semantic_graph.nk_graph.iterEdges())
+    for (n1,n2) in all_edges:
+        c1,c2 = semantic_graph.getConfig(n1),semantic_graph.getConfig(n2)
+        n_object_move_edges+= sem_op.one_object_edge((c1,c2))
+    print(f'number of one objects moves :{n_object_move_edges}/{len(all_edges)}',)
+
+def check_one_object_edge(block_size):
+    sem_op = SemanticOperation(block_size,True)
+    semantic_graph = SemanticGraph.load_oracle(block_size)
+    number_of_one_object_change_edges(semantic_graph)
+    end = sem_op.close_and_above(sem_op.empty(),0,1,True)
+    end = sem_op.close_and_above(end,2,3,True)
+    print(sem_op.one_object_edge((sem_op.empty(),end)))
+    print('')
+
+
 def check_semantic_hash(block_size):
     unordered_sem_graph = SemanticGraph.load(SemanticGraph.ORACLE_PATH,
                                             f"{SemanticGraph.ORACLE_NAME}{block_size}_unordered"
@@ -33,8 +52,6 @@ def check_semantic_hash(block_size):
     assert len(all_hash) == len(unordered_sem_graph.configs),f'error in : {len(all_hash)}!={len(unordered_sem_graph.configs)}'
 
     print('semantic hash diversity ok for ',block_size)
-
-
  
 def graph_overview(nb_block):
     start_test(f'overview for {nb_block}')
@@ -139,8 +156,9 @@ def check_goal(semantic_graph,semantic_operator,goal,true_length,node_name,verbo
 
 
 if __name__ == '__main__':
-    block_sizes = [3,5]
+    block_sizes = [5]
     for block_size in block_sizes:
+        check_one_object_edge(block_size)
         check_semantic_hash(block_size)
         graph_overview(block_size)
         check_stack_number(block_size)        

@@ -1,4 +1,5 @@
 import random
+import numpy as np
 from graph.semantic_graph import SemanticGraph
 from mpi4py import MPI
 from graph.teacher import Teacher
@@ -13,7 +14,6 @@ class AgentNetwork():
         self.rank = MPI.COMM_WORLD.Get_rank()
         self.exp_path = exp_path
         
-
     def update(self,episodes):
         all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
         if self.rank == 0:
@@ -30,7 +30,7 @@ class AgentNetwork():
                 self.semantic_graph.create_node(achieved_goal)
                 self.semantic_graph.create_node(goal)
                 self.update_or_create_edge(start_config,goal,success)
-
+                
                 # hindsight edge creation : 
                 if (self.args.hindsight_edge and achieved_goal != goal
                 and start_config != achieved_goal
@@ -83,11 +83,31 @@ class AgentNetwork():
         else : 
             return None
 
+    def sample_neighbour_based_on_SR_to_goal(self,source,dijkstra,goal, excluding = []):
+
+        neighbors = [ n for n  in self.semantic_graph.iterNeighbors(source) if n not in excluding]
+
+        if len(neighbors)>0:
+            neighbors_to_goal_sr = self.semantic_graph.get_neighbors_to_goal_sr(source,neighbors,dijkstra)
+            # only keep k_ largest probs : 
+            if len(neighbors_to_goal_sr) > self.args.edge_exploration_k:
+                inds = np.argpartition(neighbors_to_goal_sr, -self.args.edge_exploration_k)[-self.args.edge_exploration_k:]
+                neighbors = np.array(neighbors)[inds]
+                neighbors_to_goal_sr = neighbors_to_goal_sr[inds]
+            else : 
+                inds = np.arange(len(neighbors_to_goal_sr))
+
+            probs = neighbors_to_goal_sr/np.sum(neighbors_to_goal_sr)
+
+            neighbour_id = np.random.choice(range(len(neighbors)),p = probs)
+            return tuple(neighbors[neighbour_id])
+        else : 
+            return None
+
     def log(self,logger):
         self.semantic_graph.log(logger)
         # TODO : , à change selon qu'on soit unordered ou pas. 
         logger.record_tabular('frontier_len',len(self.teacher.agent_frontier))
-
 
     def save(self,model_path, epoch):
         self.semantic_graph.save(model_path+'/',f'{epoch}')

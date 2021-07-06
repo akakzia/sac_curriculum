@@ -21,7 +21,7 @@ class Teacher():
         if not self.oracle_graph.hasNode(config):
             return False
 
-        if self.agent_graph.getNodeId(config) in agent_graph.frontier:
+        if agent_graph.getNodeId(config) in agent_graph.frontier:
             return True
     
         neighbours = self.oracle_graph.iterNeighbors(config)

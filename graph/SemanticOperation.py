@@ -1,8 +1,11 @@
 
 from collections import defaultdict
+from functools import reduce
 from bidict import bidict
 import networkx as nx
 from itertools import combinations,permutations
+
+import numpy as np
 from utils import get_graph_structure
 
 class SemanticOperation():
@@ -76,10 +79,20 @@ class SemanticOperation():
                 if pred_name == 'close':
                     multi_di_graph.add_edge(obj_b,obj_a,label=pred_name)
         return multi_di_graph
+
     def to_nx_graph_hash(self,config):
         nx_graph = self.to_nx_graph(config)
         return nx.weisfeiler_lehman_graph_hash(nx_graph)
 
+    def one_object_edge(self,edge):
+        c1,c2 = edge
+        c1,c2 = np.array(c1),np.array(c2)
+        config_delta_ids = np.arange(len(c1))[c1!=c2] 
+        if len(config_delta_ids)>0:
+            config_delta_objects = map(lambda id : set(self.pred_id_to_edge[id]),config_delta_ids)
+            unique_objects = reduce(set.intersection,config_delta_objects)
+            return len(unique_objects)>0
+        return False
 
 
 def all_stack_trajectories(stack_size,GANGSTR= True):
