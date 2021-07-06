@@ -23,6 +23,9 @@ class UnorderedSemanticGraph(SemanticGraph):
     def create_edge_stats(self,edge,start_sr):
         c1,c2 = edge
 
+        if self.args.one_object_edge and not self.semantic_operation.one_object_edge(edge):
+            return
+
         if not self.hasEdge(c1,c2):
             unordered_id = len(self.unordered_edge_to_ordered_edge)
             self.edges_infos[unordered_id] = {'SR':start_sr,'Count':1}
@@ -49,6 +52,9 @@ class UnorderedSemanticGraph(SemanticGraph):
         return unordered_edge_id
 
     def update_graph_edge_weight(self,edge):
+
+        if self.args.one_object_edge and not self.semantic_operation.one_object_edge(edge):
+            return
 
         new_mean_sr = self.edges_infos[edge]['SR']
         clamped_sr = max(np.finfo(float).eps, min(new_mean_sr, 1-np.finfo(float).eps))
