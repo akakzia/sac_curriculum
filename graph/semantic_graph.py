@@ -129,8 +129,8 @@ class SemanticGraph:
         Return a  Dijstra object of shortest path from goal to all other nodes on the tranposed graph.
         '''
         if goal in self.configs:
-            graph_tranpose = nk.graphtools.transpose(self.nk_graph)
-            dijkstra_from_goal = nk.distance.Dijkstra(graph_tranpose,self.configs[goal], True, True)
+            self.graph_tranpose = nk.graphtools.transpose(self.nk_graph)
+            dijkstra_from_goal = nk.distance.Dijkstra(self.graph_tranpose,self.configs[goal], True, True)
             dijkstra_from_goal.run()
             return dijkstra_from_goal
         else : 
