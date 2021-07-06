@@ -69,15 +69,15 @@ def get_args():
     parser.add_argument('--edge_lr', type=float, default=0.01, help='SR learning rate')
     parser.add_argument('--hindsight_edge', type=bool, default=False, help='use hindsight edges')
     parser.add_argument('--edge_prior', type=float, default=0.5, help='default value for edges')
-    parser.add_argument('--unordered_edge', type=bool, default=False, help='if the agent learns unordered_edge SR')
+    parser.add_argument('--unordered_edge', type=bool, default=True, help='if the agent learns unordered_edge SR')
     # parser.add_argument('--epsilon_edge_exploration', type=float, default=0, help='at step of a path to the frontier, the agent has an epsilon chance to take a random edge')
     
     # TODO : Add sampling for agent paths.  
     #parser.add_argument('--sample_path', type=bool, default=False, help='if the agent takes the best path or sample it')
-    parser.add_argument('--edge_exploration', type=bool, default=True, help='if true the agent explore edges nearby computed-path during rollouts')
+    parser.add_argument('--edge_exploration', type=bool, default=False, help='if true the agent explore edges nearby computed-path during rollouts')
     parser.add_argument('--edge_exploration_k', type=int, default=6, help='number of neighbors sammpled in exploration')
 
-    parser.add_argument('--one_object_edge', type=bool, default=True, help='If true, limit possible edges')
+    parser.add_argument('--one_object_edge', type=bool, default=False, help='If true, limit possible edges')
     
     parser.add_argument('--episode_duration', type=int, default=40, help='number of timestep for each episodes')
     parser.add_argument('--play_goal_strategy', type=str, default='frontier', help='uniform or frontier')
