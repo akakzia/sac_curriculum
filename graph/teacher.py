@@ -14,13 +14,14 @@ class Teacher():
     def is_in_frontier(self,config,agent_graph:SemanticGraph):
         '''
         Compute the ensemble of nodes wich a part of the frontier : 
-            --> nodes that have no childs
+            --> nodes that exist in the oracle graph
+            --> nodes that are not intermediate node in the path [coplanar -> any node] of the agent graph
             --> nodes that have unknown explorable childs 
         '''
         if not self.oracle_graph.hasNode(config):
             return False
 
-        if self.oracle_graph.getNodeId(config) in self.oracle_graph.frontier:
+        if self.agent_graph.getNodeId(config) in agent_graph.frontier:
             return True
     
         neighbours = self.oracle_graph.iterNeighbors(config)
