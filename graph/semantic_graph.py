@@ -70,12 +70,23 @@ class SemanticGraph:
             config_path = []
         return config_path,distance
 
-    def get_neighbors_to_goal_sr(self,source,neighbors,dijkstra):
-        edge_to_neighbors_sr = np.exp(-np.array([self.getWeight(source,neighbour)
+    def get_neighbors_to_goal_sr(self,source,neighbors,goal,reversed_dijkstra):
+        source_to_neighbors_sr = np.exp(-np.array([self.getWeight(source,neighbour)
                                         for neighbour in neighbors]))
-        neighbors_to_goal_sr = np.exp(-np.array([dijkstra.distance(self.getNodeId(neighbour))
-                                        for neighbour in neighbors]))
-        return edge_to_neighbors_sr*neighbors_to_goal_sr
+        neighbors_to_goal_sr = np.array([self.get_path_sr(goal,neighbour,reversed_dijkstra)
+                                        for neighbour in neighbors])
+        return source_to_neighbors_sr,neighbors_to_goal_sr
+
+    def get_path_sr(self,source,target,dijkstra):
+        if source == target : 
+            return 1
+        else : 
+            target_id = self.getNodeId(target)
+            if dijkstra.getPath(target_id) != []:
+                dist = dijkstra.distance(target_id)
+                return np.exp(-dist)
+            else : 
+                return 0
 
     def sample_path(self,c1,c2,k):
         raise NotImplementedError()
@@ -118,9 +129,9 @@ class SemanticGraph:
         Return a  Dijstra object of shortest path from goal to all other nodes on the tranposed graph.
         '''
         graph_tranpose = nk.graphtools.transpose(self.nk_graph)
-        dijkstra_from_coplanar = nk.distance.Dijkstra(graph_tranpose,self.configs[goal], True, False)
-        dijkstra_from_coplanar.run()
-        return dijkstra_from_coplanar
+        dijkstra_from_goal = nk.distance.Dijkstra(graph_tranpose,self.configs[goal], True, False)
+        dijkstra_from_goal.run()
+        return dijkstra_from_goal
 
     def create_node(self,config):
         if config not in self.configs:

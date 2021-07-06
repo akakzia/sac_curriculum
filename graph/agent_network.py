@@ -83,24 +83,32 @@ class AgentNetwork():
         else : 
             return None
 
-    def sample_neighbour_based_on_SR_to_goal(self,source,dijkstra,goal, excluding = []):
+    def sample_neighbour_based_on_SR_to_goal(self,source,reversed_dijkstra,goal, excluding = []):
 
         neighbors = [ n for n  in self.semantic_graph.iterNeighbors(source) if n not in excluding]
 
         if len(neighbors)>0:
-            neighbors_to_goal_sr = self.semantic_graph.get_neighbors_to_goal_sr(source,neighbors,dijkstra)
+            source_sr = self.semantic_graph.get_path_sr(goal,source,reversed_dijkstra)
+            source_to_neighbors_sr,neighbors_to_goal_sr = self.semantic_graph.get_neighbors_to_goal_sr(source,neighbors,goal,reversed_dijkstra)
+            source_to_neighbour_to_goal_sr = source_to_neighbors_sr*neighbors_to_goal_sr
+            
+            # remove neighbors with SR lower than current node : 
+            inds = neighbors_to_goal_sr>source_sr
+            neighbors = np.array(neighbors)[inds]
+            source_to_neighbour_to_goal_sr = source_to_neighbour_to_goal_sr[inds]
+            
             # only keep k_ largest probs : 
-            if len(neighbors_to_goal_sr) > self.args.edge_exploration_k:
-                inds = np.argpartition(neighbors_to_goal_sr, -self.args.edge_exploration_k)[-self.args.edge_exploration_k:]
+            if len(source_to_neighbour_to_goal_sr) > self.args.edge_exploration_k:
+                inds = np.argpartition(source_to_neighbour_to_goal_sr, -self.args.edge_exploration_k)[-self.args.edge_exploration_k:]
                 neighbors = np.array(neighbors)[inds]
-                neighbors_to_goal_sr = neighbors_to_goal_sr[inds]
+                source_to_neighbour_to_goal_sr = source_to_neighbour_to_goal_sr[inds]
+            sr_sum = np.sum(source_to_neighbour_to_goal_sr)
+            if sr_sum == 0 :
+                return None
             else : 
-                inds = np.arange(len(neighbors_to_goal_sr))
-
-            probs = neighbors_to_goal_sr/np.sum(neighbors_to_goal_sr)
-
-            neighbour_id = np.random.choice(range(len(neighbors)),p = probs)
-            return tuple(neighbors[neighbour_id])
+                probs = source_to_neighbour_to_goal_sr/sr_sum
+                neighbour_id = np.random.choice(range(len(neighbors)),p = probs)
+                return tuple(neighbors[neighbour_id])
         else : 
             return None
 

@@ -75,7 +75,7 @@ def get_args():
     # TODO : Add sampling for agent paths.  
     #parser.add_argument('--sample_path', type=bool, default=False, help='if the agent takes the best path or sample it')
     parser.add_argument('--edge_exploration', type=bool, default=False, help='if true the agent explore edges nearby computed-path during rollouts')
-    parser.add_argument('--edge_exploration_k', type=int, default=6, help='number of neighbors sammpled in exploration')
+    parser.add_argument('--edge_exploration_k', type=int, default=5, help='number of neighbors sammpled in exploration')
 
     parser.add_argument('--one_object_edge', type=bool, default=False, help='If true, limit possible edges')
     
