@@ -105,7 +105,7 @@ class RolloutWorker:
 
         if self.dijkstra_to_goal == None:
             self.current_goal_id = 1
-            self.dijkstra_to_goal = agent_network.semantic_graph.get_dijkstra_to_goal(goal)
+        self.dijkstra_to_goal = agent_network.semantic_graph.get_dijkstra_to_goal(goal)
             
         while self.current_config != goal:
             goal_dist = self.current_goal_id

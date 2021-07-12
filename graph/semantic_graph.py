@@ -26,6 +26,7 @@ class SemanticGraph:
         self.semantic_operation = SemanticOperation(nb_blocks,True)
 
         self.frontier = set(self.get_frontier_nodes())
+        self.graph_transpose = None
     
     def save(self,path,name):
         writer = nk.Format.NetworkitBinary
@@ -42,6 +43,8 @@ class SemanticGraph:
         with open(f'{path}semantic_network_{name}.pk', 'rb') as f:
             semantic_graph = pickle.load(f)
         semantic_graph.nk_graph = nk_graph
+        if semantic_graph.nk_graph.isDirected():
+            semantic_graph.graph_transpose = nk.graphtools.transpose(semantic_graph.nk_graph)
         return semantic_graph
 
     def __getstate__(self):
@@ -82,6 +85,10 @@ class SemanticGraph:
             return 1
         else : 
             target_id = self.getNodeId(target)
+            if target_id == None: 
+                raise Exception('unknown node')
+            if not self.graph_transpose.hasNode(target_id):
+                raise Exception('Missing node on NK graph')
             if dijkstra.getPath(target_id) != []:
                 dist = dijkstra.distance(target_id)
                 return np.exp(-dist)
@@ -129,8 +136,13 @@ class SemanticGraph:
         Return a  Dijstra object of shortest path from goal to all other nodes on the tranposed graph.
         '''
         if goal in self.configs:
-            self.graph_tranpose = nk.graphtools.transpose(self.nk_graph)
-            dijkstra_from_goal = nk.distance.Dijkstra(self.graph_tranpose,self.configs[goal], True, True)
+            if self.graph_transpose == None : 
+                self.graph_transpose = nk.graphtools.transpose(self.nk_graph)
+            if not self.nk_graph.hasNode(self.configs[goal]):
+                raise Exception('missing node on graph')
+            if not self.graph_transpose.hasNode(self.configs[goal]):
+                raise Exception('missing node on tranpose graph')
+            dijkstra_from_goal = nk.distance.Dijkstra(self.graph_transpose,self.configs[goal], True, False)
             dijkstra_from_goal.run()
             return dijkstra_from_goal
         else : 
@@ -197,6 +209,7 @@ class SemanticGraph:
         for edge in self.edges_infos:
             self.update_graph_edge_weight(edge)
         self.frontier = set(self.get_frontier_nodes())
+        self.graph_transpose = nk.graphtools.transpose(self.nk_graph)
     
     def hasNode(self,config):
         if config in self.configs:
@@ -213,6 +226,8 @@ class SemanticGraph:
         '''iter over neighbors of a node, take in a semantic config
             return a generator over semantic configs.'''
         if config in self.configs:
+            if not self.nk_graph.hasNode(self.configs[config]):
+                raise Exception('Missing node on graph')
             return (self.configs.inverse[node_id] for node_id in self.nk_graph.iterNeighbors(self.configs[config]))
         else : 
             return []
@@ -225,7 +240,12 @@ class SemanticGraph:
 
     def getWeight(self,c1,c2):
         if self.getNodeId(c1) == None or self.getNodeId(c2) == None:
-            raise Exception("Unknown edge")
+            raise Exception("Unknown config")
+        if not self.nk_graph.hasNode(self.getNodeId(c1)) or not  self.nk_graph.hasNode(self.getNodeId(c2)):
+            raise Exception('Unknown node')
+        if not self.nk_graph.hasEdge(self.getNodeId(c1),self.getNodeId(c2)):
+            raise Exception('Unknown edge')
+
         return self.nk_graph.weight(self.getNodeId(c1),self.getNodeId(c2))
     
     def empty(self):
