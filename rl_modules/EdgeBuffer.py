@@ -24,7 +24,7 @@ class EdgeBuffer:
                        'actions': np.empty([self.size, self.T, self.env_params['action']]),
                        }
         self.edges_to_infos = defaultdict(lambda : {'edge_dist':None,'episode_ids':[]}) # edges : {dist:2, episode_ids:[ 0,12]}
-
+        self.all_edges = []
         # thread lock
         self.lock = threading.Lock()
 
@@ -54,9 +54,10 @@ class EdgeBuffer:
                 if 'language_goal' in e.keys():
                     # self.buffer['language_goal'][idxs[i]] = e['language_goal']
                     self.buffer['lg_ids'][idxs[i]] = e['lg_ids']
+            self.all_edges = list(self.edges_to_infos)   # use separate buffer for edge sampling
 
     def sample_edge(self,batch_size):
-        return random.choices(sorted(self.edges_to_infos),k=batch_size)
+        return random.choices(self.all_edges,k=batch_size)
 
     def distance_biased_sample_edge(self,batch_size):
         edges,edges_infos = zip(*self.edges_to_infos.items())
@@ -82,7 +83,6 @@ class EdgeBuffer:
                     ep_ids[i] = np.random.choice(self.edges_to_infos[edge]['episode_ids'])
                 for key in self.buffer.keys():
                     temp_buffers[key] = self.buffer[key][ep_ids]
-                
 
         temp_buffers['obs_next'] = temp_buffers['obs'][:, 1:, :]
         temp_buffers['ag_next'] = temp_buffers['ag'][:, 1:, :]
@@ -96,7 +96,6 @@ class EdgeBuffer:
         
     def get_nb_edges(self):
         return len(self.edges_to_infos)
-
 
     def _get_storage_idx(self, inc=None):
         inc = inc or 1
