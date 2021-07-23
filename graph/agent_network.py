@@ -51,9 +51,9 @@ class AgentNetwork():
     
     def get_path(self,start,goal):
         if self.args.expert_graph_start: 
-            return self.teacher.oracle_graph.get_path(start,goal)
+            return self.teacher.oracle_graph.sample_shortest_path(start,goal)
         else : 
-            return self.semantic_graph.get_path(start,goal)
+            return self.semantic_graph.sample_shortest_path(start,goal)
 
     def get_path_from_coplanar(self,target):
         if self.args.expert_graph_start : 
@@ -88,18 +88,32 @@ class AgentNetwork():
         neighbors = [ n for n  in self.semantic_graph.iterNeighbors(source) if n not in excluding]
 
         if len(neighbors)>0:
-            source_sr = self.semantic_graph.get_path_sr(goal,source,reversed_dijkstra)
-            source_to_neighbors_sr,neighbors_to_goal_sr = self.semantic_graph.get_neighbors_to_goal_sr(source,neighbors,goal,reversed_dijkstra)
+            source_sr,_ = self.semantic_graph.get_path_score(goal,source,reversed_dijkstra)
+            source_to_neighbors_sr,neighbors_to_goal_sr,_ = self.semantic_graph.get_neighbors_to_goal_sr(source,neighbors,goal,reversed_dijkstra)
             source_to_neighbour_to_goal_sr = source_to_neighbors_sr*neighbors_to_goal_sr
             
             # remove neighbors with SR lower than current node : 
             inds = neighbors_to_goal_sr>source_sr
             neighbors = np.array(neighbors)[inds]
             source_to_neighbour_to_goal_sr = source_to_neighbour_to_goal_sr[inds]
+
+            # filter neighbors :  
+            # Among multiple neighbors belonging to the same unordered edge, only keep one by sampling among highest SR neighbor_to_goal
+            edges = [self.semantic_graph.edge_config_to_edge_id((source,tuple(neigh)))for neigh in neighbors]
+            edges,inv_ids =  np.unique(np.array(edges),return_inverse = True)
+            filtered_ids = np.empty_like(edges)
+            for i,e in enumerate(edges):
+                e_neigh_ids = np.where(inv_ids == i)[0]
+                e_sr = neighbors_to_goal_sr[e_neigh_ids] 
+                highest_neighbors_ids = e_neigh_ids[np.argwhere(e_sr == np.amax(e_sr)).flatten()]
+                choosen_neighbor_id = np.random.choice(highest_neighbors_ids)
+                filtered_ids[i] = choosen_neighbor_id
+            neighbors = neighbors[filtered_ids]
+            source_to_neighbour_to_goal_sr = source_to_neighbour_to_goal_sr[filtered_ids]
             
             # only keep k_ largest probs : 
-            if len(source_to_neighbour_to_goal_sr) > self.args.edge_exploration_k:
-                inds = np.argpartition(source_to_neighbour_to_goal_sr, -self.args.edge_exploration_k)[-self.args.edge_exploration_k:]
+            if len(source_to_neighbour_to_goal_sr) > self.args.rollout_exploration_k:
+                inds = np.argpartition(source_to_neighbour_to_goal_sr, -self.args.rollout_exploration_k)[-self.args.rollout_exploration_k:]
                 neighbors = np.array(neighbors)[inds]
                 source_to_neighbour_to_goal_sr = source_to_neighbour_to_goal_sr[inds]
             sr_sum = np.sum(source_to_neighbour_to_goal_sr)

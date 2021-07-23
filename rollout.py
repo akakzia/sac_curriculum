@@ -1,3 +1,4 @@
+import random
 from graph.agent_network import AgentNetwork
 import numpy as np
 from graph.SemanticOperation import SemanticOperation, config_to_name,config_to_unique_str
@@ -49,12 +50,13 @@ class RolloutWorker:
                     if self.long_term_goal == None or self.long_term_goal == self.current_config: 
                         self.state = 'Explore'
                         continue
-                if self.args.edge_exploration:
-                    episodes,_ = self.explore_toward_goal(self.long_term_goal, agentNetwork, episode_duration, 
-                                        episode_budget=max_episodes-len(all_episodes),animated=animated)
-                else :
+                if self.args.rollout_exploration =='sr_and_distance':
                     episodes,_ = self.guided_rollout(self.long_term_goal,False, agentNetwork, episode_duration, 
                                             episode_budget=max_episodes-len(all_episodes),animated=animated)
+                elif self.args.rollout_exploration=='sample_sr' :
+                    episodes,_ = self.explore_toward_goal(self.long_term_goal, agentNetwork, episode_duration, 
+                                        episode_budget=max_episodes-len(all_episodes),animated=animated)
+                else : raise Exception('unknown exploration method')
                 all_episodes += episodes
 
                 success = episodes[-1]['success'][-1]
@@ -105,7 +107,7 @@ class RolloutWorker:
 
         if self.dijkstra_to_goal == None:
             self.current_goal_id = 1
-        self.dijkstra_to_goal = agent_network.semantic_graph.get_dijkstra_to_goal(goal)
+        self.dijkstra_to_goal = agent_network.semantic_graph.get_sssp_to_goal(goal)
             
         while self.current_config != goal:
             goal_dist = self.current_goal_id
@@ -148,7 +150,14 @@ class RolloutWorker:
 
         if self.current_goal_id == None:
             self.current_goal_id = 1
-            self.config_path,_ = agent_network.get_path(self.current_config,goal)
+            if evaluation or np.random.rand()< self.args.rollout_distance_ratio:
+                self.config_path,_ = agent_network.get_path(self.current_config,goal)
+            else : 
+                k_best_paths,_ = agent_network.semantic_graph.k_shortest_path(self.current_config,goal,
+                                                                                        self.args.rollout_exploration_k,
+                                                                                        use_weights = False,
+                                                                                        unordered_bias = True)
+                self.config_path = random.choices(k_best_paths,k=1)[0]
             if len(self.config_path)==0:
                 self.config_path = [self.current_config,goal]
 

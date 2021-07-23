@@ -7,6 +7,7 @@ import pickle
 from bidict import bidict
 import networkit as nk
 from graph.SemanticOperation import SemanticOperation,config_permutations, config_to_unique_str
+import random
 
 class SemanticGraph:
 
@@ -27,7 +28,11 @@ class SemanticGraph:
 
         self.frontier = set(self.get_frontier_nodes())
         self.graph_transpose = None
-    
+
+##########################################
+    # I/O operations : 
+##########################################
+
     def save(self,path,name):
         writer = nk.Format.NetworkitBinary
         graph_filename = f"{path}graph_{name}.nk"
@@ -54,9 +59,9 @@ class SemanticGraph:
         return SemanticGraph.load(SemanticGraph.ORACLE_PATH,
                                 f'{SemanticGraph.ORACLE_NAME}{nb_blocks}')
 
-
-    def get_path_from_coplanar(self,goal):
-        return self.get_path(self.semantic_operation.empty(),goal)
+##########################################
+    # Shortest path operations   : 
+##########################################
 
     def get_path(self,c1,c2):
         c1,c2 = tuple(c1),tuple(c2)
@@ -73,31 +78,96 @@ class SemanticGraph:
             config_path = []
         return config_path,distance
 
-    def get_neighbors_to_goal_sr(self,source,neighbors,goal,reversed_dijkstra):
-        source_to_neighbors_sr = np.exp(-np.array([self.getWeight(source,neighbour)
-                                        for neighbour in neighbors]))
-        neighbors_to_goal_sr = np.array([self.get_path_sr(goal,neighbour,reversed_dijkstra)
-                                        for neighbour in neighbors])
-        return source_to_neighbors_sr,neighbors_to_goal_sr
+    def sample_shortest_path(self,source,target,algorithm='dijkstra'):
+        ''' sample path among all optimal shortest-path '''
+        if algorithm == 'dijkstra':
+            algo_class = nk.distance.Dijkstra
+        elif algorithm == 'bfs' : 
+            algo_class = nk.distance.BFS
+        else : 
+            raise Exception("unknown shortest path algorithm : ",algorithm)
 
-    def get_path_sr(self,source,target,dijkstra):
+        source,target = tuple(source),tuple(target)
+        distance = None
+        try :
+            n1 = self.configs[source]
+            n2 = self.configs[target]
+            sssp = algo_class(self.nk_graph, n1, True, False, n2)
+            sssp.run()
+            paths = sssp.getPaths(n2)
+            if paths : 
+                choosen_path = random.choice(paths)
+                config_path =  [self.configs.inverse[node] for node in  choosen_path]
+                if algorithm == 'bfs':
+                    distance = sssp.distance(n2)
+                else : 
+                    distance = np.exp(-sssp.distance(n2))
+            else : 
+                config_path = []
+        except KeyError:
+            config_path = []
+        return config_path,distance
+
+    def get_sssp_to_goal(self,goal,use_weight=True):
+        '''
+        Return a sssp (Single Source Shortest Path) object of shortest path from goal to all other nodes on the tranposed graph.
+        '''
+        if goal in self.configs:
+            if self.graph_transpose == None : 
+                self.graph_transpose = nk.graphtools.transpose(self.nk_graph)
+            if not self.nk_graph.hasNode(self.configs[goal]):
+                raise Exception('missing node on graph')
+            if not self.graph_transpose.hasNode(self.configs[goal]):
+                raise Exception('missing node on tranpose graph')
+            if use_weight :
+                sssp_from_goal = nk.distance.Dijkstra(self.graph_transpose,self.configs[goal], True, False)
+            else : 
+                sssp_from_goal = nk.distance.BFS(self.graph_transpose,self.configs[goal], True, False)
+            sssp_from_goal.run()
+            return sssp_from_goal
+        else : 
+            return None
+
+##########################################
+    # SR path estimation  : 
+##########################################
+
+    def get_path_from_coplanar(self,goal):
+        return self.sample_shortest_path(self.semantic_operation.empty(),goal)
+
+    def get_neighbors_to_goal_sr(self,source,neighbors,goal,reversed_sssp):
+        if isinstance(reversed_sssp,nk.distance.BFS):
+            source_to_neighbors_sr = np.ones(len(neighbors))
+        else:
+            source_to_neighbors_sr = np.exp(-np.array([self.getWeight(source,neighbour)
+                                            for neighbour in neighbors]))
+        neighbors_to_goal_sr,neighbors_to_goal_dist = zip(*[self.get_path_score(goal,neighbour,reversed_sssp)
+                                        for neighbour in neighbors])
+        neighbors_to_goal_sr = np.array(neighbors_to_goal_sr)
+        return source_to_neighbors_sr,neighbors_to_goal_sr,neighbors_to_goal_dist
+
+    def get_path_score(self,source,target,sssp):
         if source == target : 
-            return 1
+            return (0,0) if isinstance(sssp,nk.distance.BFS) else (1,0)
         else : 
             target_id = self.getNodeId(target)
             if target_id == None: 
                 raise Exception('unknown node')
             if not self.graph_transpose.hasNode(target_id):
                 raise Exception('Missing node on NK graph')
-            if dijkstra.getPath(target_id) != []:
-                dist = dijkstra.distance(target_id)
-                return np.exp(-dist)
+            path = sssp.getPath(target_id)
+            if path != []:
+                dist = sssp.distance(target_id)
+                if isinstance(sssp,nk.distance.BFS):
+                    return dist,len(path)
+                else: 
+                    return np.exp(-dist),len(path)
             else : 
-                return 0
+                return (float('inf'),float('inf')) if isinstance(sssp,nk.distance.BFS) else (0,float('inf'))
+    
+    def get_distance():
+        pass
 
-    def sample_path(self,c1,c2,k):
-        raise NotImplementedError()
-            
     def get_isolated_nodes(self):
         isolated = []
         for c in self.nk_graph.iterNodes():
@@ -131,22 +201,9 @@ class SemanticGraph:
                 isolated.append(node)
         return isolated
 
-    def get_dijkstra_to_goal(self,goal):
-        '''
-        Return a  Dijstra object of shortest path from goal to all other nodes on the tranposed graph.
-        '''
-        if goal in self.configs:
-            if self.graph_transpose == None : 
-                self.graph_transpose = nk.graphtools.transpose(self.nk_graph)
-            if not self.nk_graph.hasNode(self.configs[goal]):
-                raise Exception('missing node on graph')
-            if not self.graph_transpose.hasNode(self.configs[goal]):
-                raise Exception('missing node on tranpose graph')
-            dijkstra_from_goal = nk.distance.Dijkstra(self.graph_transpose,self.configs[goal], True, False)
-            dijkstra_from_goal.run()
-            return dijkstra_from_goal
-        else : 
-            return None
+##########################################
+    # Graph construction  : 
+#########################################
 
     def create_node(self,config):
         if config not in self.configs:
@@ -169,7 +226,6 @@ class SemanticGraph:
             self.nk_graph.setWeight(n1,n2,-math.log(clamped_sr))
         else : 
             raise Exception(f'Already existing edge {n1}->{n2}')
-
 
     def update_edge_stats(self,edge_configs,success):
         
@@ -258,7 +314,7 @@ class SemanticGraph:
 def augment_with_all_permutation(nk_graph,configs,nb_blocks,GANGSTR=True):
     '''
     Takes a nk_graph as entry, configs wich translate configuration into node id. 
-    configs is supposeed to only contains unique ordered configuration
+    configs is supposed to only contains unique ordered configuration
     Return a new nk_graph and a new config dict with all ordered configurations.
     '''
     new_configs = copy.deepcopy(configs)
