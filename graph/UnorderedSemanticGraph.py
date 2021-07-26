@@ -74,6 +74,7 @@ class UnorderedSemanticGraph(SemanticGraph):
             return []
         
         reversed_sssp = self.get_sssp_to_goal(target,use_weight=use_weights) # sssp Single Source Shortest Path 
+        target_node = self.configs[target]
         source_node = self.getNodeId(source)
 
         if use_weights:
@@ -85,7 +86,7 @@ class UnorderedSemanticGraph(SemanticGraph):
         k_best_path_nodes = np.array([[source_node]])
         k_best_path_finished = [False]
         
-        for _ in range(1,cutoff) : 
+        for i in range(0,cutoff) : 
             next_paths_score_to_cur_node = []
             next_paths_score_to_goal = []
             next_paths_nodes = []
@@ -95,20 +96,34 @@ class UnorderedSemanticGraph(SemanticGraph):
             for cur_score,path,finished in zip(k_cur_path_scores,k_best_path_nodes,k_best_path_finished):    
                 # get neighbors Scores :
                 if not finished:
-                    cur_node = path[-1]
-                    cur_config = self.configs.inverse[cur_node]
-                    neighbors = list(self.iterNeighbors(cur_config))
-                    cur_to_neighbors,neighbors_to_goal,dists = self.get_neighbors_to_goal_sr(cur_config,
-                                                                                    neighbors,target,reversed_sssp)
-                    neighbors_isgoal = [n == target for n in neighbors]
-                    for cur_to_neigh,neight_to_goal,dist,config,isgoal in zip(cur_to_neighbors,neighbors_to_goal,dists,neighbors,neighbors_isgoal):
+                    cur_node = path[i]
+                    neighbors = list(self.nk_graph.iterNeighbors(cur_node))
+                    for neigh in neighbors : 
+                        if neigh in path [:i+1]:
+                            continue
+                        neigh_isgoal = (neigh == target_node)
+                        path_to_goal,neigh_to_goal_sr,neigh_to_goal_dist = self.sample_shortest_path_with_sssp_from_nodes(neigh,target_node,reversed_sssp,return_configs=False,reversed=True)
+                        if path_to_goal == None: 
+                            continue
+                        if use_weights : 
+                            cur_to_neigh = np.exp(-self.getWeight_withNode(cur_node,neigh))
+                            neigh_to_goal = neigh_to_goal_sr
+                        else : 
+                            cur_to_neigh = 1
+                            neigh_to_goal = neigh_to_goal_dist
+                        
                         score_to_neigh = score_combination(cur_score,cur_to_neigh)
-                        score_to_goal = score_combination(score_to_neigh,neight_to_goal)
-                        if (len(path)+dist< cutoff ) and (not use_weights or score_to_goal > 0):
+                        score_to_goal = score_combination(score_to_neigh,neigh_to_goal)
+                        if neigh_isgoal: 
+                            full_path = np.concatenate((path[:i+1],np.array([neigh])))
+                        else : 
+                            full_path = np.concatenate((path[:i+1],np.array(path_to_goal)))
+                        
+                        if (len(full_path) < cutoff ) and (not use_weights or score_to_goal > 0):
                             next_paths_score_to_cur_node.append(score_to_neigh)
                             next_paths_score_to_goal.append(score_to_goal)
-                            next_paths_nodes.append(np.concatenate((path,np.array([self.configs[config]]))))
-                            next_path_finished.append(isgoal)
+                            next_paths_nodes.append(full_path)
+                            next_path_finished.append(neigh_isgoal)
                 else : 
                     next_paths_score_to_cur_node.append(cur_score)
                     next_paths_nodes.append(path)

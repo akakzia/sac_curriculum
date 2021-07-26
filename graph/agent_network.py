@@ -88,7 +88,8 @@ class AgentNetwork():
         neighbors = [ n for n  in self.semantic_graph.iterNeighbors(source) if n not in excluding]
 
         if len(neighbors)>0:
-            source_sr,_ = self.semantic_graph.get_path_score(goal,source,reversed_dijkstra)
+            _,source_sr,_ = self.semantic_graph.sample_shortest_path_with_sssp(source,goal,reversed_dijkstra,reversed=True)
+
             source_to_neighbors_sr,neighbors_to_goal_sr,_ = self.semantic_graph.get_neighbors_to_goal_sr(source,neighbors,goal,reversed_dijkstra)
             source_to_neighbour_to_goal_sr = source_to_neighbors_sr*neighbors_to_goal_sr
             

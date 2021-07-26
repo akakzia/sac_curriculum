@@ -63,50 +63,52 @@ class SemanticGraph:
     # Shortest path operations   : 
 ##########################################
 
-    def get_path(self,c1,c2):
-        c1,c2 = tuple(c1),tuple(c2)
-        distance = None
-        try :
-            n1 = self.configs[c1]
-            n2 = self.configs[c2]
-            dijkstra = nk.distance.Dijkstra(self.nk_graph, n1, True, False, n2)
-            dijkstra.run()
-            config_path =  [self.configs.inverse[node] for node in  dijkstra.getPath(n2)]
-            if config_path:
-                distance = np.exp(-dijkstra.distance(n2))
-        except KeyError:
-            config_path = []
-        return config_path,distance
-
     def sample_shortest_path(self,source,target,algorithm='dijkstra'):
-        ''' sample path among all optimal shortest-path '''
+        ''' sample path among all optimal shortest-path 
+            returns path,path_sr,path_length'''
         if algorithm == 'dijkstra':
             algo_class = nk.distance.Dijkstra
         elif algorithm == 'bfs' : 
             algo_class = nk.distance.BFS
         else : 
             raise Exception("unknown shortest path algorithm : ",algorithm)
-
         source,target = tuple(source),tuple(target)
-        distance = None
         try :
-            n1 = self.configs[source]
-            n2 = self.configs[target]
-            sssp = algo_class(self.nk_graph, n1, True, False, n2)
-            sssp.run()
-            paths = sssp.getPaths(n2)
-            if paths : 
-                choosen_path = random.choice(paths)
-                config_path =  [self.configs.inverse[node] for node in  choosen_path]
-                if algorithm == 'bfs':
-                    distance = sssp.distance(n2)
-                else : 
-                    distance = np.exp(-sssp.distance(n2))
-            else : 
-                config_path = []
+            sssp = algo_class(self.nk_graph, self.configs[source], True, False, self.configs[target])
         except KeyError:
-            config_path = []
-        return config_path,distance
+            return None,0,float('inf')
+        sssp.run()
+        return self.sample_shortest_path_with_sssp(source,target,sssp,return_configs=True) 
+
+    def sample_shortest_path_with_sssp(self,source,target,sssp,return_configs=False,reversed=False):
+        ''' sample path among all optimal shortest-path 
+            returns path,path_sr,path_length'''
+        source,target = tuple(source),tuple(target)
+        try :
+            source_node = self.configs[source]
+            target_node = self.configs[target]
+            config_path,sr,distance = self.sample_shortest_path_with_sssp_from_nodes(source_node,target_node,sssp,return_configs=return_configs,reversed=reversed)
+        except KeyError:
+            config_path = None
+        return config_path,sr,distance
+
+    def sample_shortest_path_with_sssp_from_nodes(self,source_node,target_node,sssp,return_configs=False,reversed=False):
+        ''' sample path among all optimal shortest-path with sssp object 
+            returns path,path_sr,path_length'''
+        if source_node == target_node : 
+            path= []
+        else : 
+            paths = sssp.getPaths(source_node if reversed else target_node)
+            if paths : 
+                path = random.choice(paths)
+                if reversed and path: 
+                    path = path[::-1]
+            else : 
+                path = None
+        sr,distance = self.get_score_from_path_node(path)
+        if path and return_configs:
+            path =  [self.configs.inverse[node] for node in  path]
+        return path,sr,distance
 
     def get_sssp_to_goal(self,goal,use_weight=True):
         '''
@@ -128,12 +130,13 @@ class SemanticGraph:
         else : 
             return None
 
+    def get_path_from_coplanar(self,goal):
+        return self.sample_shortest_path(self.semantic_operation.empty(),goal)
+        
 ##########################################
     # SR path estimation  : 
 ##########################################
 
-    def get_path_from_coplanar(self,goal):
-        return self.sample_shortest_path(self.semantic_operation.empty(),goal)
 
     def get_neighbors_to_goal_sr(self,source,neighbors,goal,reversed_sssp):
         if isinstance(reversed_sssp,nk.distance.BFS):
@@ -141,32 +144,26 @@ class SemanticGraph:
         else:
             source_to_neighbors_sr = np.exp(-np.array([self.getWeight(source,neighbour)
                                             for neighbour in neighbors]))
-        neighbors_to_goal_sr,neighbors_to_goal_dist = zip(*[self.get_path_score(goal,neighbour,reversed_sssp)
+        _,neighbors_to_goal_sr,neighbors_to_goal_dist = zip(*[self.sample_shortest_path_with_sssp(neighbour,goal,reversed_sssp,reversed=True)
                                         for neighbour in neighbors])
+
         neighbors_to_goal_sr = np.array(neighbors_to_goal_sr)
         return source_to_neighbors_sr,neighbors_to_goal_sr,neighbors_to_goal_dist
 
-    def get_path_score(self,source,target,sssp):
-        if source == target : 
-            return (0,0) if isinstance(sssp,nk.distance.BFS) else (1,0)
-        else : 
-            target_id = self.getNodeId(target)
-            if target_id == None: 
-                raise Exception('unknown node')
-            if not self.graph_transpose.hasNode(target_id):
-                raise Exception('Missing node on NK graph')
-            path = sssp.getPath(target_id)
-            if path != []:
-                dist = sssp.distance(target_id)
-                if isinstance(sssp,nk.distance.BFS):
-                    return dist,len(path)
-                else: 
-                    return np.exp(-dist),len(path)
-            else : 
-                return (float('inf'),float('inf')) if isinstance(sssp,nk.distance.BFS) else (0,float('inf'))
-    
-    def get_distance():
-        pass
+    def get_score_from_path_node(self,path):
+        '''
+            return a tuple (SR,path_length)
+            empty path means unreachable
+        '''
+        if path == []:
+            return (1,0)
+        elif path == None : 
+            return (0,float('inf'))
+        else:
+            dist = np.sum([self.getWeight_withNode(n1,n2)
+                                for (n1,n2) in zip(path[:-1],path[1:]) 
+                            ])
+            return (np.exp(-dist),len(path))
 
     def get_isolated_nodes(self):
         isolated = []
@@ -295,14 +292,17 @@ class SemanticGraph:
         return self.configs.inverse[nodeId]
 
     def getWeight(self,c1,c2):
-        if self.getNodeId(c1) == None or self.getNodeId(c2) == None:
+        n1,n2 = self.getNodeId(c1), self.getNodeId(c2)
+        if n1 == None or n2 == None:
             raise Exception("Unknown config")
-        if not self.nk_graph.hasNode(self.getNodeId(c1)) or not  self.nk_graph.hasNode(self.getNodeId(c2)):
-            raise Exception('Unknown node')
-        if not self.nk_graph.hasEdge(self.getNodeId(c1),self.getNodeId(c2)):
-            raise Exception('Unknown edge')
+        return self.getWeight_withNode(n1,n2)
 
-        return self.nk_graph.weight(self.getNodeId(c1),self.getNodeId(c2))
+    def getWeight_withNode(self,n1,n2):
+        if not self.nk_graph.hasNode(n1) or not  self.nk_graph.hasNode(n2):
+            raise Exception('Unknown node')
+        if not self.nk_graph.hasEdge(n1,n2):
+            raise Exception('Unknown edge')
+        return self.nk_graph.weight(n1,n2)
     
     def empty(self):
         return self.semantic_operation.empty()

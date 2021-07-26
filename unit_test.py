@@ -1,6 +1,8 @@
 
 
 from collections import defaultdict
+
+from numpy.core.shape_base import block
 from graph.SemanticOperation import SemanticOperation, all_stack_trajectories, config_to_unique_str,config_permutations
 from graph.semantic_graph import SemanticGraph
 from graph.UnorderedSemanticGraph import UnorderedSemanticGraph
@@ -33,8 +35,68 @@ def check_one_object_edge(block_size):
     number_of_one_object_change_edges(semantic_graph)
     end = sem_op.close_and_above(sem_op.empty(),0,1,True)
     end = sem_op.close_and_above(end,2,3,True)
-    print(sem_op.one_object_edge((sem_op.empty(),end)))
+    # print(sem_op.one_object_edge((sem_op.empty(),end)))
     print('')
+
+def create_simple_graph(block_size):
+    sem_op = SemanticOperation(block_size,True)
+    args = SimpleNamespace()
+    args.n_blocks = block_size
+    args.rollout_exploration_k = 4
+    args.one_object_edge = False
+    configs = bidict()
+    nk_graph = nk.Graph(0,weighted=True, directed=True)
+    semantic_graph = UnorderedSemanticGraph(configs,nk_graph,args.n_blocks,True,args=args)
+    start = semantic_graph.empty()
+    close1 = sem_op.close(start,3,4,True)
+    stack2 = sem_op.close_and_above(start,1,0,True)
+    stack3 = sem_op.close_and_above(stack2,2,1,True)
+
+    semantic_graph.create_node(start)
+    semantic_graph.create_node(close1)
+    semantic_graph.create_node(stack2)
+    semantic_graph.create_node(stack3)
+    semantic_graph.create_edge_stats((start,close1),0.5)
+    semantic_graph.create_edge_stats((start,stack2),0.5)
+    semantic_graph.create_edge_stats((close1,stack2),0.5)
+    semantic_graph.create_edge_stats((stack2,stack3),0.5)
+    
+    return semantic_graph,start,close1,stack2,stack3
+
+
+def check_sample_path(block_size):
+        # init and construct simple graph : 
+    semantic_graph,start,close1,stack2,stack3 = create_simple_graph(block_size)
+        # check path sampling : 
+    paths,scores = semantic_graph.k_shortest_path(start,stack3,20,unordered_bias=False)
+    assert scores[0] == 0.25 and len(paths[0]) == 3,'error best path'
+    assert len(scores) == 4 ,'missing paths'
+    assert all ([len(path)==4 for path in paths[1:]] ) and all ([score==0.125 for score in scores[1:]] ),'error secondary paths'
+    
+    paths,scores = semantic_graph.k_shortest_path(start,stack3,20,unordered_bias=True)
+    assert scores[0] == 0.25 and len(paths[0]) == 3,'error best path'
+    assert len(scores) == 2 ,'missing paths'
+    assert scores[1] == 0.125 and len(paths[1]) == 4,'error secondary path'
+
+    print(f"start:{semantic_graph.getNodeId(start)},close1:{semantic_graph.getNodeId(close1)},stack2:{semantic_graph.getNodeId(stack2)},stack3:{semantic_graph.getNodeId(stack3)} ")
+    # print(list(zip(paths,scores)))
+
+    paths,scores = semantic_graph.k_shortest_path(start,stack3,20,use_weights=False,unordered_bias=True)
+    assert scores[0] == 2 and len(paths[0]) == 3,'error best path'
+    assert len(scores) == 2 ,'missing paths'
+    assert scores[1] == 3 and len(paths[1]) == 4,'error secondary path'
+
+    print(f"start:{semantic_graph.getNodeId(start)},close1:{semantic_graph.getNodeId(close1)},stack2:{semantic_graph.getNodeId(stack2)},stack3:{semantic_graph.getNodeId(stack3)} ")
+    # print(list(zip(paths,scores)))
+
+def check_sample_neighbors(block_size):
+
+    semantic_graph,start,close1,stack2,stack3 = create_simple_graph(block_size)
+    agent_network = AgentNetwork(semantic_graph,None,semantic_graph.args)
+    reversed_dijktra = agent_network.semantic_graph.get_sssp_to_goal(stack2)
+    res = agent_network.sample_neighbour_based_on_SR_to_goal(start,reversed_dijktra,stack2)
+    print(res)
+
 
 
 def check_semantic_hash(block_size):
@@ -144,7 +206,7 @@ def check_goal(semantic_graph,semantic_operator,goal,true_length,node_name,verbo
     if goal not in semantic_graph.configs:
         result = 'missing_goal'
     else : 
-        path,dist = semantic_graph.get_path(semantic_operator.empty(),goal)
+        path,sr,dist = semantic_graph.sample_shortest_path(semantic_operator.empty(),goal)
         path_length = len(path)-1
         if path == []:
             result = 'no_path'
@@ -158,8 +220,10 @@ def check_goal(semantic_graph,semantic_operator,goal,true_length,node_name,verbo
 if __name__ == '__main__':
     block_sizes = [5]
     for block_size in block_sizes:
-        check_one_object_edge(block_size)
-        check_semantic_hash(block_size)
+        check_sample_path(block_size)
+        check_sample_neighbors(block_size)
+        # check_one_object_edge(block_size)
+        # check_semantic_hash(block_size)
         graph_overview(block_size)
         check_stack_number(block_size)        
         test_eval_goals(block_size)

@@ -151,14 +151,14 @@ class RolloutWorker:
         if self.current_goal_id == None:
             self.current_goal_id = 1
             if evaluation or np.random.rand()< self.args.rollout_distance_ratio:
-                self.config_path,_ = agent_network.get_path(self.current_config,goal)
+                self.config_path,_,_ = agent_network.get_path(self.current_config,goal)
             else : 
                 k_best_paths,_ = agent_network.semantic_graph.k_shortest_path(self.current_config,goal,
                                                                                         self.args.rollout_exploration_k,
                                                                                         use_weights = False,
                                                                                         unordered_bias = True)
                 self.config_path = random.choices(k_best_paths,k=1)[0]
-            if len(self.config_path)==0:
+            if not self.config_path:
                 self.config_path = [self.current_config,goal]
 
         while self.current_goal_id < len(self.config_path):
