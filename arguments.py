@@ -70,9 +70,12 @@ def get_args():
     parser.add_argument('--edge_prior', type=float, default=0.5, help='default value for edges')
     parser.add_argument('--unordered_edge', type=bool, default=True, help='if the agent learns unordered_edge SR')
     parser.add_argument('--one_object_edge', type=bool, default=False, help='If true, limit possible edges')
+    parser.add_argument('--local_hindsight_edges', type=bool, default=False, help='Create hindsight edge only the unique sequence of configurations met during an episode')
     parser.add_argument('--expert_graph_start', type=bool, default=False, help='If the agent starts with an expert graph')
+    parser.add_argument('--evaluation_algorithm', type=str, default='dijkstra', help='dijkstra (best SR) or bfs (shortest path)')
+    
     # rollout exploration args
-    parser.add_argument('--rollout_exploration', type=str, default='sr_and_distance', help='sr_and_distance  or sample_sr')
+    parser.add_argument('--rollout_exploration', type=str, default='sr_and_k_distance', help='sr_and_best_distance sr_and_k_distance or sample_sr')
     parser.add_argument('--rollout_exploration_k', type=int, default=5, help='sample among k best paths')
     parser.add_argument('--rollout_distance_ratio', type=float, default=0, help='indicate the ratio at which exploration alternate beetween sr and distance criteria')
     
