@@ -49,11 +49,11 @@ class AgentNetwork():
             self.semantic_graph.update_edge_stats((start,end),success)
 
     
-    def get_path(self,start,goal):
+    def get_path(self,start,goal,algorithm="dijkstra"):
         if self.args.expert_graph_start: 
-            return self.teacher.oracle_graph.sample_shortest_path(start,goal)
+            return self.teacher.oracle_graph.sample_shortest_path(start,goal,algorithm)
         else : 
-            return self.semantic_graph.sample_shortest_path(start,goal)
+            return self.semantic_graph.sample_shortest_path(start,goal,algorithm)
 
     def get_path_from_coplanar(self,target):
         if self.args.expert_graph_start : 

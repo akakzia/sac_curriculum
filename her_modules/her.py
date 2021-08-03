@@ -33,3 +33,21 @@ class her_sampler:
         transitions['r'] = np.expand_dims(np.array([self.reward_func(ag_next, g, None) for ag_next, g in zip(transitions['ag_next'],
                                                                                                 transitions['g'])]), 1)
         return transitions
+    
+    def sample_her_transitions_with_list(self, episode_batch, batch_size):
+        transitions = {k:np.empty((batch_size,v[0].shape[1])) for k,v in episode_batch.items()}
+        transitions['r'] = np.empty((batch_size,1))
+        for i in range(batch_size):
+            episode_id = np.random.randint(0, len(episode_batch['obs']))
+            rollout_size = len(episode_batch['actions'][episode_id])
+            t_sample = np.random.randint(rollout_size)
+            
+            transition = {k:episode_batch[k][episode_id][t_sample].copy() for k in episode_batch.keys()}
+
+            if np.random.uniform() < self.her_p:
+                future_ag = episode_batch['ag'][episode_id][-1]
+                transition['g'] = future_ag
+            transition['r'] = self.reward_func(transition['ag_next'], transition['g'], None)
+            for k,v in transition.items():
+                transitions[k][i] = v
+        return transitions

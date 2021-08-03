@@ -30,6 +30,8 @@ def get_args():
     parser.add_argument('--n-batches', type=int, default=30, help='the times to update the network')
     parser.add_argument('--num-rollouts-per-mpi', type=int, default=2, help='the rollouts per mpi')
     parser.add_argument('--batch-size', type=int, default=256, help='the sample batch size')
+    parser.add_argument('--rollout_strategy', type=str, default='episode_budget', help='episode_budget or step_budget')
+
     # the replay arguments
     parser.add_argument('--replay-strategy', type=str, default='final', help='the HER strategy')
     parser.add_argument('--replay-k', type=int, default=4, help='ratio to be replace')
@@ -72,7 +74,7 @@ def get_args():
     parser.add_argument('--one_object_edge', type=bool, default=False, help='If true, limit possible edges')
     parser.add_argument('--expert_graph_start', type=bool, default=False, help='If the agent starts with an expert graph')
     # rollout exploration args
-    parser.add_argument('--rollout_exploration', type=str, default='sr_and_distance', help='sr_and_distance  or sample_sr')
+    parser.add_argument('--rollout_exploration', type=str, default='sr_and_best_distance', help='sr_and_best_distance sr_and_k_distance or sample_sr')
     parser.add_argument('--rollout_exploration_k', type=int, default=5, help='sample among k best paths')
     parser.add_argument('--rollout_distance_ratio', type=float, default=0, help='indicate the ratio at which exploration alternate beetween sr and distance criteria')
     

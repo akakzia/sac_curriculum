@@ -8,7 +8,7 @@ from arguments import get_args
 from rl_modules.rl_agent import RLAgent
 import random
 import torch
-from rollout import RolloutWorker
+from rollout import RolloutWorker,RolloutWorkerStepBudget
 from goal_sampler import GoalSampler
 from utils import init_storage, get_eval_goals
 import time
@@ -68,7 +68,11 @@ def launch(args):
         raise NotImplementedError
 
     # Initialize Rollout Worker
-    rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
+    if args.rollout_strategy == 'episode_budget':
+        rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
+    elif args.rollout_strategy == 'step_budget':
+        rollout_worker = RolloutWorkerStepBudget(env, policy, goal_sampler,  args)
+    else : raise Exception(f"unknown args.rollout_strategy : {args.rollout_strategy}")
 
     # create graph if necessary
     if rank == 0 and not os.path.isdir('data'):
@@ -101,15 +105,12 @@ def launch(args):
 
             # Environment interactions
             t_i = time.time()
-            episodes = rollout_worker.train_rollout(agentNetwork= agent_network, 
-                                                    max_episodes=args.num_rollouts_per_mpi*args.n_blocks,
-                                                    episode_duration=args.episode_duration,
-                                                    time_dict=time_dict)
+            episodes = rollout_worker.train_rollout(agentNetwork= agent_network, time_dict=time_dict)
             time_dict['rollout'] += time.time() - t_i
 
             # Goal Sampler updates
             t_i = time.time()
-            episodes = goal_sampler.update(episodes, episode_count)
+            # episodes = goal_sampler.update(episodes, episode_count)
             time_dict['gs_update'] += time.time() - t_i
 
             # Storing episodes
@@ -126,6 +127,8 @@ def launch(args):
             t_i = time.time()
             for e in episodes:
                 policy._update_normalizer(e)
+             # recompute the stats
+            policy.o_norm.recompute_stats()
             time_dict['norm_update'] += time.time() - t_i
 
             # Policy updates

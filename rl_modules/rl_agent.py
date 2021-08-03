@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from mpi_utils.mpi_utils import sync_networks
-from rl_modules.EdgeBuffer import EdgeBuffer
+from rl_modules.EdgeBuffer import EdgeBuffer, EdgeBufferDynEpisodes
 from rl_modules.networks import QNetworkFlat, GaussianPolicyFlat
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
@@ -119,13 +119,19 @@ class RLAgent:
         self.her_module = her_sampler(self.args, compute_rew)
 
         # create the replay buffer
-        self.buffer = EdgeBuffer(env_params=self.env_params,
-                                  buffer_size=self.args.buffer_size,
-                                  sample_func=self.her_module.sample_her_transitions,
-                                  replay_sampling=self.args.replay_sampling ,
-                                  goal_sampler=self.goal_sampler,
-                                  args=args)
-
+        if args.rollout_strategy == 'episode_budget':
+            self.buffer = EdgeBuffer(env_params=self.env_params,
+                                    buffer_size=self.args.buffer_size,
+                                    sample_func=self.her_module.sample_her_transitions,
+                                    replay_sampling=self.args.replay_sampling ,
+                                    args=args)
+        elif args.rollout_strategy == 'step_budget':
+            self.buffer = EdgeBufferDynEpisodes(env_params=self.env_params,
+                                    buffer_size=self.args.buffer_size,
+                                    sample_func=self.her_module.sample_her_transitions_with_list,
+                                    replay_sampling=self.args.replay_sampling)
+        else : raise Exception(f"unknown args.rollout_strategy : {args.rollout_strategy}")
+                
     def act(self, obs, ag, g, mask, no_noise, language_goal=None):
         # apply mask
         if mask is not None:
@@ -163,7 +169,7 @@ class RLAgent:
         return action.copy()
     
     def store(self, episodes):
-        self.buffer.store_episode(episode_batch=episodes)
+        self.buffer.store_episodes(episode_batch=episodes)
 
     # pre_process the inputs
     def _preproc_inputs(self, obs, ag, g):
@@ -221,19 +227,18 @@ class RLAgent:
         #     buffer_temp['language_goal'] = np.array([episode['language_goal'] for _ in range(mb_g.shape[0])], dtype='object').reshape(1, -1)
         if 'lg_ids' in episode.keys():
             buffer_temp['lg_ids'] = np.expand_dims(episode['lg_ids'], 0)
-
-        transitions = self.her_module.sample_her_transitions(buffer_temp, num_transitions)
+        if self.args.rollout_strategy == 'episode_budget':
+            transitions = self.her_module.sample_her_transitions(buffer_temp, num_transitions)
+        else : 
+            transitions = self.her_module.sample_her_transitions_with_list(buffer_temp, num_transitions)
         obs, g = transitions['obs'], transitions['g']
         # pre process the obs and g
         transitions['obs'], transitions['g'] = self._preproc_og(obs, g)
         # update
         self.o_norm.update(transitions['obs'])
-        # recompute the stats
-        self.o_norm.recompute_stats()
 
-        if self.args.normalize_goal:
-            self.g_norm.update(transitions['g'])
-            self.g_norm.recompute_stats()
+        
+       
 
     def _preproc_og(self, o, g):
         o = np.clip(o, -self.args.clip_obs, self.args.clip_obs)

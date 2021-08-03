@@ -70,12 +70,12 @@ class UnorderedSemanticGraph(SemanticGraph):
             if use_weights : use the edges weights, path is computed in amultiplicative way, highest score is best-score
             else :      each edges weigths is worth 1, path is computed in an additive way, smallest score is best-score
         '''
-        if source == target : 
-            return []
+        target_node = self.getNodeId(target)
+        source_node = self.getNodeId(source)
+        if source_node == None or target_node == None or source_node == target_node:
+            return [],None
         
         reversed_sssp = self.get_sssp_to_goal(target,use_weight=use_weights) # sssp Single Source Shortest Path 
-        target_node = self.configs[target]
-        source_node = self.getNodeId(source)
 
         if use_weights:
             score_combination = lambda x,y : x*y
@@ -174,7 +174,7 @@ class UnorderedSemanticGraph(SemanticGraph):
             If multiple paths are identical unordered-edes-wise, only return the id for one of them (at random among best scores).
         '''
         # create paths of unordered edges from paths of nodes
-        unordered_edge_paths = np.ones((len(paths),max(map(len,paths))-1))*-1 # init with unused weight id
+        unordered_edge_paths = np.ones((len(paths),max(map(len,paths),default=1)-1))*-1 # init with unused weight id
         for i,path in enumerate(paths):
             for j in range(0,len(path)-1):
                 e = (path[j], path[j+1])
