@@ -15,44 +15,42 @@ class AgentNetwork():
         self.exp_path = exp_path
         
     def update(self,episodes):
-        all_episodes = MPI.COMM_WORLD.gather(episodes, root=0)
-        if self.rank == 0:
-            all_episode_list = [e for eps in all_episodes 
-                                    for e in eps] # flatten the list of episodes gathered by all actors
-            # update agent graph : 
-            for e in all_episode_list:
-                start_config = tuple(e['ag'][0])
-                achieved_goal = tuple(e['ag'][-1])
-                goal = tuple(e['g'][-1])
-                success = e['success'][-1]
-                
-                self.semantic_graph.create_node(start_config)
-                self.semantic_graph.create_node(achieved_goal)
-                self.semantic_graph.create_node(goal)
-                self.update_or_create_edge(start_config,goal,success)
-                
-                # hindsight edge creation :
-                if self.args.hindsight_edge:
-                    if self.args.local_hindsight_edges:
-                        unique_configurations = [tuple(e['ag'][0])]
-                        for i in range(1,len(e['ag'])):
-                            if not (e['ag'][i] == e['ag'][i-1]).all():
-                                config = tuple(e['ag'][i])
-                                unique_configurations.append(config)
-                                self.semantic_graph.create_node(config)
-                        hindsight_edges = list(zip(unique_configurations[:-1],unique_configurations[1:]))
-                        for ag,ag_next in hindsight_edges:
-                            if not self.semantic_graph.hasEdge(ag,ag_next):
-                                self.semantic_graph.create_edge_stats((ag,ag_next),self.args.edge_prior)
-                    else : 
-                        if (achieved_goal != goal and start_config != achieved_goal
-                            and not self.semantic_graph.hasEdge(start_config,achieved_goal)):
-                                self.semantic_graph.create_edge_stats((start_config,achieved_goal),self.args.edge_prior)
+        all_episodes = MPI.COMM_WORLD.allgather(episodes)
+        all_episode_list = [e for eps in all_episodes 
+                                for e in eps] # flatten the list of episodes gathered by all actors
+        # update agent graph : 
+        for e in all_episode_list:
+            start_config = tuple(e['ag'][0])
+            achieved_goal = tuple(e['ag'][-1])
+            goal = tuple(e['g'][-1])
+            success = e['success'][-1]
+            
+            self.semantic_graph.create_node(start_config)
+            self.semantic_graph.create_node(achieved_goal)
+            self.semantic_graph.create_node(goal)
+            self.update_or_create_edge(start_config,goal,success)
+            
+            # hindsight edge creation :
+            if self.args.hindsight_edge:
+                if self.args.local_hindsight_edges:
+                    unique_configurations = [tuple(e['ag'][0])]
+                    for i in range(1,len(e['ag'])):
+                        if not (e['ag'][i] == e['ag'][i-1]).all():
+                            config = tuple(e['ag'][i])
+                            unique_configurations.append(config)
+                            self.semantic_graph.create_node(config)
+                    hindsight_edges = list(zip(unique_configurations[:-1],unique_configurations[1:]))
+                    for ag,ag_next in hindsight_edges:
+                        if not self.semantic_graph.hasEdge(ag,ag_next):
+                            self.semantic_graph.create_edge_stats((ag,ag_next),self.args.edge_prior)
+                else : 
+                    if (achieved_goal != goal and start_config != achieved_goal
+                        and not self.semantic_graph.hasEdge(start_config,achieved_goal)):
+                            self.semantic_graph.create_edge_stats((start_config,achieved_goal),self.args.edge_prior)
 
-            # update frontier :  
-            self.semantic_graph.update()
-            self.teacher.computeFrontier(self.semantic_graph)
-        self.sync()
+        # update frontier :  
+        self.semantic_graph.update()
+        self.teacher.computeFrontier(self.semantic_graph)
     
     def update_or_create_edge(self,start,end,success):
         if (start!=end):
