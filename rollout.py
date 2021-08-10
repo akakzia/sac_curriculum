@@ -286,13 +286,14 @@ class GANGSTR_RolloutWorker(RolloutWorker):
         episodes = []
         while len(episodes) < max_episodes:
             t_i = time.time()
-            next_goal = agentNetwork.sample_goal_uniform(1)[0]
+            next_goal = agentNetwork.sample_goal_uniform(1,use_oracle=True)[0]
             if time_dict !=None:
                 time_dict['goal_sampler'] += time.time() - t_i
-            if agentNetwork.semantic_graph.hasNode(next_goal) and agentNetwork.semantic_graph.hasNode(self.current_config):
-                a = agentNetwork.semantic_graph.hasNode(next_goal)
+            if (agentNetwork.semantic_graph.hasNode(next_goal) 
+                and agentNetwork.semantic_graph.hasNode(self.current_config)
+                and next_goal != self.current_config):
                 new_episodes,_ = self.guided_rollout(next_goal,evaluation=False,
-                                agent_network=agentNetwork,episode_duration=episode_duration,episode_budget=None)
+                                agent_network=agentNetwork,episode_duration=episode_duration,episode_budget=max_episodes-len(episodes))
             else : 
                 new_episodes = [self.generate_one_rollout(next_goal,1,False,episode_duration,animated)]
             episodes+= new_episodes            

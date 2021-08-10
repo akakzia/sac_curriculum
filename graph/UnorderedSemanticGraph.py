@@ -71,7 +71,7 @@ class UnorderedSemanticGraph(SemanticGraph):
             else :      each edges weigths is worth 1, path is computed in an additive way, smallest score is best-score
         '''
         if source == target : 
-            return []
+            return [],[1 if use_weights else 0]
         
         reversed_sssp = self.get_sssp_to_goal(target,use_weight=use_weights) # sssp Single Source Shortest Path 
         target_node = self.configs[target]
