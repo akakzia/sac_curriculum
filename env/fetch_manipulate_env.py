@@ -4,7 +4,7 @@ import itertools
 
 from env import rotations, robot_env, utils
 
-
+TABLE_HEIGHT = 0.40
 def objects_distance(x, y):
     """
     A function that returns the euclidean distance between two objects x and y
@@ -292,6 +292,13 @@ class FetchManipulateEnv(robot_env.RobotEnv):
     def _is_success(self, achieved_goal, desired_goal):
         # ids = np.where(self.mask != 1.)[1]
         return (achieved_goal == desired_goal).all()
+
+    def cube_under_table(self):
+        for i in range(self.num_blocks):
+            object_i_pos = self.sim.data.get_site_xpos(self.object_names[i])
+            if object_i_pos[2] < TABLE_HEIGHT:
+                return True
+        return False
 
     def _env_setup(self, initial_qpos):
         for name, value in initial_qpos.items():

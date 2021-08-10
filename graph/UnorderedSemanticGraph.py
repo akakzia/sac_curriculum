@@ -76,6 +76,8 @@ class UnorderedSemanticGraph(SemanticGraph):
         reversed_sssp = self.get_sssp_to_goal(target,use_weight=use_weights) # sssp Single Source Shortest Path 
         target_node = self.configs[target]
         source_node = self.getNodeId(source)
+        if target_node== None or source_node == None : 
+            raise Exception("unknown node")
 
         if use_weights:
             score_combination = lambda x,y : x*y
@@ -131,7 +133,7 @@ class UnorderedSemanticGraph(SemanticGraph):
                     next_path_finished.append(finished)
 
             # filter similar paths 
-            if unordered_bias: 
+            if unordered_bias and len(next_paths_score_to_goal)>0: 
                 next_paths_score_to_goal = np.array(next_paths_score_to_goal)
                 inds = self.get_unique_unordered_paths(next_paths_nodes,next_paths_score_to_goal)
                 next_paths_score_to_cur_node = [next_paths_score_to_cur_node[i] for i in inds]

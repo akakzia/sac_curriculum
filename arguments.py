@@ -28,7 +28,7 @@ def get_args():
     parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
     parser.add_argument('--n-batches', type=int, default=30, help='the times to update the network')
-    parser.add_argument('--num-rollouts-per-mpi', type=int, default=2, help='the rollouts per mpi')
+    parser.add_argument('--num-rollouts-per-mpi', type=int, default=10, help='the rollouts per mpi')
     parser.add_argument('--batch-size', type=int, default=256, help='the sample batch size')
     # the replay arguments
     parser.add_argument('--replay-strategy', type=str, default='final', help='the HER strategy')
@@ -51,7 +51,7 @@ def get_args():
     parser.add_argument('--save-dir', type=str, default='output/', help='the path to save the models')
     # the memory arguments
     parser.add_argument('--buffer-size', type=int, default=int(1e6), help='the size of the buffer')
-    parser.add_argument('--replay-sampling', type=str, default='edge_distance', help='buffer_uniform or edge_uniform or edge_distance')
+    parser.add_argument('--replay-sampling', type=str, default='edge_uniform', help='buffer_uniform or edge_uniform or edge_distance')
     # the preprocessing arguments
     parser.add_argument('--clip-obs', type=float, default=5, help='the clip ratio')
     parser.add_argument('--normalize_goal', type=bool, default=False, help='do evaluation at the end of the epoch w/ frequency')
@@ -66,7 +66,6 @@ def get_args():
     # graph arguments : 
     parser.add_argument('--edge_sr', type=str, default='exp_moving_average', help='moving_average or exp_moving_average')
     parser.add_argument('--edge_lr', type=float, default=0.01, help='SR learning rate')
-    parser.add_argument('--hindsight_edge', type=bool, default=False, help='use hindsight edges')
     parser.add_argument('--edge_prior', type=float, default=0.5, help='default value for edges')
     parser.add_argument('--unordered_edge', type=bool, default=True, help='if the agent learns unordered_edge SR')
     parser.add_argument('--one_object_edge', type=bool, default=False, help='If true, limit possible edges')
@@ -75,12 +74,13 @@ def get_args():
     parser.add_argument('--evaluation_algorithm', type=str, default='dijkstra', help='dijkstra (best SR) or bfs (shortest path)')
     
     # rollout exploration args
-    parser.add_argument('--rollout_exploration', type=str, default='sr_and_k_distance', help='sr_and_best_distance sr_and_k_distance or sample_sr')
+    parser.add_argument('--rollout_exploration', type=str, default='sr_and_k_distance', help='method to compute best path in train rollouts : sr_and_best_distance sr_and_k_distance or sample_sr')
     parser.add_argument('--rollout_exploration_k', type=int, default=5, help='sample among k best paths')
     parser.add_argument('--rollout_distance_ratio', type=float, default=0, help='indicate the ratio at which exploration alternate beetween sr and distance criteria')
+    parser.add_argument('--rollout_goal_generator', type=str, default='teacher', help='teacher or neighbour or gangstr')
     
     parser.add_argument('--episode_duration', type=int, default=40, help='number of timestep for each episodes')
-    parser.add_argument('--play_goal_strategy', type=str, default='frontier', help='uniform or frontier')
+
 
     args = parser.parse_args()
 

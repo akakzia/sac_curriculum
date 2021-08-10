@@ -3,13 +3,13 @@ from graph.agent_network import AgentNetwork
 import numpy as np
 from graph.SemanticOperation import SemanticOperation, config_to_name,config_to_unique_str
 import time 
+
 def is_success(ag, g, mask=None):
     if mask is None:
         return (ag == g).all()
     else:
         ids = np.where(mask != 1.)[0]
         return (ag[ids] == g[ids]).all()
-
 
 class RolloutWorker:
     def __init__(self, env, policy, goal_sampler, args):
@@ -34,52 +34,6 @@ class RolloutWorker:
         self.last_obs = self.env.unwrapped.reset_goal(goal=np.array([None]), biased_init=biased_init)
         self.dijkstra_to_goal = None
         self.state ='GoToFrontier'
-
-    def train_rollout(self,agentNetwork:AgentNetwork,episode_duration,max_episodes=None,time_dict=None, animated=False,biased_init=False):
-        all_episodes = []
-
-        while len(all_episodes) < max_episodes:
-            
-            if self.state == 'GoToFrontier':
-                if self.long_term_goal == None : 
-                    t_i = time.time()
-                    self.long_term_goal = next(iter(agentNetwork.sample_goal(self.current_config,1)),None) # first element or None
-                    if time_dict:
-                        time_dict['goal_sampler'] += time.time() - t_i
-                    # if can't find frontier goal, explore directly
-                    if self.long_term_goal == None or self.long_term_goal == self.current_config: 
-                        self.state = 'Explore'
-                        continue
-                episodes,_ = self.guided_rollout(self.long_term_goal,False, agentNetwork, episode_duration, 
-                                            episode_budget=max_episodes-len(all_episodes),animated=animated)
-                all_episodes += episodes
-
-                success = episodes[-1]['success'][-1]
-                if success == False: # reset at the first failure
-                    self.reset(biased_init)
-                elif success and self.current_config == self.long_term_goal:
-                    self.state = 'Explore'
-
-            elif self.state =='Explore':
-                t_i = time.time()
-                last_ag = tuple(self.last_obs['achieved_goal_binary'])
-                explore_goal = next(iter(agentNetwork.sample_from_frontier(last_ag,1)),None) # first element or None
-                if time_dict:
-                    time_dict['goal_sampler'] += time.time() - t_i
-                if explore_goal:
-                    if self.last_episode:
-                        goal_dist = self.last_episode["edge_dist"]+1
-                    else : 
-                        goal_dist = 1
-                    episode = self.generate_one_rollout(explore_goal, goal_dist, False, episode_duration,animated=animated)
-                    all_episodes.append(episode)
-                    success = episode['success'][-1]
-                if explore_goal == None or  success == False:
-                        self.reset(biased_init)
-                        continue
-            else : 
-                raise Exception(f"unknown state : {self.state}")
-        return all_episodes
     
     def test_rollout(self,goals,agent_network:AgentNetwork,episode_duration, animated=False):
         end_episodes = []
@@ -89,55 +43,6 @@ class RolloutWorker:
             end_episodes.append(last_episode)
         self.reset(False)
         return end_episodes
-
-    def plan(self,agent_network,goal,evaluation):
-        if evaluation : 
-            self.current_goal_id = 1
-            self.config_path,_,_ = agent_network.get_path(self.current_config,goal,algorithm = self.args.evaluation_algorithm)
-            if not self.config_path:
-                self.config_path = [self.current_config,goal]
-        elif self.args.rollout_exploration =='sr_and_k_distance':
-            self.current_goal_id = 1
-            if  np.random.rand()< self.args.rollout_distance_ratio:
-                self.config_path,_,_ = agent_network.get_path(self.current_config,goal)
-            else:
-                k_best_paths,_ = agent_network.semantic_graph.k_shortest_path(self.current_config,goal,
-                                                                                        self.args.rollout_exploration_k,
-                                                                                        use_weights = False,
-                                                                                        unordered_bias = True)
-                self.config_path = random.choices(k_best_paths,k=1)[0] if k_best_paths else None
-            if not self.config_path:
-                self.config_path = [self.current_config,goal]
-        elif self.args.rollout_exploration =='sr_and_best_distance':
-            self.current_goal_id = 1
-            if np.random.rand() < self.args.rollout_distance_ratio:
-                self.config_path,_,_ = agent_network.get_path(self.current_config,goal,algorithm='dijkstra')
-            else : 
-                self.config_path,_,_ = agent_network.get_path(self.current_config,goal,algorithm='bfs')
-            if not self.config_path:
-                self.config_path = [self.current_config,goal]
-        elif self.args.rollout_exploration=='sample_sr' :
-            self.current_goal_id = 1
-            self.dijkstra_to_goal = agent_network.semantic_graph.get_sssp_to_goal(goal)
-        else : raise Exception('unknown exploration method',self.args.rollout_exploration) 
-        
-    def get_next_goal(self,agent_network,goal,evaluation):
-        if evaluation : 
-            current_goal = self.config_path[self.current_goal_id]
-        elif self.args.rollout_exploration =='sr_and_k_distance':
-            current_goal = self.config_path[self.current_goal_id]
-        elif self.args.rollout_exploration =='sr_and_best_distance':
-            self.plan(agent_network,goal,evaluation)
-            current_goal = self.config_path[self.current_goal_id]
-        elif self.args.rollout_exploration=='sample_sr' :
-            current_goal = None
-            if self.dijkstra_to_goal: 
-                current_goal = agent_network.sample_neighbour_based_on_SR_to_goal(self.current_config,self.dijkstra_to_goal,goal=goal)
-            if current_goal == None: # if no path to goal, try to reach directly 
-                current_goal = goal
-        else : raise Exception('unknown exploration method') 
-
-        return current_goal,self.current_goal_id
 
     def guided_rollout(self,goal,evaluation,agent_network:AgentNetwork,episode_duration,episode_budget=None, animated=False):
         episode = None
@@ -158,7 +63,7 @@ class RolloutWorker:
                 print(f'\t{self.current_goal_id} : \n{config_to_unique_str(self.current_config,sem_op)} ->  {config_to_unique_str(current_goal,sem_op)}'  )
                 
             episode = self.generate_one_rollout(current_goal,goal_dist, 
-                                                evaluation, episode_duration, animated=animated)
+                                                evaluation, episode_duration, animated=False)
             episodes.append(episode)
             self.current_goal_id+=1
             
@@ -176,7 +81,7 @@ class RolloutWorker:
 
         return episodes,self.last_episode
 
-    def generate_one_rollout(self, goal,goal_dist, evaluation, episode_duration, animated=False):            
+    def generate_one_rollout(self, goal,goal_dist, evaluation, episode_duration, animated=False):    
 
         g = np.array(goal)
         self.env.unwrapped.target_goal = np.array(goal)
@@ -242,3 +147,154 @@ class RolloutWorker:
         self.last_episode = episode
 
         return episode
+
+    def plan(self,agent_network,goal,evaluation):
+        if evaluation : 
+            self.current_goal_id = 1
+            self.config_path,_,_ = agent_network.get_path(self.current_config,goal,algorithm = self.args.evaluation_algorithm)
+            if not self.config_path:
+                self.config_path = [self.current_config,goal]
+        elif self.args.rollout_exploration =='sr_and_k_distance':
+            self.current_goal_id = 1
+            if  np.random.rand()< self.args.rollout_distance_ratio:
+                self.config_path,_,_ = agent_network.get_path(self.current_config,goal)
+            else:
+                k_best_paths,_ = agent_network.semantic_graph.k_shortest_path(self.current_config,goal,
+                                                                                        self.args.rollout_exploration_k,
+                                                                                        use_weights = False,
+                                                                                        unordered_bias = True)
+                self.config_path = random.choices(k_best_paths,k=1)[0] if k_best_paths else None
+            if not self.config_path:
+                self.config_path = [self.current_config,goal]
+        elif self.args.rollout_exploration =='sr_and_best_distance':
+            self.current_goal_id = 1
+            if np.random.rand() < self.args.rollout_distance_ratio:
+                self.config_path,_,_ = agent_network.get_path(self.current_config,goal,algorithm='dijkstra')
+            else : 
+                self.config_path,_,_ = agent_network.get_path(self.current_config,goal,algorithm='bfs')
+            if not self.config_path:
+                self.config_path = [self.current_config,goal]
+        elif self.args.rollout_exploration=='sample_sr' :
+            self.current_goal_id = 1
+            self.dijkstra_to_goal = agent_network.semantic_graph.get_sssp_to_goal(goal)
+        else : raise Exception('unknown exploration method',self.args.rollout_exploration) 
+    
+    def get_next_goal(self,agent_network,goal,evaluation):
+        if evaluation : 
+            current_goal = self.config_path[self.current_goal_id]
+        elif self.args.rollout_exploration =='sr_and_k_distance':
+            current_goal = self.config_path[self.current_goal_id]
+        elif self.args.rollout_exploration =='sr_and_best_distance':
+            self.plan(agent_network,goal,evaluation)
+            current_goal = self.config_path[self.current_goal_id]
+        elif self.args.rollout_exploration=='sample_sr' :
+            current_goal = None
+            if self.dijkstra_to_goal: 
+                current_goal = agent_network.sample_neighbour_based_on_SR_to_goal(self.current_config,self.dijkstra_to_goal,goal=goal)
+            if current_goal == None: # if no path to goal, try to reach directly 
+                current_goal = goal
+        else : raise Exception('unknown exploration method') 
+
+        return current_goal,self.current_goal_id
+
+        
+class TeacherGuidedRolloutWorker(RolloutWorker):
+
+    def train_rollout(self,agentNetwork:AgentNetwork,episode_duration,max_episodes=None,time_dict=None, animated=False,biased_init=False):
+        all_episodes = []
+
+        while len(all_episodes) < max_episodes:
+            
+            if self.state == 'GoToFrontier':
+                if self.long_term_goal == None : 
+                    t_i = time.time()
+                    self.long_term_goal = next(iter(agentNetwork.sample_goal_in_frontier(self.current_config,1)),None) # first element or None
+                    if time_dict:
+                        time_dict['goal_sampler'] += time.time() - t_i
+                    # if can't find frontier goal, explore directly
+                    if self.long_term_goal == None or self.long_term_goal == self.current_config: 
+                        self.state = 'Explore'
+                        continue
+                episodes,_ = self.guided_rollout(self.long_term_goal,False, agentNetwork, episode_duration, 
+                                            episode_budget=max_episodes-len(all_episodes),animated=animated)
+                all_episodes += episodes
+
+                success = episodes[-1]['success'][-1]
+                if success == False: # reset at the first failure
+                    self.reset(biased_init)
+                elif success and self.current_config == self.long_term_goal:
+                    self.state = 'Explore'
+
+            elif self.state =='Explore':
+                t_i = time.time()
+                last_ag = tuple(self.last_obs['achieved_goal_binary'])
+                explore_goal = next(iter(agentNetwork.sample_from_frontier(last_ag,1)),None) # first element or None
+                if time_dict !=None:
+                    time_dict['goal_sampler'] += time.time() - t_i
+                if explore_goal:
+                    if self.last_episode:
+                        goal_dist = self.last_episode["edge_dist"]+1
+                    else : 
+                        goal_dist = 1
+                    episode = self.generate_one_rollout(explore_goal, goal_dist, False, episode_duration,animated=animated)
+                    all_episodes.append(episode)
+                    success = episode['success'][-1]
+                if explore_goal == None or  success == False:
+                        self.reset(biased_init)
+                        continue
+            else : 
+                raise Exception(f"unknown state : {self.state}")
+        return all_episodes
+
+    
+
+class NeighbourRolloutWorker(RolloutWorker):
+    def __init__(self, env, policy, goal_sampler, args):
+        super().__init__(env, policy, goal_sampler, args)
+    
+    def generate_goal(self,agentNetwork: AgentNetwork):
+        neighbors = list(agentNetwork.teacher.oracle_graph.iterNeighbors(self.current_config))
+        if neighbors:
+            return random.choice(neighbors)
+        else : 
+            return agentNetwork.sample_goal_uniform(1)[0]
+
+    def train_rollout(self, agentNetwork: AgentNetwork, episode_duration,max_episodes=None,time_dict=None, animated=False,biased_init=False):
+        episodes = []
+        for i in range(max_episodes):
+            t_i = time.time()
+
+            next_goal = self.generate_goal(agentNetwork)
+            if time_dict !=None:
+                time_dict['goal_sampler'] += time.time() - t_i
+
+            episode = self.generate_one_rollout(next_goal,goal_dist=i,evaluation=False,
+                                                episode_duration=episode_duration, animated=animated)
+            episodes.append(episode)
+
+            invalid_state = self.env.cube_under_table()
+            if invalid_state:
+                self.reset(biased_init)
+        return episodes
+
+class GANGSTR_RolloutWorker(RolloutWorker):
+    
+    def __init__(self, env, policy, goal_sampler, args):
+        super().__init__(env, policy, goal_sampler, args)
+
+    def train_rollout(self, agentNetwork: AgentNetwork, episode_duration,max_episodes=None,time_dict=None, animated=False,biased_init=False):
+        episodes = []
+        while len(episodes) < max_episodes:
+            t_i = time.time()
+            next_goal = agentNetwork.sample_goal_uniform(1)[0]
+            if time_dict !=None:
+                time_dict['goal_sampler'] += time.time() - t_i
+            if agentNetwork.semantic_graph.hasNode(next_goal) and agentNetwork.semantic_graph.hasNode(self.current_config):
+                a = agentNetwork.semantic_graph.hasNode(next_goal)
+                new_episodes,_ = self.guided_rollout(next_goal,evaluation=False,
+                                agent_network=agentNetwork,episode_duration=episode_duration,episode_budget=None)
+            else : 
+                new_episodes = [self.generate_one_rollout(next_goal,1,False,episode_duration,animated)]
+            episodes+= new_episodes            
+            self.reset(biased_init)
+        return episodes

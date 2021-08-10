@@ -8,7 +8,7 @@ from arguments import get_args
 from rl_modules.rl_agent import RLAgent
 import random
 import torch
-from rollout import RolloutWorker
+from rollout import TeacherGuidedRolloutWorker,NeighbourRolloutWorker,GANGSTR_RolloutWorker
 from goal_sampler import GoalSampler
 from utils import init_storage, get_eval_goals
 import time
@@ -68,7 +68,12 @@ def launch(args):
         raise NotImplementedError
 
     # Initialize Rollout Worker
-    rollout_worker = RolloutWorker(env, policy, goal_sampler,  args)
+    if args.rollout_goal_generator == 'teacher':
+        rollout_worker = TeacherGuidedRolloutWorker(env, policy, goal_sampler,  args)
+    elif args.rollout_goal_generator == 'neighbour':
+        rollout_worker = NeighbourRolloutWorker(env, policy, goal_sampler,  args)
+    elif args.rollout_goal_generator == 'gangstr':
+        rollout_worker = GANGSTR_RolloutWorker(env, policy, goal_sampler,  args)
 
     # create graph if necessary
     if rank == 0 and not os.path.isdir('data'):
@@ -102,7 +107,7 @@ def launch(args):
             # Environment interactions
             t_i = time.time()
             episodes = rollout_worker.train_rollout(agentNetwork= agent_network, 
-                                                    max_episodes=args.num_rollouts_per_mpi*args.n_blocks,
+                                                    max_episodes=args.num_rollouts_per_mpi,
                                                     episode_duration=args.episode_duration,
                                                     time_dict=time_dict)
             time_dict['rollout'] += time.time() - t_i
