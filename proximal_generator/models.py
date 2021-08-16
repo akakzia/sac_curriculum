@@ -4,7 +4,7 @@ from gvae import ContextVAE
 from collections import defaultdict
 import numpy as np
 from graph.teacher import Teacher
-
+from gvae import O_IDS
 
 class ProximalGoalGenerator:
     def __init__(self, initial_configurations, data_loader,  device, args):
@@ -21,7 +21,8 @@ class ProximalGoalGenerator:
         self.optimizer = torch.optim.Adam(self.vae.parameters(), lr=args.learning_rate)
 
         def loss_fn(recon_x, x, mean, log_var):
-            bce = torch.nn.functional.mse_loss(recon_x, x, reduction='sum')
+            # maximize difference between initial and generated
+            bce = torch.nn.functional.binary_cross_entropy(recon_x, x, reduction='sum')
             kld = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
             return (bce + args.k_param * kld) / x.size(0)
 
@@ -40,7 +41,7 @@ class ProximalGoalGenerator:
 
             recon_state, mean, log_var, z = self.vae(init_config, init_state, final_config)
 
-            target = final_config
+            target = final_config[:, self.vae.o_ids]
             loss = self.loss_fn(recon_state, target, mean, log_var)
 
             self.optimizer.zero_grad()
@@ -48,14 +49,14 @@ class ProximalGoalGenerator:
             self.optimizer.step()
 
             logs['loss'].append(loss.item())
-        print('Updates = {} | Loss = {}'.format(iteration, loss.item()))
+        # print('Updates = {} | Loss = {}'.format(iteration, loss.item()))
 
     def save(self, vae_id):
         with open(self.save_path + 'vae_model{}.pkl'.format(vae_id), 'wb') as f:
             torch.save(self.vae, f)
 
     def evaluate(self, init_configs, init_states, final_configs, set_inds, init_to_finals):
-        results = np.zeros([len(set_inds), 3])
+        results = np.zeros([len(set_inds), 4])
 
         # test train statistics
         factor = 100
@@ -83,24 +84,34 @@ class ProximalGoalGenerator:
                 s_ii = torch.Tensor(s_ii).to(self.device)
 
                 neighbours = self.get_neighbours(c_i)
-                x = (self.vae.inference(s_ii, c_ii, n=factor).detach().numpy() > 0.5).astype(np.float32)
+                indexes = [np.random.randint(5) for _ in range(factor)]
+                x = (self.vae.inference(s_ii, c_ii, n=factor, index=indexes).detach().numpy() > 0.5).astype(np.float32)
 
-                x_strs = [str(xi) for xi in x]
-                variabilities.append(len(set(x_strs)))
+
+                gen_configs = [str(xi) for xi in x]
                 count_found_possible = 0
                 count_false_pred = 0
 
-                for x_str in set(x_strs):
-                    # if x_str in init_to_finals[str(c_i)]:
+
+                # for x_str in set(x_strs):
+                #     if x_str in init_to_finals[str(c_i_obj)]:
+                #     # if x_str in neighbours:
+                #         count_found_possible += 1
+                #     else:
+                #         stop = 1
+                for x_str in set(gen_configs):
                     if x_str in neighbours:
                         count_found_possible += 1
-                    else:
-                        stop = 1
 
+                zeros = [0 for _ in range(factor)]
+                x_precision = (self.vae.inference(s_ii, c_ii, n=factor, index=zeros).detach().numpy() > 0.5).astype(np.float32)
+                x_strs = [str(xi[self.vae.o_ids]) for xi in x_precision]
+                variabilities.append(len(set(x_strs)))
+                c_i_obj = c_i[self.vae.o_ids]
                 # count false positives, final configs that are not compatible
                 for x_str in x_strs:
-                    # if x_str not in init_to_finals[str(c_i)]:
-                    if x_str not in neighbours:
+                    if x_str not in init_to_finals[str(c_i_obj)]:
+                    # if x_str not in neighbours:
                         count_false_pred += 1
 
                 coverage_possible.append(count_found_possible / max(len(neighbours), 1))
@@ -112,6 +123,7 @@ class ProximalGoalGenerator:
             results[i_gen, 0] = count
             results[i_gen, 1] = 1 - np.mean(false_preds)
             results[i_gen, 2] = np.mean(valid_goals)
+            results[i_gen, 3] = np.mean(coverage_possible)
 
         return results
 

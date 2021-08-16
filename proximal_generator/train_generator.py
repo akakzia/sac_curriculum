@@ -6,17 +6,24 @@ from time import ctime
 import pickle
 
 from proximal_generator.arguments import get_args
-from utils import build_dataset, load_dataset, split_data
+from utils import load_dataset, split_data
 from models import ProximalGoalGenerator
 
 def launch(args):
+    all_results = []
     for i in range(args.num_seeds):
         print('\nTraining model for seed {} / {} ...'.format(i + 1, args.num_seeds))
         init_configs, init_states, final_configs, final_states, init_to_finals, device, data_loader, set_ids = process_data(args)
 
-        train(init_configs, init_states, final_configs, final_states, init_to_finals, device, data_loader, set_ids, args, i)
+        results = train(init_configs, init_states, final_configs, final_states, init_to_finals, device, data_loader, set_ids, args, i)
+
+        all_results.append(results)
 
         args.seed = np.random.randint(1e6)
+
+    all_results = np.array(all_results)
+    print(np.mean(all_results, axis=0))
+    print(np.std(all_results, axis=0))
 
 def process_data(args):
     torch.manual_seed(args.seed)
@@ -26,7 +33,6 @@ def process_data(args):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # init_configs, final_configs, init_to_finals = build_dataset(args.data_path, size=5000)
     init_configs, init_states, final_configs, final_states, init_to_finals = load_dataset()
     print('Size of the dataset: ', init_configs.shape[0])
     # construct the different test sets
@@ -46,9 +52,11 @@ def train(init_configs, init_states, final_configs, final_states, init_to_finals
         model.train()
 
     # if args.save_model:
-    #     model.save(vae_id)
+    model.save(vae_id)
 
     results = model.evaluate(init_configs, init_states, final_configs, set_ids, init_to_finals)
+
+    return results.copy()
     #
     # with open(args.save_path + 'res{}.pkl'.format(vae_id), 'wb') as f:
     #     pickle.dump(results, f)
@@ -58,7 +66,7 @@ if __name__ == '__main__':
     # Get parameters
     args = get_args()
 
-    args.save_path = os.path.join(os.getcwd(), args.save_dir)
+    args.save_path = os.path.join(os.getcwd(), 'proximal_generator', args.save_dir)
     args.data_path = os.path.join(os.getcwd(), 'data', args.data_name + '.pkl')
     print('[{}] Launching Language Goal Generator training'.format(ctime()))
     print('Relational Generator: {}'.format(args.relational))
