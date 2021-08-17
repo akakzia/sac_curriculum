@@ -27,8 +27,9 @@ class AgentNetwork():
             
             self.semantic_graph.create_node(start_config)
             self.semantic_graph.create_node(achieved_goal)
-            self.semantic_graph.create_node(goal)
-            self.update_or_create_edge(start_config,goal,success)                
+            
+            if self.semantic_graph.getNodeId(goal)!=None:
+                self.update_or_create_edge(start_config,goal,success)                
             
             # hindsight edge creation :
             if self.args.local_hindsight_edges: # consider add all unique transition inside an episode.
