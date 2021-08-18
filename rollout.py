@@ -149,6 +149,7 @@ class RolloutWorker:
         return episode
 
     def plan(self,agent_network,goal,evaluation):
+
         if evaluation : 
             self.current_goal_id = 1
             self.config_path,_,_ = agent_network.get_path(self.current_config,goal,algorithm = self.args.evaluation_algorithm)
@@ -281,12 +282,17 @@ class GANGSTR_RolloutWorker(RolloutWorker):
     
     def __init__(self, env, policy, goal_sampler, args):
         super().__init__(env, policy, goal_sampler, args)
+        self.goal_dim = args.env_params['goal']
 
     def train_rollout(self, agentNetwork: AgentNetwork, episode_duration,max_episodes=None,time_dict=None, animated=False,biased_init=False):
         episodes = []
         while len(episodes) < max_episodes:
             t_i = time.time()
-            next_goal = agentNetwork.sample_goal_uniform(1,use_oracle=True)[0]
+            if len(agentNetwork.semantic_graph.configs) > 0:
+                next_goal = agentNetwork.sample_goal_uniform(1, use_oracle=False)[0]
+            else:
+                next_goal = tuple(np.random.choice([-1., 1.], size=(1, self.goal_dim))[0]) 
+
             if time_dict !=None:
                 time_dict['goal_sampler'] += time.time() - t_i
             if (agentNetwork.semantic_graph.hasNode(next_goal) 

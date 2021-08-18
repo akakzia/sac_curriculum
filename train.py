@@ -72,7 +72,7 @@ def launch(args):
         rollout_worker = TeacherGuidedRolloutWorker(env, policy, goal_sampler,  args)
     elif args.rollout_goal_generator == 'neighbour':
         rollout_worker = NeighbourRolloutWorker(env, policy, goal_sampler,  args)
-    elif args.rollout_goal_generator == 'gangstr':
+    elif args.rollout_goal_generator == 'known_unif':
         rollout_worker = GANGSTR_RolloutWorker(env, policy, goal_sampler,  args)
 
     # create graph if necessary

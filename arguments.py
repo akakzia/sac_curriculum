@@ -76,8 +76,8 @@ def get_args():
     # rollout exploration args
     parser.add_argument('--rollout_exploration', type=str, default='sr_and_k_distance', help='method to compute best path in train rollouts : sr_and_best_distance sr_and_k_distance or sample_sr')
     parser.add_argument('--rollout_exploration_k', type=int, default=5, help='sample among k best paths')
-    parser.add_argument('--rollout_distance_ratio', type=float, default=0, help='indicate the ratio at which exploration alternate beetween sr and distance criteria')
-    parser.add_argument('--rollout_goal_generator', type=str, default='teacher', help='teacher or neighbour or gangstr')
+    parser.add_argument('--rollout_distance_ratio', type=float, default=0.5, help='indicate the ratio at which exploration alternate beetween sr and distance criteria')
+    parser.add_argument('--rollout_goal_generator', type=str, default='known_unif', help='teacher or neighbour or known_unif')
     
     parser.add_argument('--episode_duration', type=int, default=40, help='number of timestep for each episodes')
 
