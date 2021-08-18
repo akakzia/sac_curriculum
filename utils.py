@@ -494,10 +494,6 @@ def get_eval_goals(instruction, n, nb_goals=1):
                     id.append(k)
                 if set((top_objects[0], base_objects[1])) == set(c):
                     id.append(k)
-                if set((top_objects[0], base_objects[2])) == set(c):
-                    id.append(k)
-                if set((top_objects[1], base_objects[0])) == set(c):
-                    id.append(k)
                 if set((top_objects[1], base_objects[1])) == set(c):
                     id.append(k)
                 if set((top_objects[1], base_objects[2])) == set(c):
