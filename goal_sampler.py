@@ -94,8 +94,15 @@ class GoalSampler:
             for e in all_episode_list:
                 # Add last achieved goal to memory if first time encountered
                 if str(e['ag_binary'][-1]) not in self.discovered_goals_str:
-                    self.discovered_goals.append(e['ag_binary'][-1].copy())
-                    self.discovered_goals_str.append(str(e['ag_binary'][-1]))
+                    # Make sure last goal is stable during last 10 steps
+                    condition = True
+                    i = -1
+                    while condition and i > -10:
+                        condition = (str(e['ag_binary'][-i]) == str(e['ag_binary'][-i-1]))
+                        i -= 1
+                    if condition:
+                        self.discovered_goals.append(e['ag_binary'][-1].copy())
+                        self.discovered_goals_str.append(str(e['ag_binary'][-1]))
 
         self.sync()
 
