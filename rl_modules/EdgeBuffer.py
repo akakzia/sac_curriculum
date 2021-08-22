@@ -68,9 +68,12 @@ class EdgeBuffer:
         temp_buffers = {}
         with self.lock:
             if self.replay_sampling == 'buffer_uniform':
-                ep_ids = np.random.randint(0,self.current_size,size=batch_size)
+                # ep_ids = np.random.randint(0,self.current_size,size=batch_size)
+                # for key in self.buffer.keys():
+                #     temp_buffers[key] = self.buffer[key][ep_ids]
+                # random selection of indexes is already done in sample_function
                 for key in self.buffer.keys():
-                    temp_buffers[key] = self.buffer[key][ep_ids]
+                    temp_buffers[key] = self.buffer[key][:self.current_size]
             else:
                 if self.replay_sampling == 'edge_uniform':
                     edges = self.sample_edge(batch_size)
