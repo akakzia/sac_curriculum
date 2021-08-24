@@ -161,7 +161,7 @@ class RolloutWorker:
                 k_best_paths,_ = agent_network.semantic_graph.k_shortest_path(self.current_config,goal,
                                                                                         self.args.rollout_exploration_k,
                                                                                         use_weights = False,
-                                                                                        unordered_bias = True)
+                                                                                        unordered_bias = self.args.unordered_edge)
                 self.config_path = random.choices(k_best_paths,k=1)[0] if k_best_paths else None
             else:
                 self.config_path,_,_ = agent_network.get_path(self.current_config,goal)

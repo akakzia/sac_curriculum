@@ -132,6 +132,113 @@ class SemanticGraph:
 
     def get_path_from_coplanar(self,goal):
         return self.sample_shortest_path(self.semantic_operation.empty(),goal)
+
+
+    def k_shortest_path(self,source, target,k,cutoff=10,use_weights=True,unordered_bias = True):
+        '''
+            Use Beam search combined with perfect path estimation to find k best paths. 
+            if use_weights : use the edges weights, path is computed in amultiplicative way, highest score is best-score
+            else :      each edges weigths is worth 1, path is computed in an additive way, smallest score is best-score
+        '''
+        if source == target : 
+            return [],[1 if use_weights else 0]
+        
+        reversed_sssp = self.get_sssp_to_goal(target,use_weight=use_weights) # sssp Single Source Shortest Path 
+        target_node = self.configs[target]
+        source_node = self.getNodeId(source)
+        if target_node== None or source_node == None : 
+            raise Exception("unknown node")
+
+        if use_weights:
+            score_combination = lambda x,y : x*y
+        else : 
+            score_combination = lambda x,y : x+y
+
+        k_cur_path_scores = [1 if use_weights else 0]
+        k_best_path_nodes = np.array([[source_node]])
+        k_best_path_finished = [False]
+        
+        for i in range(0,cutoff) : 
+            next_paths_score_to_cur_node = []
+            next_paths_score_to_goal = []
+            next_paths_nodes = []
+            next_path_finished = []
+
+            # expand k best_path
+            for cur_score,path,finished in zip(k_cur_path_scores,k_best_path_nodes,k_best_path_finished):    
+                # get neighbors Scores :
+                if not finished:
+                    cur_node = path[i]
+                    neighbors = list(self.nk_graph.iterNeighbors(cur_node))
+                    for neigh in neighbors : 
+                        if neigh in path [:i+1]:
+                            continue
+                        neigh_isgoal = (neigh == target_node)
+                        path_to_goal,neigh_to_goal_sr,neigh_to_goal_dist = self.sample_shortest_path_with_sssp_from_nodes(neigh,target_node,reversed_sssp,return_configs=False,reversed=True)
+                        if path_to_goal == None: 
+                            continue
+                        if use_weights : 
+                            cur_to_neigh = np.exp(-self.getWeight_withNode(cur_node,neigh))
+                            neigh_to_goal = neigh_to_goal_sr
+                        else : 
+                            cur_to_neigh = 1
+                            neigh_to_goal = neigh_to_goal_dist
+                        
+                        score_to_neigh = score_combination(cur_score,cur_to_neigh)
+                        score_to_goal = score_combination(score_to_neigh,neigh_to_goal)
+                        if neigh_isgoal: 
+                            full_path = np.concatenate((path[:i+1],np.array([neigh])))
+                        else : 
+                            full_path = np.concatenate((path[:i+1],np.array(path_to_goal)))
+                        
+                        if (len(full_path) < cutoff ) and (not use_weights or score_to_goal > 0):
+                            next_paths_score_to_cur_node.append(score_to_neigh)
+                            next_paths_score_to_goal.append(score_to_goal)
+                            next_paths_nodes.append(full_path)
+                            next_path_finished.append(neigh_isgoal)
+                else : 
+                    next_paths_score_to_cur_node.append(cur_score)
+                    next_paths_nodes.append(path)
+                    next_paths_score_to_goal.append(cur_score)
+                    next_path_finished.append(finished)
+
+            # filter similar paths 
+            if unordered_bias and len(next_paths_score_to_goal)>0: 
+                next_paths_score_to_goal = np.array(next_paths_score_to_goal)
+                inds = self.get_unique_unordered_paths(next_paths_nodes,next_paths_score_to_goal)
+                next_paths_score_to_cur_node = [next_paths_score_to_cur_node[i] for i in inds]
+                next_paths_score_to_goal = [next_paths_score_to_goal[i] for i in inds]
+                next_paths_nodes = [next_paths_nodes[i] for i in inds]
+                next_path_finished = [next_path_finished[i] for i in inds]
+            
+            # sort by scores and keep only k best : 
+            if len(next_paths_score_to_cur_node)> k:
+                next_paths_score_to_goal = np.array(next_paths_score_to_goal)
+                if use_weights:
+                    inds = np.argpartition(next_paths_score_to_goal, -k)[-k:]
+                else : 
+                    inds = np.argpartition(next_paths_score_to_goal, k)[:k]
+                k_cur_path_scores = [next_paths_score_to_cur_node[i] for i in inds]
+                k_best_path_nodes = [next_paths_nodes[i] for i in inds]
+                k_best_path_finished = [next_path_finished[i] for i in inds]
+            else : 
+                k_cur_path_scores = next_paths_score_to_cur_node
+                k_best_path_nodes = next_paths_nodes
+                k_best_path_finished = next_path_finished
+            
+            if all(k_best_path_finished):
+                break
+
+        # sort k best paths before return : 
+        k_cur_path_scores = np.array(k_cur_path_scores)
+        order = -1 if use_weights else 1
+        k_best_inds = np.argsort(order*k_cur_path_scores) # sort in correct order
+        k_best_path_nodes = [k_best_path_nodes[i] for i in k_best_inds]
+        k_best_path_configs = [list(map(lambda x: self.configs.inverse[x],path)) for path in k_best_path_nodes]
+        k_cur_path_scores = k_cur_path_scores[k_best_inds]
+
+        return k_best_path_configs,k_cur_path_scores
+
         
 ##########################################
     # SR path estimation  : 
