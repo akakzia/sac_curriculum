@@ -80,7 +80,7 @@ def get_args():
     parser.add_argument('--rollout_goal_generator', type=str, default='known_unif', help='teacher or neighbour or known_unif')
     
     parser.add_argument('--episode_duration', type=int, default=40, help='number of timestep for each episodes')
-
+    parser.add_argument('--relabel-episodes', type=bool, default=True, help='relabel mini episodes according to last given goal')
 
     args = parser.parse_args()
 

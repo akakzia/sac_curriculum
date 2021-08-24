@@ -21,6 +21,7 @@ class RolloutWorker:
         self.args = args
         self.last_obs = None
         self.reset(False)
+        self.relabel_episodes = args.relabel_episodes
 
     @property
     def current_config(self):
@@ -302,6 +303,10 @@ class GANGSTR_RolloutWorker(RolloutWorker):
                                 agent_network=agentNetwork,episode_duration=episode_duration,episode_budget=max_episodes-len(episodes))
             else : 
                 new_episodes = [self.generate_one_rollout(next_goal,1,False,episode_duration,animated)]
-            episodes+= new_episodes            
+            if len(new_episodes) > 1 and self.relabel_episodes:
+                final_goal = new_episodes[-1]['g'][-1]
+                for i in range(len(new_episodes) - 1):
+                    new_episodes[i]['g'] = np.repeat(final_goal.reshape(1, final_goal.shape[0]), new_episodes[i]['g'].shape[0], axis=0)
+            episodes+= new_episodes
             self.reset(biased_init)
         return episodes
