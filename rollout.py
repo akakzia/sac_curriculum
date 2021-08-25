@@ -57,6 +57,9 @@ class RolloutWorker:
         if self.current_goal_id == None:
             self.plan(agent_network,goal,evaluation)
 
+        if len(self.config_path) > self.args.max_path_len:
+            self.config_path = [self.config_path[0]] + self.config_path[-self.args.max_path_len+1:]
+
         while True:
             current_goal,goal_dist = self.get_next_goal(agent_network,goal,evaluation) 
             

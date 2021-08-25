@@ -82,6 +82,8 @@ def get_args():
     parser.add_argument('--episode_duration', type=int, default=40, help='number of timestep for each episodes')
     parser.add_argument('--relabel-episodes', type=bool, default=False, help='relabel mini episodes according to last given goal')
 
+    parser.add_argument('--max-path-len', type=int, default=10, help='maximum path length')
+
     args = parser.parse_args()
 
     return args
