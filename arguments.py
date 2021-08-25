@@ -68,7 +68,7 @@ def get_args():
     parser.add_argument('--edge_lr', type=float, default=0.01, help='SR learning rate')
     parser.add_argument('--edge_prior', type=float, default=0.5, help='default value for edges')
     parser.add_argument('--unordered_edge', type=bool, default=True, help='if the agent learns unordered_edge SR')
-    parser.add_argument('--one_object_edge', type=bool, default=False, help='If true, limit possible edges')
+    parser.add_argument('--one_object_edge', type=bool, default=True, help='If true, limit possible edges')
     parser.add_argument('--local_hindsight_edges', type=bool, default=False, help='Create hindsight edge only the unique sequence of configurations met during an episode')
     parser.add_argument('--expert_graph_start', type=bool, default=False, help='If the agent starts with an expert graph')
     parser.add_argument('--evaluation_algorithm', type=str, default='dijkstra', help='dijkstra (best SR) or bfs (shortest path)')

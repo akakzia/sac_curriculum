@@ -20,33 +20,40 @@ class AgentNetwork():
                                 for e in eps] # flatten the list of episodes gathered by all actors
         # update agent graph : 
         for e in all_episode_list:
-            start_config = tuple(e['ag'][0])
-            achieved_goal = tuple(e['ag'][-1])
-            goal = tuple(e['g'][-1])
-            success = e['success'][-1]
-            
-            self.semantic_graph.create_node(start_config)
-            self.semantic_graph.create_node(achieved_goal)
-            
-            if self.semantic_graph.getNodeId(goal)!=None:
-                self.update_or_create_edge(start_config,goal,success)                
-            
-            # hindsight edge creation :
-            if self.args.local_hindsight_edges: # consider add all unique transition inside an episode.
-                unique_configurations = [tuple(e['ag'][0])]
-                for i in range(1,len(e['ag'])):
-                    if not (e['ag'][i] == e['ag'][i-1]).all():
-                        config = tuple(e['ag'][i])
-                        unique_configurations.append(config)
-                        self.semantic_graph.create_node(config)
-                hindsight_edges = list(zip(unique_configurations[:-1],unique_configurations[1:]))
-                for ag,ag_next in hindsight_edges:
-                    if not self.semantic_graph.hasEdge(ag,ag_next):
-                        self.semantic_graph.create_edge_stats((ag,ag_next),self.args.edge_prior)
-            else : 
-                if (achieved_goal != goal and start_config != achieved_goal
-                    and not self.semantic_graph.hasEdge(start_config,achieved_goal)):
-                        self.semantic_graph.create_edge_stats((start_config,achieved_goal),self.args.edge_prior)
+            # Verify if last achieved goal is stable during last 10 steps
+            condition = True
+            i = -1
+            while condition and i > -10:
+                condition = (str(e['ag'][-i]) == str(e['ag'][-i-1]))
+                i -= 1
+            if condition:
+                start_config = tuple(e['ag'][0])
+                achieved_goal = tuple(e['ag'][-1])
+                goal = tuple(e['g'][-1])
+                success = e['success'][-1]
+
+                self.semantic_graph.create_node(start_config)
+                self.semantic_graph.create_node(achieved_goal)
+
+                if self.semantic_graph.getNodeId(goal)!=None:
+                    self.update_or_create_edge(start_config,goal,success)
+
+                # hindsight edge creation :
+                if self.args.local_hindsight_edges: # consider add all unique transition inside an episode.
+                    unique_configurations = [tuple(e['ag'][0])]
+                    for i in range(1,len(e['ag'])):
+                        if not (e['ag'][i] == e['ag'][i-1]).all():
+                            config = tuple(e['ag'][i])
+                            unique_configurations.append(config)
+                            self.semantic_graph.create_node(config)
+                    hindsight_edges = list(zip(unique_configurations[:-1],unique_configurations[1:]))
+                    for ag,ag_next in hindsight_edges:
+                        if not self.semantic_graph.hasEdge(ag,ag_next):
+                            self.semantic_graph.create_edge_stats((ag,ag_next),self.args.edge_prior)
+                else :
+                    if (achieved_goal != goal and start_config != achieved_goal
+                        and not self.semantic_graph.hasEdge(start_config,achieved_goal)):
+                            self.semantic_graph.create_edge_stats((start_config,achieved_goal),self.args.edge_prior)
 
         # update frontier :  
         self.semantic_graph.update()
