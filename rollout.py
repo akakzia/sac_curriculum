@@ -209,9 +209,9 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
     def train_rollout(self,agentNetwork:AgentNetwork,episode_duration,max_episodes=None,time_dict=None, animated=False,biased_init=False):
         all_episodes = []
 
-        while len(all_episodes) < max_episodes:
-            if np.random.uniform() < self.args.intervention_prob or self.state == 'Explore':
-                # If SP intervenes
+        if np.random.uniform() < self.args.intervention_prob:
+            # SP intervenes
+            while len(all_episodes) < max_episodes:
                 if self.state == 'GoToFrontier':
                     if self.long_term_goal == None :
                         t_i = time.time()
@@ -251,7 +251,9 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
                             continue
                 else :
                     raise Exception(f"unknown state : {self.state}")
-            else:
+        else:
+            # No SP intervention
+            while len(all_episodes) < max_episodes:
                 # If no SP intervention
                 t_i = time.time()
                 if len(agentNetwork.semantic_graph.configs) > 0:
