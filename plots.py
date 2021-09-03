@@ -26,11 +26,11 @@ colors = [[0, 0.447, 0.7410], [0.85, 0.325, 0.098],  [0.466, 0.674, 0.188], [0.9
 #  [0.466, 0.674, 0.188], [0.929, 0.694, 0.125],
 #  [0.3010, 0.745, 0.933], [0.635, 0.078, 0.184]]
 
-RESULTS_PATH = '/home/akakzia/DECSTR/models/'
-SAVE_PATH = '/home/akakzia/DECSTR/plots/'
-TO_PLOT = ['Partial']#'Architecture', 'Rewards', 'Masks', 'Partial']
+RESULTS_PATH = '/home/ahmed/Documents/GANGSTR/results/'
+SAVE_PATH = '/home/ahmed/Documents/GANGSTR/plots/'
+TO_PLOT = ['main'] #main
 
-NB_CLASSES = 6 # 12 for 5 blocks
+NB_CLASSES = 11
 
 LINE = 'mean'
 ERR = 'std'
@@ -42,11 +42,11 @@ MARKERSIZE = 30
 ALPHA = 0.3
 ALPHA_TEST = 0.05
 MARKERS = ['o', 'v', 's', 'P', 'D', 'X', "*", 'v', 's', 'p', 'P', '1']
-FREQ = 20
+FREQ = 50
 NB_BUCKETS = 5
 NB_EPS_PER_EPOCH = 2400
 NB_VALID_GOALS = 35
-LAST_EP = 300
+LAST_EP = 361
 LIM = NB_EPS_PER_EPOCH * LAST_EP / 1000 + 30
 line, err_min, err_plus = get_stat_func(line=LINE, err=ERR)
 COMPRESSOR = CompressPDF(4)
@@ -239,7 +239,7 @@ def plot_c_lp_p_sr(experiment_path, true_buckets=True):
             # except:
             #     print('failed')
 
-def plot_lp_av(max_len, experiment_path, folder, true_buckets=True):
+def plot_lp_av(max_len, experiment_path, folder):
 
     condition_path = experiment_path + folder + '/'
     list_runs = sorted(os.listdir(condition_path))
@@ -283,7 +283,7 @@ def plot_lp_av(max_len, experiment_path, folder, true_buckets=True):
     # ax.set_yticks([0, 0.25, 0.5, 0.75, 1])
     save_fig(path=SAVE_PATH + PLOT + '_lp.pdf', artists=artists)
 
-def plot_sr_av(max_len, experiment_path, folder, true_buckets=False):
+def plot_sr_av(max_len, experiment_path, folder):
 
     condition_path = experiment_path + folder + '/'
     list_runs = sorted(os.listdir(condition_path))
@@ -298,58 +298,15 @@ def plot_sr_av(max_len, experiment_path, folder, true_buckets=False):
         run_path = condition_path + run + '/'
         data_run = pd.read_csv(run_path + 'progress.csv')
 
-
-        # if true_buckets:
-        #     buckets = generate_goals(nb_objects=3, sym=1, asym=1)
-        #     all_goals = generate_all_goals_in_goal_space().astype(np.float32)
-        #     valid_goals = []
-        #     for k in buckets.keys():
-        #         valid_goals += buckets[k]
-        #     valid_goals = np.array(valid_goals)
-        #     all_goals = np.array(all_goals)
-        #     num_goals = all_goals.shape[0]
-        #     all_goals_str = [str(g) for g in all_goals]
-        #     # initialize dict to convert from the oracle id to goals and vice versa.
-        #     # oracle id is position in the all_goal array
-        #     g_str_to_oracle_id = dict(zip(all_goals_str, range(num_goals)))
-        #     valid_goals_oracle_ids = np.array([g_str_to_oracle_id[str(vg)] for vg in valid_goals])
-        #
-        #     bucket_ids = dict()
-        #     sr_buckets = []
-        #     all_sr = np.mean([data_run['Eval_SR_{}'.format(i)][:LAST_EP + 1] for i in range(35)], axis=0)
-        #     for k in buckets.keys():
-        #         bucket_ids[k] = np.array([g_str_to_oracle_id[str(np.array(g))] for g in buckets[k]])
-        #         id_in_valid = [int(np.argwhere(valid_goals_oracle_ids == i).flatten()) for i in bucket_ids[k]]
-        #         sr = np.mean([data_run['Eval_SR_{}'.format(i)][:LAST_EP + 1] for i in id_in_valid], axis=0)
-        #         sr_buckets.append(sr)
-        #     sr_buckets = np.array(sr_buckets)
-        #     sr_data[i_run, :, :sr_buckets.shape[1]] = sr_buckets.copy()
-        #     global_sr[i_run, :all_sr.size] = all_sr.copy()
-        # else:
-        #     T = len(data_run['Eval_SR_1'][:LAST_EP + 1])
-        #     SR = np.zeros([NB_BUCKETS, T])
-        #     for t in range(T):
-        #         for i in range(NB_BUCKETS):
-        #             ids = []
-        #             for g_id in range(35):
-        #                 if data_run['{}_in_bucket'.format(g_id)][t] == i:
-        #                     ids.append(g_id)
-        #             values = [data_run['Eval_SR_{}'.format(g_id)][t] for g_id in ids]
-        #             SR[i, t] = np.mean(values)
-        #     all_sr = np.mean([data_run['Eval_SR_{}'.format(i)] for i in range(35)], axis=0)
-        #
-        #     sr_buckets =  []
-        #     for i in range(SR.shape[0]):
-        #         sr_buckets.append(SR[i])
-        #     sr_buckets = np.array(sr_buckets)
-        #     sr_data[i_run, :, :sr_buckets.shape[1]] = sr_buckets.copy()
-        #     global_sr[i_run, :all_sr.size] = all_sr.copy()
         T = len(data_run['Eval_SR_1'][:LAST_EP + 1])
         SR = np.zeros([NB_CLASSES, T])
         for t in range(T):
             for i in range(NB_CLASSES):
-                SR[i, t] = data_run['Eval_SR_{}'.format(i+1)][t]
-        all_sr = np.mean([data_run['Eval_SR_{}'.format(i+1)] for i in range(NB_CLASSES)], axis=0)
+                if i >= 9:
+                    SR[i, t] = data_run['Eval_SR_{}'.format(i+2)][t]
+                else:
+                    SR[i, t] = data_run['Eval_SR_{}'.format(i+1)][t]
+        all_sr = np.mean([data_run['Eval_SR_{}'.format(i+1)] for i in range(NB_CLASSES+1) if i!=9], axis=0)
 
         sr_buckets = []
         for i in range(SR.shape[0]):
@@ -382,7 +339,7 @@ def plot_sr_av(max_len, experiment_path, folder, true_buckets=False):
                      markerscale=1)
     artists += (leg,)
     ax.set_yticks([0, 0.25, 0.5, 0.75, 1])
-    save_fig(path=SAVE_PATH + PLOT + '_sr.pdf', artists=artists)
+    save_fig(path=SAVE_PATH + folder + '_sr.pdf', artists=artists)
 
 
 
@@ -399,7 +356,7 @@ def get_mean_sr(experiment_path, max_len, max_seeds, conditions=None, labels=Non
         for i_run, run in enumerate(list_runs):
             run_path = cond_path + run + '/'
             data_run = pd.read_csv(run_path + 'progress.csv')
-            all_sr = np.mean(np.array([data_run['Eval_SR_{}'.format(i+1)][:LAST_EP + 1] for i in range(NB_CLASSES)]), axis=0)
+            all_sr = np.mean(np.array([data_run['Eval_SR_{}'.format(i+1)][:LAST_EP + 1] for i in range(NB_CLASSES) if i!=9]), axis=0)
             sr[i_run, i_cond, :all_sr.size] = all_sr.copy()
 
 
@@ -451,7 +408,7 @@ def get_mean_sr(experiment_path, max_len, max_seeds, conditions=None, labels=Non
                      ncol=2 if len(conditions) == 4 else 3,
                      fancybox=True,
                      shadow=True,
-                     prop={'size': 50, 'weight': 'bold'},
+                     prop={'size': 35, 'weight': 'bold'},
                      markerscale=1,
                      )
     for l in leg.get_lines():
@@ -473,8 +430,14 @@ if __name__ == '__main__':
 
         max_len, max_seeds, min_len, min_seeds = check_length_and_seeds(experiment_path=experiment_path)
         # plot_c_lp_p_sr(experiment_path)
-
-        plot_sr_av(max_len, experiment_path, 'GANGSTR')
+        # plot_sr_av(max_len, experiment_path, 'GANGSTR')
+        if PLOT == 'main':
+            # plot_sr_av(max_len, experiment_path, 'Graph GANGSTR SP 4')
+            conditions = ['GANGSTR', 'Graph GANGSTR', 'Graph GANGSTR 3', 'Graph GANGSTR 4',
+                          'Graph GANGSTR SP 3', 'Graph GANGSTR SP 4']
+            labels = ['GANGSTR', 'Graph GANGSTR all', 'Graph GANGSTR 3', 'Graph GANGSTR 4',
+                      'Graph GANGSTR SP 3', 'Graph GANGSTR SP 4']
+            get_mean_sr(experiment_path, max_len, max_seeds, conditions, labels, ref='GANGSTR')
         # if PLOT == 'Architecture':
         #     conditions = ['GANGSTR', 'Interaction Graph']
         #     labels = ['GANGSTR', 'Interaction Graph']
