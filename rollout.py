@@ -18,6 +18,7 @@ class RolloutWorker:
         self.env_params = args.env_params
         self.biased_init = args.biased_init
         self.goal_sampler = goal_sampler
+        self.goal_dim = args.env_params['goal']
         self.args = args
         self.last_obs = None
         self.reset(False)
@@ -209,46 +210,71 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
         all_episodes = []
 
         while len(all_episodes) < max_episodes:
-            
-            if self.state == 'GoToFrontier':
-                if self.long_term_goal == None : 
-                    t_i = time.time()
-                    self.long_term_goal = next(iter(agentNetwork.sample_goal_in_frontier(self.current_config,1)),None) # first element or None
-                    if time_dict:
-                        time_dict['goal_sampler'] += time.time() - t_i
-                    # if can't find frontier goal, explore directly
-                    if self.long_term_goal == None or self.long_term_goal == self.current_config: 
-                        self.state = 'Explore'
-                        continue
-                episodes,_ = self.guided_rollout(self.long_term_goal,False, agentNetwork, episode_duration, 
-                                            episode_budget=max_episodes-len(all_episodes),animated=animated)
-                all_episodes += episodes
+            if np.random.uniform() < self.args.intervention_prob:
+                # If SP intervenes
+                if self.state == 'GoToFrontier':
+                    if self.long_term_goal == None :
+                        t_i = time.time()
+                        self.long_term_goal = next(iter(agentNetwork.sample_goal_in_frontier(self.current_config,1)),None) # first element or None
+                        if time_dict:
+                            time_dict['goal_sampler'] += time.time() - t_i
+                        # if can't find frontier goal, explore directly
+                        if self.long_term_goal == None or self.long_term_goal == self.current_config:
+                            self.state = 'Explore'
+                            continue
+                    episodes,_ = self.guided_rollout(self.long_term_goal,False, agentNetwork, episode_duration,
+                                                episode_budget=max_episodes-len(all_episodes),animated=animated)
+                    all_episodes += episodes
 
-                success = episodes[-1]['success'][-1]
-                if success == False: # reset at the first failure
-                    self.reset(biased_init)
-                elif success and self.current_config == self.long_term_goal:
-                    self.state = 'Explore'
-
-            elif self.state =='Explore':
-                t_i = time.time()
-                last_ag = tuple(self.last_obs['achieved_goal_binary'])
-                explore_goal = next(iter(agentNetwork.sample_from_frontier(last_ag,1)),None) # first element or None
-                if time_dict !=None:
-                    time_dict['goal_sampler'] += time.time() - t_i
-                if explore_goal:
-                    if self.last_episode:
-                        goal_dist = self.last_episode["edge_dist"]+1
-                    else : 
-                        goal_dist = 1
-                    episode = self.generate_one_rollout(explore_goal, goal_dist, False, episode_duration,animated=animated)
-                    all_episodes.append(episode)
-                    success = episode['success'][-1]
-                if explore_goal == None or  success == False:
+                    success = episodes[-1]['success'][-1]
+                    if success == False: # reset at the first failure
                         self.reset(biased_init)
-                        continue
-            else : 
-                raise Exception(f"unknown state : {self.state}")
+                    elif success and self.current_config == self.long_term_goal:
+                        self.state = 'Explore'
+
+                elif self.state =='Explore':
+                    t_i = time.time()
+                    last_ag = tuple(self.last_obs['achieved_goal_binary'])
+                    explore_goal = next(iter(agentNetwork.sample_from_frontier(last_ag,1)),None) # first element or None
+                    if time_dict !=None:
+                        time_dict['goal_sampler'] += time.time() - t_i
+                    if explore_goal:
+                        if self.last_episode:
+                            goal_dist = self.last_episode["edge_dist"]+1
+                        else :
+                            goal_dist = 1
+                        episode = self.generate_one_rollout(explore_goal, goal_dist, False, episode_duration,animated=animated)
+                        all_episodes.append(episode)
+                        success = episode['success'][-1]
+                    if explore_goal == None or  success == False:
+                            self.reset(biased_init)
+                            continue
+                else :
+                    raise Exception(f"unknown state : {self.state}")
+            else:
+                # If no SP intervention
+                t_i = time.time()
+                if len(agentNetwork.semantic_graph.configs) > 0:
+                    next_goal = agentNetwork.sample_goal_uniform(1, use_oracle=False)[0]
+                else:
+                    next_goal = tuple(np.random.choice([-1., 1.], size=(1, self.goal_dim))[0])
+
+                if time_dict != None:
+                    time_dict['goal_sampler'] += time.time() - t_i
+                if (agentNetwork.semantic_graph.hasNode(next_goal)
+                        and agentNetwork.semantic_graph.hasNode(self.current_config)
+                        and next_goal != self.current_config):
+                    new_episodes, _ = self.guided_rollout(next_goal, evaluation=False,
+                                                          agent_network=agentNetwork, episode_duration=episode_duration,
+                                                          episode_budget=max_episodes - len(all_episodes))
+                else:
+                    new_episodes = [self.generate_one_rollout(next_goal, 1, False, episode_duration, animated)]
+                if len(new_episodes) > 1 and self.relabel_episodes:
+                    final_goal = new_episodes[-1]['g'][-1]
+                    for i in range(len(new_episodes) - 1):
+                        new_episodes[i]['g'] = np.repeat(final_goal.reshape(1, final_goal.shape[0]), new_episodes[i]['g'].shape[0], axis=0)
+                all_episodes += new_episodes
+                self.reset(biased_init)
         return all_episodes
 
     
@@ -286,7 +312,7 @@ class GANGSTR_RolloutWorker(RolloutWorker):
     
     def __init__(self, env, policy, goal_sampler, args):
         super().__init__(env, policy, goal_sampler, args)
-        self.goal_dim = args.env_params['goal']
+        # self.goal_dim = args.env_params['goal']
 
     def train_rollout(self, agentNetwork: AgentNetwork, episode_duration,max_episodes=None,time_dict=None, animated=False,biased_init=False):
         episodes = []

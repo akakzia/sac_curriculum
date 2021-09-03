@@ -64,22 +64,23 @@ def get_args():
     # the testing arguments
     parser.add_argument('--n-test-rollouts', type=int, default=1, help='the number of tests')
     # graph arguments : 
-    parser.add_argument('--edge_sr', type=str, default='exp_moving_average', help='moving_average or exp_moving_average')
-    parser.add_argument('--edge_lr', type=float, default=0.01, help='SR learning rate')
-    parser.add_argument('--edge_prior', type=float, default=0.5, help='default value for edges')
-    parser.add_argument('--unordered_edge', type=bool, default=True, help='if the agent learns unordered_edge SR')
-    parser.add_argument('--one_object_edge', type=bool, default=True, help='If true, limit possible edges')
-    parser.add_argument('--local_hindsight_edges', type=bool, default=False, help='Create hindsight edge only the unique sequence of configurations met during an episode')
-    parser.add_argument('--expert_graph_start', type=bool, default=False, help='If the agent starts with an expert graph')
-    parser.add_argument('--evaluation_algorithm', type=str, default='dijkstra', help='dijkstra (best SR) or bfs (shortest path)')
+    parser.add_argument('--edge-sr', type=str, default='exp_moving_average', help='moving_average or exp_moving_average')
+    parser.add_argument('--edge-lr', type=float, default=0.01, help='SR learning rate')
+    parser.add_argument('--edge-prior', type=float, default=0.5, help='default value for edges')
+    parser.add_argument('--unordered-edge', type=bool, default=True, help='if the agent learns unordered_edge SR')
+    parser.add_argument('--one-object-edge', type=bool, default=True, help='If true, limit possible edges')
+    parser.add_argument('--local-hindsight-edges', type=bool, default=False, help='Create hindsight edge only the unique sequence of configurations met during an episode')
+    parser.add_argument('--expert-graph-start', type=bool, default=False, help='If the agent starts with an expert graph')
+    parser.add_argument('--evaluation-algorithm', type=str, default='dijkstra', help='dijkstra (best SR) or bfs (shortest path)')
     
     # rollout exploration args
-    parser.add_argument('--rollout_exploration', type=str, default='sr_and_k_distance', help='method to compute best path in train rollouts : sr_and_best_distance sr_and_k_distance or sample_sr')
-    parser.add_argument('--rollout_exploration_k', type=int, default=5, help='sample among k best paths')
-    parser.add_argument('--rollout_distance_ratio', type=float, default=0.5, help='indicate the ratio at which exploration alternate beetween sr and distance criteria')
-    parser.add_argument('--rollout_goal_generator', type=str, default='known_unif', help='teacher or neighbour or known_unif')
+    parser.add_argument('--rollout-exploration', type=str, default='sr_and_k_distance', help='method to compute best path in train rollouts : sr_and_best_distance sr_and_k_distance or sample_sr')
+    parser.add_argument('--rollout-exploration-k', type=int, default=5, help='sample among k best paths')
+    parser.add_argument('--rollout-distance-ratio', type=float, default=0.5, help='indicate the ratio at which exploration alternate beetween sr and distance criteria')
+    parser.add_argument('--rollout-goal-generator', type=str, default='teacher', help='teacher or neighbour or known_unif')
+    parser.add_argument('--intervention-prob', type=float, default=1., help='the probability of SP intervention')
     
-    parser.add_argument('--episode_duration', type=int, default=40, help='number of timestep for each episodes')
+    parser.add_argument('--episode-duration', type=int, default=40, help='number of timestep for each episodes')
     parser.add_argument('--relabel-episodes', type=bool, default=False, help='relabel mini episodes according to last given goal')
 
     parser.add_argument('--max-path-len', type=int, default=10, help='maximum path length')
