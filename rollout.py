@@ -257,24 +257,20 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
                 # If no SP intervention
                 t_i = time.time()
                 if len(agentNetwork.semantic_graph.configs) > 0:
-                    next_goal = agentNetwork.sample_goal_uniform(1, use_oracle=False)[0]
+                    self.long_term_goal = agentNetwork.sample_goal_uniform(1, use_oracle=False)[0]
                 else:
-                    next_goal = tuple(np.random.choice([-1., 1.], size=(1, self.goal_dim))[0])
+                    self.long_term_goal = tuple(np.random.choice([-1., 1.], size=(1, self.goal_dim))[0])
 
                 if time_dict != None:
                     time_dict['goal_sampler'] += time.time() - t_i
-                if (agentNetwork.semantic_graph.hasNode(next_goal)
+                if (agentNetwork.semantic_graph.hasNode(self.long_term_goal)
                         and agentNetwork.semantic_graph.hasNode(self.current_config)
-                        and next_goal != self.current_config):
-                    new_episodes, _ = self.guided_rollout(next_goal, evaluation=False,
+                        and self.long_term_goal != self.current_config):
+                    new_episodes, _ = self.guided_rollout(self.long_term_goal, evaluation=False,
                                                           agent_network=agentNetwork, episode_duration=episode_duration,
                                                           episode_budget=max_episodes - len(all_episodes))
                 else:
-                    new_episodes = [self.generate_one_rollout(next_goal, 1, False, episode_duration, animated)]
-                if len(new_episodes) > 1 and self.relabel_episodes:
-                    final_goal = new_episodes[-1]['g'][-1]
-                    for i in range(len(new_episodes) - 1):
-                        new_episodes[i]['g'] = np.repeat(final_goal.reshape(1, final_goal.shape[0]), new_episodes[i]['g'].shape[0], axis=0)
+                    new_episodes = [self.generate_one_rollout(self.long_term_goal, 1, False, episode_duration, animated)]
                 all_episodes += new_episodes
                 self.reset(biased_init)
         return all_episodes
