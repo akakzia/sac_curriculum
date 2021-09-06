@@ -253,6 +253,7 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
                     raise Exception(f"unknown state : {self.state}")
         else:
             # No SP intervention
+            self.reset(biased_init)
             while len(all_episodes) < max_episodes:
                 # If no SP intervention
                 t_i = time.time()
