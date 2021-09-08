@@ -39,7 +39,7 @@ class EdgeBuffer:
                 # update edge infos in buffer :
                 edge = (tuple(e['ag'][0]),tuple(e['ag'][-1]))
                 self.edges_to_infos[edge]['episode_ids'].append(idxs[i])
-                self.edges_to_infos[edge]['edge_dist'] = e['edge_dist']
+                # self.edges_to_infos[edge]['edge_dist'] = e['edge_dist']
                 last_stored_edge = (tuple(self.buffer['ag'][idxs[i]][0]),tuple(self.buffer['ag'][idxs[i]][-1]))
                 if idxs[i] in self.edges_to_infos[last_stored_edge] : 
                     self.edges_to_infos[edge]['episode_ids'].remove(idxs[i])

@@ -23,6 +23,7 @@ class RolloutWorker:
         self.last_obs = None
         self.reset(False)
         self.relabel_episodes = args.relabel_episodes
+        self.max_episode_steps = env._max_episode_steps
 
     @property
     def current_config(self):
@@ -58,8 +59,12 @@ class RolloutWorker:
         if self.current_goal_id == None:
             self.plan(agent_network,goal,evaluation)
 
-        # if len(self.config_path) > self.args.max_path_len:
-        #     self.config_path = [self.config_path[0]] + self.config_path[-self.args.max_path_len+1:]
+        if len(self.config_path) > self.args.max_path_len:
+            self.config_path = [self.config_path[0]] + self.config_path[-self.args.max_path_len+1:]
+
+        # True if there is at least an intermediate goal
+        # variable used to determine whether to crop episode during rollout or continue until the end
+        guided = len(self.config_path) > 2
 
         while True:
             current_goal,goal_dist = self.get_next_goal(agent_network,goal,evaluation) 
@@ -68,25 +73,41 @@ class RolloutWorker:
                 print(f'\t{self.current_goal_id} : \n{config_to_unique_str(self.current_config,sem_op)} ->  {config_to_unique_str(current_goal,sem_op)}'  )
                 
             episode = self.generate_one_rollout(current_goal,goal_dist, 
-                                                evaluation, episode_duration, animated=False)
-            episodes.append(episode)
+                                                evaluation, episode_duration, animated=False, guided=guided)
+
+            # remaining episode duration for next goals
+            episode_duration = episode_duration - episode['act'].shape[0]
+            if episode_duration > 0:
+                stop = 1
             self.current_goal_id+=1
             
-            success = episodes[-1]['success'][-1]
+            success = episode['success'][-1]
+
+            if guided and success:
+                episode['obs'] = episode['obs'][:-1]
+                episode['ag'] = episode['ag'][:-1]
+
+            episodes.append(episode)
+
+            # If last goal in the path
+            if self.current_goal_id == len(self.config_path) - 1:
+                guided = False
 
             if animated:
                 print(f'success ',success  )
 
             if self.current_goal_id == len(self.config_path):
                 break
-            if episode_budget != None and len(episodes) >= episode_budget:
-                break
+            # if episode_budget != None and len(episodes) >= episode_budget:
+            #     break
             if success == False:
-                break 
-
+                break
+        #TODO mriguel hkeyet l episode
+        if len(episodes) > 1:
+            ei = {k:np.concatenate([e[k] for e in episodes]) for k in episodes[0].keys()}
         return episodes,self.last_episode
 
-    def generate_one_rollout(self, goal,goal_dist, evaluation, episode_duration, animated=False):    
+    def generate_one_rollout(self, goal,goal_dist, evaluation, episode_duration, animated=False, guided=False):
 
         g = np.array(goal)
         self.env.unwrapped.target_goal = np.array(goal)
@@ -131,6 +152,9 @@ class RolloutWorker:
             ag = ag_new
             ag_bin = ag_new_bin
 
+            if guided and sum(ep_success[-10:]) == 10:
+                break
+
         ep_obs.append(obs.copy())
         ep_ag.append(ag.copy())
         ep_ag_bin.append(ag_bin.copy())
@@ -141,12 +165,12 @@ class RolloutWorker:
                         g=np.array(ep_g).copy(),
                         ag=np.array(ep_ag).copy(),
                         success=np.array(ep_success).copy(),
-                        g_binary=np.array(ep_g_bin).copy(),
-                        ag_binary=np.array(ep_ag_bin).copy(),
+                        # g_binary=np.array(ep_g_bin).copy(),
+                        # ag_binary=np.array(ep_ag_bin).copy(),
                         rewards=np.array(ep_rewards).copy(),
-                        masks=np.array(ep_masks).copy(),
-                        edge_dist=goal_dist,
-                        self_eval=evaluation)
+                        masks=np.array(ep_masks).copy())
+                        # edge_dist=goal_dist,
+                        # self_eval=evaluation)
 
         self.last_obs = observation_new
         self.last_episode = episode
@@ -222,7 +246,7 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
                         if self.long_term_goal == None or self.long_term_goal == self.current_config:
                             self.state = 'Explore'
                             continue
-                    episodes,_ = self.guided_rollout(self.long_term_goal,False, agentNetwork, episode_duration,
+                    episodes,_ = self.guided_rollout(self.long_term_goal,False, agentNetwork, self.max_episode_steps,
                                                 episode_budget=max_episodes-len(all_episodes),animated=animated)
                     all_episodes += episodes
 
@@ -239,11 +263,7 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
                     if time_dict !=None:
                         time_dict['goal_sampler'] += time.time() - t_i
                     if explore_goal:
-                        if self.last_episode:
-                            goal_dist = self.last_episode["edge_dist"]+1
-                        else :
-                            goal_dist = 1
-                        episode = self.generate_one_rollout(explore_goal, goal_dist, False, episode_duration,animated=animated)
+                        episode = self.generate_one_rollout(explore_goal, 1, False, self.max_episode_steps,animated=animated)
                         all_episodes.append(episode)
                         success = episode['success'][-1]
                     if explore_goal == None or  success == False:
@@ -268,10 +288,10 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
                         and agentNetwork.semantic_graph.hasNode(self.current_config)
                         and self.long_term_goal != self.current_config):
                     new_episodes, _ = self.guided_rollout(self.long_term_goal, evaluation=False,
-                                                          agent_network=agentNetwork, episode_duration=episode_duration,
+                                                          agent_network=agentNetwork, episode_duration=self.max_episode_steps,
                                                           episode_budget=max_episodes - len(all_episodes))
                 else:
-                    new_episodes = [self.generate_one_rollout(self.long_term_goal, 1, False, episode_duration, animated)]
+                    new_episodes = [self.generate_one_rollout(self.long_term_goal, 1, False, self.max_episode_steps, animated)]
                 all_episodes += new_episodes
                 self.reset(biased_init)
         return all_episodes

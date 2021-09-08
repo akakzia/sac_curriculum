@@ -28,7 +28,7 @@ def get_args():
     parser.add_argument('--n-epochs', type=int, default=1000, help='the number of epochs to train the agent')
     parser.add_argument('--n-cycles', type=int, default=50, help='the times to collect samples per epoch')
     parser.add_argument('--n-batches', type=int, default=30, help='the times to update the network')
-    parser.add_argument('--num-rollouts-per-mpi', type=int, default=10, help='the rollouts per mpi')
+    parser.add_argument('--num-rollouts-per-mpi', type=int, default=1, help='the rollouts per mpi')
     parser.add_argument('--batch-size', type=int, default=256, help='the sample batch size')
     # the replay arguments
     parser.add_argument('--replay-strategy', type=str, default='final', help='the HER strategy')
@@ -80,7 +80,7 @@ def get_args():
     parser.add_argument('--rollout-goal-generator', type=str, default='teacher', help='teacher or neighbour or known_unif')
     parser.add_argument('--intervention-prob', type=float, default=1., help='the probability of SP intervention')
     
-    parser.add_argument('--episode-duration', type=int, default=40, help='number of timestep for each episodes')
+    parser.add_argument('--episode-duration', type=int, default=200, help='number of timestep for each episodes')
     parser.add_argument('--relabel-episodes', type=bool, default=False, help='relabel mini episodes according to last given goal')
 
     parser.add_argument('--max-path-len', type=int, default=10, help='maximum path length')
