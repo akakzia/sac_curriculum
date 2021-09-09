@@ -36,7 +36,7 @@ def get_args():
     parser.add_argument('--reward-type', type=str, default='sparse', help='per_object, per_relation, per_predicate or sparse')
     # The RL arguments
     parser.add_argument('--self-eval-prob', type=float, default=0.1, help='Probability to perform self-evaluation')
-    parser.add_argument('--gamma', type=float, default=0.98, help='the discount factor')
+    parser.add_argument('--gamma', type=float, default=0.99, help='the discount factor')
     parser.add_argument('--alpha', type=float, default=0.2, help='entropy coefficient')
     parser.add_argument('--automatic_entropy_tuning', type=bool, default=True, help='Tune entropy')
     parser.add_argument('--action-l2', type=float, default=1, help='l2 reg')
@@ -51,7 +51,7 @@ def get_args():
     parser.add_argument('--save-dir', type=str, default='output/', help='the path to save the models')
     # the memory arguments
     parser.add_argument('--buffer-size', type=int, default=int(1e6), help='the size of the buffer')
-    parser.add_argument('--replay-sampling', type=str, default='edge_uniform', help='buffer_uniform or edge_uniform or edge_distance')
+    parser.add_argument('--replay-sampling', type=str, default='buffer_uniform', help='buffer_uniform or edge_uniform or edge_distance')
     # the preprocessing arguments
     parser.add_argument('--clip-obs', type=float, default=5, help='the clip ratio')
     parser.add_argument('--normalize_goal', type=bool, default=False, help='do evaluation at the end of the epoch w/ frequency')
@@ -84,7 +84,7 @@ def get_args():
     parser.add_argument('--relabel-episodes', type=bool, default=False, help='relabel mini episodes according to last given goal')
 
     parser.add_argument('--max-path-len', type=int, default=10, help='maximum path length')
-    parser.add_argument('--explore-outside-prob', type=float, default=0.5,
+    parser.add_argument('--explore-outside-prob', type=float, default=1.,
                         help='probability to go outside of agent graph from frontier')
 
     args = parser.parse_args()
