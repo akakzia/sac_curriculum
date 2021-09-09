@@ -162,6 +162,7 @@ class GoalSampler:
         for i in np.arange(1, n+1):
             self.stats['Eval_SR_{}'.format(i)] = []
             self.stats['Av_Rew_{}'.format(i)] = []
+            self.stats['# goals_class {}'.format(i)] = []
         self.stats['epoch'] = []
         self.stats['episodes'] = []
         self.stats['global_sr'] = []
@@ -171,7 +172,7 @@ class GoalSampler:
         for k in keys:
             self.stats['t_{}'.format(k)] = []
 
-    def save(self, epoch, episode_count, av_res, av_rew, global_sr, time_dict):
+    def save(self, epoch, episode_count, av_res, av_rew, global_sr, time_dict, goals_per_class):
         self.stats['epoch'].append(epoch)
         self.stats['episodes'].append(episode_count)
         self.stats['global_sr'].append(global_sr)
@@ -181,5 +182,5 @@ class GoalSampler:
         for g_id in np.arange(1, len(av_res) + 1):
             self.stats['Eval_SR_{}'.format(g_id)].append(av_res[g_id-1])
             self.stats['Av_Rew_{}'.format(g_id)].append(av_rew[g_id-1])
-            # self.stats['#Rew_{}'.format(g_id)].append(self.rew_counters[oracle_id])
-            # self.stats['#Target_{}'.format(g_id)].append(self.target_counters[oracle_id])
+        for k in goals_per_class.keys():
+            self.stats['# goals_class {}'.format(k)].append(goals_per_class[k])

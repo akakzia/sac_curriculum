@@ -1,6 +1,7 @@
 from collections import defaultdict
 import random
 import numpy as np
+import pickle as pkl
 
 from graph.semantic_graph import SemanticGraph
 import networkit as nk
@@ -9,7 +10,11 @@ class Teacher():
     def __init__(self,args):
         self.oracle_graph = SemanticGraph.load_oracle(args.n_blocks)
         self.args = args
-        self.agent_frontier = {} # store configuration through networkit node_id from agent_graph 
+        self.agent_frontier = {} # store configuration through networkit node_id from agent_graph
+        with open('data/classes_and_configs.pkl', 'rb') as f:
+            self.config_to_class, _ = pkl.load(f)
+
+        self.init_stats()
 
     def is_in_frontier(self,config,agent_graph:SemanticGraph):
         '''
@@ -57,7 +62,14 @@ class Teacher():
                 to_exploit.append(neighbour)
         # If there are goals outside to explore
         if to_explore and np.random.uniform() < self.args.explore_outside_prob:
-            return random.choices(to_explore,k=k) # sample with replacement
+            goals = random.choices(to_explore,k=k) # sample with replacement
+            for g in goals:
+                try:
+                    c = self.config_to_class[str(np.array(g).reshape(1, -1))]
+                    self.stats[c+1] += 1
+                except KeyError:
+                    pass
+            return goals
         # If there are goals inside to consolidate and the probability of exploring inside is not exclusive
         elif to_exploit and self.args.explore_outside_prob < 1:
             return random.choices(to_exploit,k=k)
@@ -66,3 +78,8 @@ class Teacher():
 
     def sample_goal_uniform(self,nb_goal):
         return random.choices(self.oracle_graph.configs.inverse,k=nb_goal) # sample with replacement
+
+    def init_stats(self):
+        self.stats = dict()
+        for i in range(11):
+            self.stats[i+1] = 0

@@ -180,7 +180,7 @@ def launch(args):
                 
                 agent_network.log(logger)
                 logger.record_tabular('replay_nb_edges', policy.buffer.get_nb_edges())
-                log_and_save(goal_sampler, epoch, episode_count, av_res, av_rewards, global_sr, time_dict)
+                log_and_save(goal_sampler, agent_network.teacher.stats, epoch, episode_count, av_res, av_rewards, global_sr, time_dict)
 
                 # Saving policy models
                 if epoch % args.save_freq == 0:
@@ -189,8 +189,8 @@ def launch(args):
                 if rank==0: logger.info('\tEpoch #{}: SR: {}'.format(epoch, global_sr))
 
 
-def log_and_save( goal_sampler, epoch, episode_count, av_res, av_rew, global_sr, time_dict):
-    goal_sampler.save(epoch, episode_count, av_res, av_rew, global_sr, time_dict)
+def log_and_save( goal_sampler, teacher_stats, epoch, episode_count, av_res, av_rew, global_sr, time_dict):
+    goal_sampler.save(epoch, episode_count, av_res, av_rew, global_sr, time_dict, teacher_stats)
     for k, l in goal_sampler.stats.items():
         logger.record_tabular(k, l[-1])
     logger.dump_tabular()
