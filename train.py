@@ -153,7 +153,7 @@ def launch(args):
                 instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'pyramid_3', 'stack_3']
             elif args.n_blocks == 5:
                 instructions = ['close_1', 'close_2', 'close_3', 'stack_2', 'stack_3', '2stacks_2_2', '2stacks_2_3', 'pyramid_3',
-                                'mixed_2_3', 'trapeze_2_3', 'stack_4', 'stack_5']
+                                'mixed_2_3', 'stack_4', 'stack_5']
             else:
                 raise NotImplementedError
             for instruction in instructions:
