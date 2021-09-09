@@ -200,7 +200,7 @@ def log_and_save( goal_sampler, teacher_stats, epoch, episode_count, av_res, av_
 def sync(x):
     """ x: dictionary of counts for every class_goal proposed by the teacher
         return the synchronized dictionary among all cpus """
-    res = x
+    res = x.copy()
     for k in x.keys():
         res[k] = MPI.COMM_WORLD.allreduce(x[k], op=MPI.SUM)
     return res
