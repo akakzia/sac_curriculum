@@ -1,6 +1,6 @@
-
 from collections import defaultdict
 import random
+import numpy as np
 
 from graph.semantic_graph import SemanticGraph
 import networkit as nk
@@ -49,11 +49,18 @@ class Teacher():
 
     def sample_from_frontier(self,node,agent_graph,k):
         to_explore = []
+        to_exploit = []
         for neighbour in self.oracle_graph.iterNeighbors(node):
             if not agent_graph.hasEdge(node,neighbour):
                 to_explore.append(neighbour)
-        if to_explore:
+            else:
+                to_exploit.append(neighbour)
+        # If there are goals outside to explore
+        if to_explore and np.random.uniform() < self.args.explore_outside_prob:
             return random.choices(to_explore,k=k) # sample with replacement
+        # If there are goals inside to consolidate and the probability of exploring inside is not exclusive
+        elif to_exploit and self.args.explore_outside_prob < 1:
+            return random.choices(to_exploit,k=k)
         else : 
             return []
 

@@ -84,6 +84,8 @@ def get_args():
     parser.add_argument('--relabel-episodes', type=bool, default=False, help='relabel mini episodes according to last given goal')
 
     parser.add_argument('--max-path-len', type=int, default=10, help='maximum path length')
+    parser.add_argument('--explore-outside-prob', type=float, default=0.5,
+                        help='probability to go outside of agent graph from frontier')
 
     args = parser.parse_args()
 
