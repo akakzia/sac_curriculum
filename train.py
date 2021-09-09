@@ -171,6 +171,8 @@ def launch(args):
             all_rewards = MPI.COMM_WORLD.gather(rewards, root=0)
             time_dict['eval'] += time.time() - t_i
 
+            # synchronize goals count per class in teacher
+            synchronized_stats = sync(agent_network.teacher.stats)
             # Logs
             if rank == 0:
                 assert len(all_results) == args.num_workers  # MPI test
@@ -180,7 +182,7 @@ def launch(args):
                 
                 agent_network.log(logger)
                 logger.record_tabular('replay_nb_edges', policy.buffer.get_nb_edges())
-                log_and_save(goal_sampler, agent_network.teacher.stats, epoch, episode_count, av_res, av_rewards, global_sr, time_dict)
+                log_and_save(goal_sampler, synchronized_stats, epoch, episode_count, av_res, av_rewards, global_sr, time_dict)
 
                 # Saving policy models
                 if epoch % args.save_freq == 0:
@@ -194,6 +196,14 @@ def log_and_save( goal_sampler, teacher_stats, epoch, episode_count, av_res, av_
     for k, l in goal_sampler.stats.items():
         logger.record_tabular(k, l[-1])
     logger.dump_tabular()
+
+def sync(x):
+    """ x: dictionary of counts for every class_goal proposed by the teacher
+        return the synchronized dictionary among all cpus """
+    res = x
+    for k in x.keys():
+        res[k] = MPI.COMM_WORLD.allreduce(x[k], op=MPI.SUM)
+    return res
 
 
 if __name__ == '__main__':
