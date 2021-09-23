@@ -212,6 +212,15 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
         if np.random.uniform() < self.args.intervention_prob:
             # SP intervenes
             while len(all_episodes) < max_episodes:
+                if self.args.baseline == 0:
+                    self.state = 'GoToFrontier'
+                elif self.args.basline == 1.:
+                    self.state = 'Explore'
+                elif self.args.baseline == 2:
+                    if np.random.uniform() < 0.5:
+                        self.state = 'GoToFrontier'
+                    else:
+                        self.state = 'Explore'
                 if self.state == 'GoToFrontier':
                     if self.long_term_goal == None :
                         t_i = time.time()
