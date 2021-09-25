@@ -13,6 +13,8 @@ class AgentNetwork():
         self.args = args
         self.rank = MPI.COMM_WORLD.Get_rank()
         self.exp_path = exp_path
+
+        self.init_stats()
         
     def update(self,episodes):
         all_episodes = MPI.COMM_WORLD.allgather(episodes)
@@ -31,6 +33,14 @@ class AgentNetwork():
                 achieved_goal = tuple(e['ag'][-1])
                 goal = tuple(e['g'][-1])
                 success = e['success'][-1]
+
+                # update agent count stats
+                try:
+                    c = self.teacher.config_to_class[str(np.array(achieved_goal).reshape(1, -1))]
+                    if self.stats[c+1] < 10000: # avoid float limit instabilities
+                        self.stats[c+1] += 1
+                except KeyError:
+                    pass
 
                 self.semantic_graph.create_node(start_config)
                 self.semantic_graph.create_node(achieved_goal)
@@ -166,3 +176,8 @@ class AgentNetwork():
         MPI.COMM_WORLD.Barrier()
         if self.rank!=0:
             self.semantic_graph = SemanticGraph.load(self.exp_path+'/','temp')
+
+    def init_stats(self):
+        self.stats = dict()
+        for i in range(11):
+            self.stats[i+1] = 0
