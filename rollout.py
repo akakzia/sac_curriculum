@@ -35,7 +35,15 @@ class RolloutWorker:
         self.last_episode = None
         self.last_obs = self.env.unwrapped.reset_goal(goal=np.array([None]), biased_init=biased_init)
         self.dijkstra_to_goal = None
-        self.state ='GoToFrontier'
+        if self.args.baseline == 1:
+            self.state = 'Explore'
+        elif self.args.baseline == 2:
+            if np.random.uniform() < 0.5:
+                self.state = 'GoToFrontier'
+            else:
+                self.state = 'Explore'
+        else:
+            self.state = 'GoToFrontier'
     
     def test_rollout(self,goals,agent_network:AgentNetwork,episode_duration, animated=False):
         end_episodes = []
@@ -208,7 +216,7 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
 
     def train_rollout(self,agentNetwork:AgentNetwork,episode_duration,max_episodes=None,time_dict=None, animated=False,biased_init=False):
         all_episodes = []
-
+        self.reset(biased_init)
         if np.random.uniform() < self.args.intervention_prob:
             # SP intervenes
             while len(all_episodes) < max_episodes:
@@ -219,7 +227,7 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
                         if time_dict:
                             time_dict['goal_sampler'] += time.time() - t_i
                         # if can't find frontier goal, explore directly
-                        if self.long_term_goal == None or self.long_term_goal == self.current_config:
+                        if self.long_term_goal == None or self.long_term_goal == self.current_config and self.args.baseline == 3:
                             self.state = 'Explore'
                             continue
                     episodes,_ = self.guided_rollout(self.long_term_goal,False, agentNetwork, episode_duration,
@@ -234,8 +242,10 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
 
                 elif self.state =='Explore':
                     t_i = time.time()
-                    last_ag = tuple(self.last_obs['achieved_goal_binary'])
-                    explore_goal = next(iter(agentNetwork.sample_from_frontier(last_ag,1)),None) # first element or None
+                    frontier_goal = next(iter(agentNetwork.sample_goal_in_frontier(self.current_config,1)),None)
+                    if frontier_goal == None:
+                        frontier_goal = tuple(self.last_obs['achieved_goal_binary'])
+                    explore_goal = next(iter(agentNetwork.sample_from_frontier(frontier_goal,1)),None) # first element or None
                     if time_dict !=None:
                         time_dict['goal_sampler'] += time.time() - t_i
                     if explore_goal:
@@ -253,7 +263,7 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
                     raise Exception(f"unknown state : {self.state}")
         else:
             # No SP intervention
-            self.reset(biased_init)
+            # self.reset(biased_init)
             while len(all_episodes) < max_episodes:
                 # If no SP intervention
                 t_i = time.time()
