@@ -86,7 +86,6 @@ class RolloutWorker:
                 print(f'success ',success  )
 
             if self.current_goal_id == len(self.config_path):
-                self.current_goal_id = None
                 break
             if episode_budget != None and len(episodes) >= episode_budget:
                 break
