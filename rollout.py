@@ -35,15 +35,7 @@ class RolloutWorker:
         self.last_episode = None
         self.last_obs = self.env.unwrapped.reset_goal(goal=np.array([None]), biased_init=biased_init)
         self.dijkstra_to_goal = None
-        if self.args.baseline == 1:
-            self.state = 'Explore'
-        elif self.args.baseline == 2:
-            if np.random.uniform() < 0.5:
-                self.state = 'GoToFrontier'
-            else:
-                self.state = 'Explore'
-        else:
-            self.state = 'GoToFrontier'
+        self.state ='GoToFrontier'
     
     def test_rollout(self,goals,agent_network:AgentNetwork,episode_duration, animated=False):
         end_episodes = []
@@ -216,10 +208,19 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
 
     def train_rollout(self,agentNetwork:AgentNetwork,episode_duration,max_episodes=None,time_dict=None, animated=False,biased_init=False):
         all_episodes = []
-        self.reset(biased_init)
+
         if np.random.uniform() < self.args.intervention_prob:
             # SP intervenes
             while len(all_episodes) < max_episodes:
+                if self.args.baseline == 0:
+                    self.state = 'GoToFrontier'
+                elif self.args.basline == 1.:
+                    self.state = 'Explore'
+                elif self.args.baseline == 2:
+                    if np.random.uniform() < 0.5:
+                        self.state = 'GoToFrontier'
+                    else:
+                        self.state = 'Explore'
                 if self.state == 'GoToFrontier':
                     if self.long_term_goal == None :
                         t_i = time.time()
@@ -237,7 +238,7 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
                     success = episodes[-1]['success'][-1]
                     if success == False: # reset at the first failure
                         self.reset(biased_init)
-                    elif success and self.current_config == self.long_term_goal and self.args.baseline == 3:
+                    elif success and self.current_config == self.long_term_goal:
                         self.state = 'Explore'
 
                 elif self.state =='Explore':
@@ -261,6 +262,7 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
                     raise Exception(f"unknown state : {self.state}")
         else:
             # No SP intervention
+            self.reset(biased_init)
             while len(all_episodes) < max_episodes:
                 # If no SP intervention
                 t_i = time.time()
