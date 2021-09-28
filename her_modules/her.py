@@ -1,12 +1,15 @@
 import numpy as np
-from utils import get_idxs_per_object
+from utils import get_idxs_per_object, get_idxs_per_relation
 
 
 class her_sampler:
     def __init__(self, args, reward_func=None):
         self.reward_type = args.reward_type
         self.multi_criteria_her = self.reward_type == 'per_object'
-        self.semantic_ids = get_idxs_per_object(n=args.n_blocks)
+        if self.reward_type == 'per_object':
+            self.semantic_ids = get_idxs_per_object(n=args.n_blocks)
+        elif self.reward_type == 'per_relation':
+            self.semantic_ids = get_idxs_per_relation(n=args.n_blocks)
         self.replay_k = args.replay_k
         self.reward_func = reward_func
         self.her_p = 1 - (1. / (1 + args.replay_k))
