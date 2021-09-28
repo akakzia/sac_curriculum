@@ -24,6 +24,8 @@ class RolloutWorker:
         self.reset(False)
         self.relabel_episodes = args.relabel_episodes
 
+        self.exploration_noise_prob = args.exploration_noise_prob
+
     @property
     def current_config(self):
         return tuple(self.last_obs['achieved_goal_binary'])
@@ -222,7 +224,8 @@ class TeacherGuidedRolloutWorker(RolloutWorker):
                         if self.long_term_goal == None or self.long_term_goal == self.current_config:
                             self.state = 'Explore'
                             continue
-                    episodes,_ = self.guided_rollout(self.long_term_goal,False, agentNetwork, episode_duration,
+                    no_noise = np.random.uniform() > self.exploration_noise_prob
+                    episodes,_ = self.guided_rollout(self.long_term_goal,no_noise, agentNetwork, episode_duration,
                                                 episode_budget=max_episodes-len(all_episodes),animated=animated)
                     all_episodes += episodes
 

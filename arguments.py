@@ -87,6 +87,8 @@ def get_args():
     parser.add_argument('--explore-outside-prob', type=float, default=1.,
                         help='probability to go outside of agent graph from frontier')
 
+    parser.add_argument('--exploration-noise-prob', type=float, default=1., help='When going to frontier, apply noise at ratio')
+
     args = parser.parse_args()
 
     return args
