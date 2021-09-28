@@ -174,7 +174,7 @@ def launch(args):
             # synchronize goals count per class in teacher
             synchronized_stats = sync(agent_network.teacher.stats)
             # synchronize agent's achieved goals classes
-            synchronized_agent_stats = sync(agent_network.stats)
+            # synchronized_agent_stats = sync(agent_network.stats)
 
             # Logs
             if rank == 0:
@@ -185,7 +185,7 @@ def launch(args):
                 
                 agent_network.log(logger)
                 logger.record_tabular('replay_nb_edges', policy.buffer.get_nb_edges())
-                log_and_save(goal_sampler, synchronized_stats, synchronized_agent_stats, epoch, episode_count, av_res, av_rewards, global_sr, time_dict)
+                log_and_save(goal_sampler, synchronized_stats, agent_network.stats, epoch, episode_count, av_res, av_rewards, global_sr, time_dict)
 
                 # Saving policy models
                 if epoch % args.save_freq == 0:

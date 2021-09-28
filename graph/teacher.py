@@ -48,7 +48,14 @@ class Teacher():
                               for node_id in reachables 
                               if node_id in self.agent_frontier] 
         if reachable_frontier:
-            return random.choices(reachable_frontier,k=k) # sample with replacement
+            goals = random.choices(reachable_frontier, k=k)  # sample with replacement
+            for g in goals:
+                try:
+                    c = self.config_to_class[str(np.array(g).reshape(1, -1))]
+                    self.stats[c+1] += 1
+                except KeyError:
+                    pass
+            return goals
         else: 
             return []
 
