@@ -13,36 +13,34 @@ scratch = os.environ['SCRATCH']
 # Make top level directories
 mkdir_p(job_directory)
 
-nb_seeds = 1
-rewards = ['per_relation', 'per_object']
-values = [0.1, 0.3, 0.5, 0.7, 1.]
+nb_seeds = 5
+ablations = [0, 1, 2, 3]
 
 for i in range(nb_seeds):
-    for value in values:
-        for r in rewards:
-            job_file = os.path.join(job_directory, "{}_{}.slurm".format(r, value))
+    for ablation in ablations:
+        job_file = os.path.join(job_directory, "ablations_{}.slurm".format(ablation))
 
-            with open(job_file, 'w') as fh:
-                fh.writelines("#!/bin/bash\n")
-                fh.writelines("#SBATCH --account=oke@cpu\n")
-                fh.writelines("#SBATCH --job-name={}_{}\n".format(r, value))
-                fh.writelines("#SBATCH --partition=cpu_p1\n")
-                fh.writelines("#SBATCH --qos=qos_cpu-t4\n")
-                fh.writelines("#SBATCH --output={}_{}_%j.out\n".format(r, value))
-                fh.writelines("#SBATCH --error={}_{}_%j.out\n".format(r, value))
-                fh.writelines("#SBATCH --time=40:00:00\n")
-                fh.writelines("#SBATCH --nodes=1\n")
-                fh.writelines("#SBATCH --ntasks=24\n")
-                fh.writelines("#SBATCH --hint=nomultithread\n")
+        with open(job_file, 'w') as fh:
+            fh.writelines("#!/bin/bash\n")
+            fh.writelines("#SBATCH --account=oke@cpu\n")
+            fh.writelines("#SBATCH --job-name=ablation_{}\n".format(ablation))
+            fh.writelines("#SBATCH --partition=cpu_p1\n")
+            fh.writelines("#SBATCH --qos=qos_cpu-t4\n")
+            fh.writelines("#SBATCH --output=ablation_{}_%j.out\n".format(ablation))
+            fh.writelines("#SBATCH --error=ablation_{}_%j.out\n".format(ablation))
+            fh.writelines("#SBATCH --time=40:00:00\n")
+            fh.writelines("#SBATCH --nodes=1\n")
+            fh.writelines("#SBATCH --ntasks=24\n")
+            fh.writelines("#SBATCH --hint=nomultithread\n")
 
-                fh.writelines("module load pytorch-cpu/py3/1.4.0\n")
+            fh.writelines("module load pytorch-cpu/py3/1.4.0\n")
 
-                fh.writelines("export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/gpfslocalsup/spack_soft/mesa/18.3.6/gcc-9.1.0-bikg6w3g2be2otzrmyy43zddre4jahme/lib\n")
-                fh.writelines("export LIBRARY_PATH=$LIBRARY_PATH:/gpfslocalsup/spack_soft/mesa/18.3.6/gcc-9.1.0-bikg6w3g2be2otzrmyy43zddre4jahme/lib\n")
-                fh.writelines("export CPATH=$CPATH:/gpfslocalsup/spack_soft/mesa/18.3.6/gcc-9.1.0-bikg6w3g2be2otzrmyy43zddre4jahme/include\n")
-                fh.writelines("export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/linkhome/rech/genisi01/uqy56ga/.mujoco/mujoco200/bin\n")
+            fh.writelines("export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/gpfslocalsup/spack_soft/mesa/18.3.6/gcc-9.1.0-bikg6w3g2be2otzrmyy43zddre4jahme/lib\n")
+            fh.writelines("export LIBRARY_PATH=$LIBRARY_PATH:/gpfslocalsup/spack_soft/mesa/18.3.6/gcc-9.1.0-bikg6w3g2be2otzrmyy43zddre4jahme/lib\n")
+            fh.writelines("export CPATH=$CPATH:/gpfslocalsup/spack_soft/mesa/18.3.6/gcc-9.1.0-bikg6w3g2be2otzrmyy43zddre4jahme/include\n")
+            fh.writelines("export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/linkhome/rech/genisi01/uqy56ga/.mujoco/mujoco200/bin\n")
 
-                fh.writelines("srun python -u -B train.py --replay-k 1 --reward-type {} --intervention-prob 0.2 --exploration-noise-prob {} --save-dir 'independent_{}/' 2>&1 ".format(r, value, r))
+            fh.writelines("srun python -u -B train.py --intervention-prob 0.2 --ablation {} --save-dir 'ablations_{}/' 2>&1 ".format(ablation, ablation))
 
-            os.system("sbatch %s" % job_file)
-            sleep(5)
+        os.system("sbatch %s" % job_file)
+        sleep(1)
