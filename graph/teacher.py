@@ -115,7 +115,7 @@ class Teacher():
             else:
                 return []
 
-    def sample_from_frontier(self,node,agent_graph,k):
+    def sample_from_frontier(self,node,agent_graph,k, ablation=5):
         to_explore = []
         to_exploit = []
         for neighbour in self.oracle_graph.iterNeighbors(node):
@@ -124,7 +124,7 @@ class Teacher():
             else:
                 to_exploit.append(neighbour)
         # If there are goals outside to explore
-        if to_explore and np.random.uniform() < self.args.explore_outside_prob:
+        if to_explore:
             goals = random.choices(to_explore,k=k) # sample with replacement
             for g in goals:
                 try:
@@ -134,7 +134,7 @@ class Teacher():
                     pass
             return goals
         # If there are goals inside to consolidate and the probability of exploring inside is not exclusive
-        elif to_exploit and self.args.explore_outside_prob < 1:
+        elif to_exploit:
             return random.choices(to_exploit,k=k)
         else : 
             return []
