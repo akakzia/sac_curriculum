@@ -49,6 +49,12 @@ class RLAgent:
             # create the optimizer
             self.policy_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
             self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
+
+            # if use GPU
+            if self.args.cuda:
+                self.actor_network.cuda()
+                self.critic_network.cuda()
+                self.critic_target_network.cuda()
         elif self.architecture == 'deepsets':
             if args.algo == 'language':
                 from rl_modules.language_models import DeepSetLanguage
@@ -70,6 +76,11 @@ class RLAgent:
                                                  lr=self.args.lr_actor)
             self.critic_optim = torch.optim.Adam(list(self.model.critic.parameters()),
                                                  lr=self.args.lr_critic)
+            # if use GPU
+            if self.args.cuda:
+                self.model.actor.cuda()
+                self.model.critic.cuda()
+                self.model.critic_target.cuda()
         elif self.architecture == 'gnn':
             if self.args.variant == 2:
                 from rl_modules.gnn_models_v2 import GnnSemantic
@@ -87,6 +98,12 @@ class RLAgent:
                                                  lr=self.args.lr_actor)
             self.critic_optim = torch.optim.Adam(list(self.model.critic.parameters()),
                                                  lr=self.args.lr_critic)
+            
+            # if use GPU
+            if self.args.cuda:
+                self.model.actor.cuda()
+                self.model.critic.cuda()
+                self.model.critic_target.cuda()
 
         else:
             raise NotImplementedError
@@ -94,12 +111,6 @@ class RLAgent:
         # create the normalizer
         self.o_norm = normalizer(size=self.env_params['obs'], default_clip_range=self.args.clip_range)
         self.g_norm = normalizer(size=self.env_params['goal'], default_clip_range=self.args.clip_range)
-
-        # if use GPU
-        if self.args.cuda:
-            self.actor_network.cuda()
-            self.critic_network.cuda()
-            self.critic_target_network.cuda()
 
         # Target Entropy
         if self.args.automatic_entropy_tuning:
