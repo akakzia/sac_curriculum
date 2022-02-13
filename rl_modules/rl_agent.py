@@ -87,6 +87,11 @@ class RLAgent:
             else:
                 from rl_modules.gnn_models import GnnSemantic
             self.model = GnnSemantic(self.env_params, args)
+            # if use GPU
+            if self.args.cuda:
+                self.model.actor.cuda()
+                self.model.critic.cuda()
+                self.model.critic_target.cuda()
             # sync the networks across the CPUs
             sync_networks(self.model.critic)
             sync_networks(self.model.actor)
@@ -99,11 +104,6 @@ class RLAgent:
             self.critic_optim = torch.optim.Adam(list(self.model.critic.parameters()),
                                                  lr=self.args.lr_critic)
             
-            # if use GPU
-            if self.args.cuda:
-                self.model.actor.cuda()
-                self.model.critic.cuda()
-                self.model.critic_target.cuda()
 
         else:
             raise NotImplementedError

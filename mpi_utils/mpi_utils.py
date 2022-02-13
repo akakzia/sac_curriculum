@@ -55,7 +55,7 @@ def sync_networks(network):
     print('Getting parameters')
     flat_params = _get_flat_params_or_grads(network, mode='params')
     print('Broadcasting')
-    comm.Bcast(flat_params.get(), root=0)
+    comm.Bcast(flat_params, root=0)
     # set the flat params back to the network
     print('Setting parameters')
     _set_flat_params_or_grads(network, flat_params, mode='params')
