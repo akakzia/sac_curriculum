@@ -7,14 +7,18 @@ from mpi_utils.mpi_utils import sync_grads
 
 def update_entropy(alpha, log_alpha, target_entropy, log_pi, alpha_optim, args):
     if args.automatic_entropy_tuning:
-        alpha_loss = -(log_alpha * (log_pi + target_entropy).detach()).mean()
+        # alpha_loss = -(log_alpha * (log_pi + target_entropy).detach()).mean()
 
-        alpha_optim.zero_grad()
-        alpha_loss.backward()
-        alpha_optim.step()
+        # alpha_optim.zero_grad()
+        # alpha_loss.backward()
+        # alpha_optim.step()
 
-        alpha = log_alpha.exp()
-        alpha_tlogs = alpha.clone()
+        # alpha = log_alpha.exp()
+        # alpha_tlogs = alpha.clone()
+
+        # Temporary for debug
+        alpha_loss = torch.tensor(0.)
+        alpha_tlogs = torch.tensor(alpha)
     else:
         alpha_loss = torch.tensor(0.)
         alpha_tlogs = torch.tensor(alpha)
