@@ -103,7 +103,6 @@ def launch(args):
 
             # Environment interactions
             t_i = time.time()
-            print('Running Policy ...')
             episodes = rollout_worker.generate_rollout(goals=goals,  # list of goal configurations
                                                        masks=masks,  # list of masks to be applied
                                                        self_eval=self_eval,  # whether the agent performs self-evaluations
@@ -114,13 +113,11 @@ def launch(args):
 
             # Goal Sampler updates
             t_i = time.time()
-            print('Updating goal sampler ...')
             episodes = goal_sampler.update(episodes, episode_count)
             time_dict['gs_update'] += time.time() - t_i
 
             # Storing episodes
             t_i = time.time()
-            print('Storing in buffer ...')
             policy.store(episodes)
             time_dict['store'] += time.time() - t_i
 
@@ -132,7 +129,6 @@ def launch(args):
 
             # Policy updates
             t_i = time.time()
-            print('Training Policy ...')
             for _ in range(args.n_batches):
                 policy.train()
             time_dict['policy_train'] += time.time() - t_i
