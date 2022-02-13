@@ -22,7 +22,6 @@ class RLAgent:
     def __init__(self, args, compute_rew, goal_sampler):
 
         self.args = args
-        print(torch.cuda.is_available)
         self.alpha = args.alpha
         self.env_params = args.env_params
 

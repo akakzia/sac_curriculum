@@ -25,6 +25,8 @@ def get_env_params(env):
     return params
 
 def launch(args):
+    # Set cuda arguments to True
+    args.cuda = torch.cuda.is_available()
 
     rank = MPI.COMM_WORLD.Get_rank()
 
