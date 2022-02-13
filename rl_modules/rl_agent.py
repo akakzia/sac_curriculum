@@ -169,7 +169,10 @@ class RLAgent:
                     self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
                 else:
                     self.model.policy_forward_pass(obs_tensor, ag_norm, g_norm, no_noise=no_noise)
-                action = self.model.pi_tensor.numpy()[0]
+                if self.args.cuda:
+                    action = self.model.pi_tensor.cpu().numpy()[0]
+                else:
+                    action = self.model.pi_tensor.numpy()[0]
 
             else:
                 input_tensor = self._preproc_inputs(obs, ag, g)
