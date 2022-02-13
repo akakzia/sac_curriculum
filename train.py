@@ -87,7 +87,6 @@ def launch(args):
 
             # Sample goals
             t_i = time.time()
-            print('Sampling Goals ...')
             goals, masks, self_eval = goal_sampler.sample_goal(n_goals=args.num_rollouts_per_mpi, evaluation=False)
             if args.algo == 'language':
                 language_goal_ep = np.random.choice(language_goal, size=args.num_rollouts_per_mpi)
