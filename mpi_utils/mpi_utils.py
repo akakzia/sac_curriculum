@@ -50,21 +50,21 @@ def sync_networks(network):
     netowrk is the network you want to sync
 
     """
-    print('Synchronizing Networks')
     comm = MPI.COMM_WORLD
     flat_params = _get_flat_params_or_grads(network, mode='params')
     comm.Bcast(flat_params, root=0)
     # set the flat params back to the network
     _set_flat_params_or_grads(network, flat_params, mode='params')
+    print('Synchronizing Networks')
 
 
 def sync_grads(network):
-    print('Synchronizing Gradients')
     flat_grads = _get_flat_params_or_grads(network, mode='grads')
     comm = MPI.COMM_WORLD
     global_grads = np.zeros_like(flat_grads)
     comm.Allreduce(flat_grads, global_grads, op=MPI.SUM)
     _set_flat_params_or_grads(network, global_grads, mode='grads')
+    print('Synchronizing Gradients')
 
 
 # get the flat grads or params
