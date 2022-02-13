@@ -159,6 +159,10 @@ class RLAgent:
                 g_norm = torch.tensor(self.g_norm.normalize(g), dtype=torch.float32).unsqueeze(0)
             if self.architecture == 'gnn':
                 obs_tensor = torch.tensor(obs_norm, dtype=torch.float32).unsqueeze(0)
+                if self.args.cuda:
+                    obs_tensor = obs_tensor.cuda()
+                    g_norm = g_norm.cuda()
+                    ag_norm = ag_norm.cuda()
                 if self.args.algo == 'language':
                     self.model.policy_forward_pass(obs_tensor, no_noise=no_noise, language_goal=language_goal)
                 elif self.args.algo == 'continuous':
