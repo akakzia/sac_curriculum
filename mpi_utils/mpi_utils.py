@@ -1,10 +1,10 @@
-from mpi4py import MPI
-import numpy as np
 import torch
+import numpy as np
 import subprocess
 import sys
 import os
 from subprocess import CalledProcessError
+from mpi4py import MPI
 
 
 def fork(num_cpu):
@@ -86,5 +86,5 @@ def _set_flat_params_or_grads(network, flat_params, mode='params'):
     # the pointer
     pointer = 0
     for param in network.parameters():
-        getattr(param, attr).copy_(torch.tensor(flat_params[pointer:pointer + param.data.numel()]).view_as(param.data))
+        getattr(param, attr).copy_(torch.tensor(flat_params[pointer:pointer + param.data.numel()]).cuda().view_as(param.data))
         pointer += param.data.numel()

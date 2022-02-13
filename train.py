@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 from mpi4py import MPI
 import env
@@ -6,7 +7,6 @@ import os
 from arguments import get_args
 from rl_modules.rl_agent import RLAgent
 import random
-import torch
 from rollout import RolloutWorker
 from temporary_lg_goal_sampler import LanguageGoalSampler
 from goal_sampler import GoalSampler
